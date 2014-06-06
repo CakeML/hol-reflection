@@ -1,0 +1,15 @@
+INCLUDES = ../vml ../vml/hol-light/syntax-lib ../vml/hol-light/set-theory ../vml/hol-light/stateful/syntax ../vml/hol-light/stateful/semantics
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../vml/hol-light/stateful/semantics/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../vml/hol-light/stateful/semantics/../../../miscLib ../vml/hol-light/stateful/semantics/../../syntax-lib/holSyntaxLibTheory ../vml/hol-light/stateful/semantics/../../set-theory/setSpecTheory ../vml/hol-light/stateful/semantics/../syntax/holAxiomsSyntaxTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
