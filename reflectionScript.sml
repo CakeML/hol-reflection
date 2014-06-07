@@ -7,44 +7,69 @@ val _ = new_theory"reflection"
 val mem = ``mem:'U->'U-> bool``
 val indin = ``indin:ind->'U``
 
-val set_bool_def = xDefine "set_bool"`
-  set_bool ^mem ^indin = boolset`
+datatype simple_type = Ind | Bool | Fun of simple_type * simple_type
 
-val in_bool_def = xDefine "in_bool"`
-  (in_bool ^mem ^indin T = True) /\ (in_bool ^mem ^indin F = False)`
+fun type_name Ind = "ind"
+  | type_name Bool = "bool"
+  | type_name (Fun (s,t)) = "fun_" ^ type_name s ^ "_" ^ type_name t
 
-val out_bool_def = xDefine "out_bool"`
-  out_bool ^mem ^indin x = (x = True)`
-
-(* Alternatively: out_bool ^mem ^indin x = @b. x = in_bool mem indin b *)
+fun type_type Ind = mk_type("ind",[])
+  | type_type Bool = mk_type("bool",[])
+  | type_type (Fun (s,t)) = (type_type s --> type_type t) : hol_type
   
-val set_ind_def = xDefine "set_ind"`
-  set_ind ^mem ^indin = @indset. (!i. mem (indin i) indset)
-                              /\ (!x. mem x indset ==> ?i. x = indin i)`
-
-val in_ind_def = xDefine "in_ind"`
-  in_ind ^mem ^indin i = indin i`
   
-val out_ind_def = xDefine "out_ind"`
-  out_ind ^mem ^indin x = @i. indin i = x`
+fun set_type t = let val u = mk_vartype("'U") in
+  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u) 
+                                   --> u
+end
 
-(* Alternatively: out_ind ^mem ^indin x = @i. x = in_ind mem indin i *)
-
-val set_fun_ind_bool_def = xDefine "set_fun_ind_bool"`
-  set_fun_ind_bool ^mem ^indin = 
-    Funspace (set_ind mem indin) (set_bool mem indin)`
-
-val in_fun_ind_bool = xDefine "in_fun_ind_bool"`
-  in_fun_ind_bool ^mem ^indin f =
-    Abstract (set_ind mem indin) (set_bool mem indin) \x.
-      in_bool mem indin (f (out_ind mem indin x))`
+fun in_type t = let val u = mk_vartype("'U") in
+  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u) 
+                                   --> type_type t --> u
+end
   
-val out_fun_ind_bool_def = xDefine "out_fun_ind_bool"`
-  out_fun_ind_bool ^mem ^indin x = \i.
-    out_bool mem indin (apply mem x (in_bool mem indin i))`
+fun out_type t = let val u = mk_vartype("'U") in
+  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u) 
+                                   --> u --> type_type t
+end
 
-(* Alternatively: 
- *   out_fun_ind_bool ^mem ^indin x = @f. x = in_fun_ind_bool mem indin f
- *)
+fun set_var t = mk_var ("set_" ^ type_name t, set_type t)
+fun in_var t = mk_var ("in_" ^ type_name t, in_type t)
+fun out_var t = mk_var ("out_" ^ type_name t, out_type t)
+
+fun set_const t = mk_const ("set_" ^ type_name t, set_type t)
+fun in_const t = mk_const ("in_" ^ type_name t, in_type t)
+fun out_const t = mk_const ("out_" ^ type_name t, out_type t)
+
+fun set_expr Bool = `set_bool ^mem ^indin = boolset`
+  | set_expr Ind = `
+      set_ind ^mem ^indin = @indset. (!i. mem (indin i) indset)
+                                  /\ (!x. mem x indset ==> ?i. x = indin i)`
+  | set_expr (Fun (s,t)) = `
+      ^(set_var (Fun (s,t))) ^mem ^indin = 
+        Funspace (^(set_const s) mem indin) (^(set_const t) mem indin)`
+
+fun in_expr Bool = 
+      `(in_bool ^mem ^indin T = True) /\ (in_bool ^mem ^indin F = False)`
+  | in_expr Ind =
+      `in_ind ^mem ^indin i = indin i`
+  | in_expr (Fun (s,t)) =
+      `^(in_var (Fun (s,t))) ^mem ^indin f =
+           Abstract (^(set_const s) mem indin) (^(set_const t) mem indin) \x.
+             ^(in_const t) mem indin (f (^(out_const s) mem indin x))`
+           
+fun out_expr t =
+  `^(out_var t) ^mem ^indin x = @y. ^(in_const t) mem indin y = x`
+           
+fun mk t = ( xDefine ("set_" ^ type_name t) (set_expr t)
+           ; xDefine ("in_" ^ type_name t) (in_expr t)
+           ; xDefine ("out_" ^ type_name t) (out_expr t) )
+
+val _ = mk Bool;
+val _ = mk Ind;
+val _ = mk (Fun (Bool,Bool));
+val _ = mk (Fun (Ind,Ind));
+val _ = mk (Fun (Ind,Bool));
+val _ = mk (Fun (Fun (Ind,Ind), Fun (Ind,Bool)));
 
 val _ = export_theory()
