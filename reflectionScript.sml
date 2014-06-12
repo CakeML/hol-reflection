@@ -62,14 +62,14 @@ fun out_expr t =
   `^(out_var t) ^mem ^indin x = @y. ^(in_const t) mem indin y = x`
 
 fun mk t = ( xDefine ("set_" ^ type_name t) (set_expr t)
-           ; xDefine ("in_" ^ type_name t) (in_expr t)
-           ; xDefine ("out_" ^ type_name t) (out_expr t) )
+           , xDefine ("in_" ^ type_name t) (in_expr t)
+           , xDefine ("out_" ^ type_name t) (out_expr t) )
 
-val _ = mk Bool;
-val _ = mk Ind;
-val _ = mk (Fun (Bool,Bool));
-val _ = mk (Fun (Ind,Ind));
-val _ = mk (Fun (Ind,Bool));
-val _ = mk (Fun (Fun (Ind,Ind), Fun (Ind,Bool)));
+val res1 = mk Bool;
+val res2 = mk Ind;
+val res3 = mk (Fun (Bool,Bool));
+val res4 = mk (Fun (Ind,Ind));
+val res5 = mk (Fun (Ind,Bool));
+val res6 = mk (Fun (Fun (Ind,Ind), Fun (Ind,Bool)));
 
 val _ = export_theory()
