@@ -2,7 +2,7 @@ open HolKernel boolLib bossLib lcsymtacs listTheory finite_mapTheory alistTheory
 open miscLib miscTheory setSpecTheory setModelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 
 val _ = temp_tight_equality()
-val _ = new_theory"reflection"
+val _ = new_theory"manualReflection"
 
 val mem = ``mem:'U->'U-> bool``
 val indin = ``indin:ind->'U``
