@@ -16,20 +16,20 @@ fun type_name Ind = "ind"
 fun type_type Ind = mk_type("ind",[])
   | type_type Bool = mk_type("bool",[])
   | type_type (Fun (s,t)) = (type_type s --> type_type t) : hol_type
-  
-  
+
+
 fun set_type t = let val u = mk_vartype("'U") in
-  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u) 
+  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u)
                                    --> u
 end
 
 fun in_type t = let val u = mk_vartype("'U") in
-  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u) 
+  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u)
                                    --> type_type t --> u
 end
-  
+
 fun out_type t = let val u = mk_vartype("'U") in
-  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u) 
+  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u)
                                    --> u --> type_type t
 end
 
@@ -46,10 +46,10 @@ fun set_expr Bool = `set_bool ^mem ^indin = boolset`
       set_ind ^mem ^indin = @indset. (!i. mem (indin i) indset)
                                   /\ (!x. mem x indset ==> ?i. x = indin i)`
   | set_expr (Fun (s,t)) = `
-      ^(set_var (Fun (s,t))) ^mem ^indin = 
+      ^(set_var (Fun (s,t))) ^mem ^indin =
         Funspace (^(set_const s) mem indin) (^(set_const t) mem indin)`
 
-fun in_expr Bool = 
+fun in_expr Bool =
       `(in_bool ^mem ^indin T = True) /\ (in_bool ^mem ^indin F = False)`
   | in_expr Ind =
       `in_ind ^mem ^indin i = indin i`
@@ -57,10 +57,10 @@ fun in_expr Bool =
       `^(in_var (Fun (s,t))) ^mem ^indin f =
            Abstract (^(set_const s) mem indin) (^(set_const t) mem indin) \x.
              ^(in_const t) mem indin (f (^(out_const s) mem indin x))`
-           
+
 fun out_expr t =
   `^(out_var t) ^mem ^indin x = @y. ^(in_const t) mem indin y = x`
-           
+
 fun mk t = ( xDefine ("set_" ^ type_name t) (set_expr t)
            ; xDefine ("in_" ^ type_name t) (in_expr t)
            ; xDefine ("out_" ^ type_name t) (out_expr t) )
