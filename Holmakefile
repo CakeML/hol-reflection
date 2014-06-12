@@ -1,12 +1,17 @@
-INCLUDES = ../vml ../vml/hol-light/syntax-lib ../vml/hol-light/set-theory ../vml/hol-light/stateful/syntax ../vml/hol-light/stateful/semantics
+ifndef VMLDIR
+VMLDIR = ../vml
+endif
+
+HOLHOL = $(VMLDIR)/hol-light
+INCLUDES = $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/stateful/syntax $(HOLHOL)/stateful/semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../vml/hol-light/stateful/semantics/heap
+PARENT_HOLHEAP = $(HOLHOL)/stateful/semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../vml/hol-light/stateful/semantics/../../../miscLib ../vml/hol-light/stateful/semantics/../../syntax-lib/holSyntaxLibTheory ../vml/hol-light/stateful/semantics/../../set-theory/setSpecTheory ../vml/hol-light/stateful/semantics/../syntax/holAxiomsSyntaxTheory
+BARE_THYS = $(HOLHOL)/syntax-lib/holSyntaxLibTheory $(HOLHOL)/set-theory/setSpecTheory $(HOLHOL)/stateful/syntax/holAxiomsSyntaxTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
