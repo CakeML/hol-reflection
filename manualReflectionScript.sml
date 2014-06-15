@@ -28,9 +28,13 @@ load "manualReflectionTheory";
 open manualReflectionTheory;
 open pred_setTheory;
 
-g `OK ==> is_in mem boolset (in_bool mem indin)`;
-e DISCH_TAC;
+val mem = ``mem:'U->'U-> bool``;
+val indin = ``indin:ind->'U``;
+val OK = ``is_set_theory ^mem /\ ?indset. is_in mem indset ^indin``;
+
+g `^OK ==> is_in mem boolset (in_bool mem indin)`;
 e EVAL_TAC;
+e DISCH_TAC;
 e (REWRITE_TAC [BIJ_DEF]);
 e CONJ_TAC;
 e (REWRITE_TAC [INJ_DEF]);
@@ -39,6 +43,13 @@ e (Cases_on `x`);
 e DISCH_TAC;
 e (REWRITE_TAC [IN_DEF]);
 e EVAL_TAC;
+e (METIS_TAC []);
+e (REWRITE_TAC [IN_DEF]);
+e EVAL_TAC;
+e (METIS_TAC []);
+e (Cases_on `x`);
+e (Cases_on `y`);
+e (METIS_TAC []);
 *)
 
 val out_bool_def = xDefine "out_bool"`
