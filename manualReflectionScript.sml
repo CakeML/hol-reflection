@@ -75,20 +75,20 @@ val std_sig_thm = store_thm("std_sig_thm", ``is_std_sig std_sig``, EVAL_TAC)
 val std_tyass_def = xDefine "std_tyass"`
      std_tyass ^mem ^indin "bool" [] = boolset
   /\ std_tyass ^mem ^indin "ind" [] = set_ind mem indin
-  /\ std_tyass ^mem ^indin "fun" [x;y] = funspace mem x y`
+  /\ std_tyass ^mem ^indin "fun" [x;y] = Funspace x y`
 
 val std_tmass_def = xDefine "std_tmass"`
      std_tmass ^mem ^indin "=" [x] =
-       (Abstract x (funspace mem x boolset) \i.
+       (Abstract x (Funspace x boolset) \i.
           Abstract x boolset \j.
             in_bool mem indin (i = j))
   /\ std_tmass ^mem ^indin "S" [x;y;z] =
-       (Abstract (funspace mem x (funspace mem y z))
-                 (funspace mem (funspace mem x y) (funspace mem x z)) \i.
-          Abstract (funspace mem x y) (funspace mem x z) \j.
+       (Abstract (Funspace x (Funspace y z))
+                 (Funspace (Funspace x y) (Funspace x z)) \i.
+          Abstract (Funspace x y) (Funspace x z) \j.
             Abstract x z \k. (i ' k) ' (j ' k))
   /\ std_tmass ^mem ^indin "K" [x;y] =
-       Abstract x (funspace mem y x) (\i. Abstract y x \j. i)
+       Abstract x (Funspace y x) (\i. Abstract y x \j. i)
   /\ std_tmass ^mem ^indin "I" [x] =
        Abstract x x (\i. i)`
 
