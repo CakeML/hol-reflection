@@ -7,52 +7,26 @@ val _ = new_theory"manualReflection"
 val mem = ``mem:'U->'U-> bool``
 val indin = ``indin:ind->'U``
 
+val is_in_def = Define`
+  is_in ^mem x f = BIJ f UNIV {y | mem y x}`
 
-val flip_def = xDefine "flip"`
-  flip f x y = f y x`
-
-val is_in_def = xDefine "is_in"`
-  is_in ^mem x f = BIJ f UNIV (flip mem x)`
-  
 val OK = ``is_set_theory ^mem /\ ?indset. is_in mem indset ^indin``
 
-
-val set_bool_def = xDefine "set_bool"`
+val set_bool_def = Define`
   set_bool ^mem ^indin = boolset`
 
-val in_bool_def = xDefine "in_bool"`
+val in_bool_def = Define`
   in_bool ^mem ^indin = Boolean`
 
-(*  
-load "manualReflectionTheory";
-open manualReflectionTheory;
-open pred_setTheory;
+val boolset_in_bool = store_thm("boolset_in_bool",
+  ``^OK ⇒ is_in mem boolset (in_bool mem indin)``,
+  rw[is_in_def,BIJ_IFF_INV] >- (
+    rw[in_bool_def,boolean_in_boolset] ) >>
+  qexists_tac`λx. x = True` >>
+  rw[in_bool_def,boolean_eq_true] >>
+  rfs[mem_boolset,boolean_eq_true,true_neq_false,boolean_def])
 
-val mem = ``mem:'U->'U-> bool``;
-val indin = ``indin:ind->'U``;
-val OK = ``is_set_theory ^mem /\ ?indset. is_in mem indset ^indin``;
-
-g `^OK ==> is_in mem boolset (in_bool mem indin)`;
-e EVAL_TAC;
-e DISCH_TAC;
-e (REWRITE_TAC [BIJ_DEF]);
-e CONJ_TAC;
-e (REWRITE_TAC [INJ_DEF]);
-e CONJ_TAC;
-e (Cases_on `x`);
-e DISCH_TAC;
-e (REWRITE_TAC [IN_DEF]);
-e EVAL_TAC;
-e (METIS_TAC []);
-e (REWRITE_TAC [IN_DEF]);
-e EVAL_TAC;
-e (METIS_TAC []);
-e (Cases_on `x`);
-e (Cases_on `y`);
-e (METIS_TAC []);
-*)
-
-val out_bool_def = xDefine "out_bool"`
+val out_bool_def = Define`
   out_bool ^mem ^indin x = (x = True)`
 
 (* Alternatively: out_bool ^mem ^indin x = @b. x = in_bool mem indin b *)
