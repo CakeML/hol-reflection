@@ -6,13 +6,40 @@ val _ = new_theory"manualReflection"
 
 val mem = ``mem:'U->'U-> bool``
 val indin = ``indin:ind->'U``
-val OK = ``is_set_theory ^mem /\ !i j. ^indin i = indin j ==> i = j``
+
+
+val flip_def = xDefine "flip"`
+  flip f x y = f y x`
+
+val is_in_def = xDefine "is_in"`
+  is_in ^mem x f = BIJ f UNIV (flip mem x)`
+  
+val OK = ``is_set_theory ^mem /\ ?indset. is_in mem indset ^indin``
+
 
 val set_bool_def = xDefine "set_bool"`
   set_bool ^mem ^indin = boolset`
 
 val in_bool_def = xDefine "in_bool"`
-  (in_bool ^mem ^indin T = True) /\ (in_bool ^mem ^indin F = False)`
+  in_bool ^mem ^indin = Boolean`
+
+(*  
+load "manualReflectionTheory";
+open manualReflectionTheory;
+open pred_setTheory;
+
+g `OK ==> is_in mem boolset (in_bool mem indin)`;
+e DISCH_TAC;
+e EVAL_TAC;
+e (REWRITE_TAC [BIJ_DEF]);
+e CONJ_TAC;
+e (REWRITE_TAC [INJ_DEF]);
+e CONJ_TAC;
+e (Cases_on `x`);
+e DISCH_TAC;
+e (REWRITE_TAC [IN_DEF]);
+e EVAL_TAC;
+*)
 
 val out_bool_def = xDefine "out_bool"`
   out_bool ^mem ^indin x = (x = True)`
@@ -20,8 +47,7 @@ val out_bool_def = xDefine "out_bool"`
 (* Alternatively: out_bool ^mem ^indin x = @b. x = in_bool mem indin b *)
 
 val set_ind_def = xDefine "set_ind"`
-  set_ind ^mem ^indin = @indset. (!i. mem (indin i) indset)
-                              /\ (!x. mem x indset ==> ?i. x = indin i)`
+  set_ind ^mem ^indin = @indset. is_in mem indset indin`
 
 val in_ind_def = xDefine "in_ind"`
   in_ind ^mem ^indin i = indin i`
