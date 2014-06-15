@@ -6,6 +6,7 @@ val _ = new_theory"manualReflection"
 
 val mem = ``mem:'U->'U-> bool``
 val indin = ``indin:ind->'U``
+val OK = ``is_set_theory ^mem /\ !i j. ^indin i = indin j ==> i = j``
 
 val set_bool_def = xDefine "set_bool"`
   set_bool ^mem ^indin = boolset`
@@ -46,5 +47,75 @@ val out_fun_ind_bool_def = xDefine "out_fun_ind_bool"`
 (* Alternatively: 
  *   out_fun_ind_bool ^mem ^indin x = @f. x = in_fun_ind_bool mem indin f
  *)
+
+
+
+(* Simple signatures etc. *)
+
+val std_type_env_def = xDefine "std_type_env"`
+  std_type_env = FUPDATE_LIST FEMPTY ["fun", 2; "bool", 0; "ind", 0]`
+
+val std_term_env_def = xDefine "std_term_env"`
+  std_term_env = FUPDATE_LIST FEMPTY
+                   [ "=", Fun (Tyvar"A") (Fun (Tyvar"A") Bool)
+                   ; "S", Fun (Fun (Tyvar"A")
+                                   (Fun (Tyvar"B") (Tyvar"C")))
+                              (Fun (Fun (Tyvar"A") (Tyvar"B"))
+                                   (Fun (Tyvar"A") (Tyvar"C")))
+                   ; "K", Fun (Tyvar"A") (Fun (Tyvar"B") (Tyvar"A"))
+                   ; "I", Fun (Tyvar"A") (Tyvar"A")
+                   ]`
+
+val std_sig_def = xDefine "std_sig"`
+  std_sig = (std_type_env, std_term_env)`;
+
+val std_sig_thm = store_thm("std_sig_thm", ``is_std_sig std_sig``, EVAL_TAC)
+
+
+val std_tyass_def = xDefine "std_tyass"`
+     std_tyass ^mem ^indin "bool" [] = boolset
+  /\ std_tyass ^mem ^indin "ind" [] = set_ind mem indin
+  /\ std_tyass ^mem ^indin "fun" [x;y] = funspace mem x y`
+
+val std_tmass_def = xDefine "std_tmass"`
+     std_tmass ^mem ^indin "=" [x] =
+       (Abstract x (funspace mem x boolset) \i.
+          Abstract x boolset \j.
+            in_bool mem indin (i = j))
+  /\ std_tmass ^mem ^indin "S" [x;y;z] =
+       (Abstract (funspace mem x (funspace mem y z))
+                 (funspace mem (funspace mem x y) (funspace mem x z)) \i.
+          Abstract (funspace mem x y) (funspace mem x z) \j.
+            Abstract x z \k. (i ' k) ' (j ' k))
+  /\ std_tmass ^mem ^indin "K" [x;y] =
+       Abstract x (funspace mem y x) (\i. Abstract y x \j. i)
+  /\ std_tmass ^mem ^indin "I" [x] =
+       Abstract x x (\i. i)`
+
+val std_int_def = xDefine "std_int"`
+  std_int ^mem ^indin = 
+    (std_tyass mem indin, std_tmass mem indin)`
+
+
+(*
+load "manualReflectionTheory";
+open manualReflectionTheory;
+open holSyntaxTheory finite_mapTheory;
+
+g `!mem indin. OK ==> is_interpretation std_sig (std_int mem indin)`;
+e GEN_TAC;
+e GEN_TAC;
+e DISCH_TAC;
+e EVAL_TAC;
+
+e CONJ_TAC;
+e (REWRITE_TAC [FEVERY_DEF]);
+e EVAL_TAC;
+
+e (RW_TAC (srw_ss()) []);
+e (Cases_on `ls`);
+e EVAL_TAC;
+ *)
+
 
 val _ = export_theory()
