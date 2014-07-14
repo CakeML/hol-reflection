@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs listTheory finite_mapTheory alistTheory pred_setTheory pairTheory
-open miscLib miscTheory setSpecTheory setModelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open HolKernel boolLib bossLib lcsymtacs
+open holSemanticsTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
@@ -32,7 +32,7 @@ val tysig = ``FEMPTY |++ [("list",1);("ind",0)]``
 val tmsig = ``FEMPTY |+ ("c",(Tyvar "'c"))``
 val P_deep = ``ARB:term``
 
-val _ =
+val example =
   ``is_set_theory ^mem ∧
     BIJ (in_α : α -> 'U) UNIV (ext (tyval "'a")) ∧
     BIJ (in_β : β -> 'U) UNIV (ext (tyval "'b")) ∧
