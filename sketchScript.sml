@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs
 open miscLib stringSyntax listSyntax pred_setTheory
-open setSpecTheory holSemanticsTheory
+open setSpecTheory holSemanticsTheory holSemanticsExtraTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
@@ -163,15 +163,67 @@ val is_in_in_fun = store_thm("is_in_in_fun",
   imp_res_tac is_in_finv_right >>
   rw[])
 
+val Comb_thm = store_thm("Comb_thm",
+  ``is_set_theory ^mem ∧
+    is_interpretation (tysig,tmsig) (tyass,tmass) ∧
+    is_std_interpretation (tyass,tmass) ∧
+    is_valuation tysig tyass (tyval,tmval) ∧
+    is_in ina ∧
+    is_in inb ∧
+    in_fun ina inb f = termsem tmsig (tyass,tmass) (tyval,tmval) ftm ∧
+    ina x = termsem tmsig (tyass,tmass) (tyval,tmval) xtm
+    ⇒
+    inb (f x) =
+      termsem tmsig (tyass,tmass) (tyval,tmval) (Comb ftm xtm)``,
+  rw[termsem_def] >>
+  rpt(first_x_assum(SUBST1_TAC o SYM)) >>
+  rw[in_fun_def] >>
+  match_mp_tac EQ_SYM >>
+  match_mp_tac apply_abstract_matchable >>
+  simp[] >>
+  imp_res_tac is_in_range_thm >>
+  fs[BIJ_DEF,ext_def,INJ_DEF] >>
+  AP_TERM_TAC >>
+  AP_TERM_TAC >>
+  match_mp_tac is_in_finv_left >>
+  simp[])
+
+val Abs_thm = store_thm("Abs_thm",
+  ``is_set_theory ^mem ∧
+    is_interpretation (tysig,tmsig) (tyass,tmass) ∧
+    is_std_interpretation (tyass,tmass) ∧
+    is_valuation tysig tyass (tyval,tmval) ∧
+    is_in ina ∧
+    is_in inb ∧
+    range ina = typesem tyass tyval ty ∧
+    range inb = typesem tyass tyval (typeof b) ∧
+    term_ok (tysig,tmsig) b ∧
+    (∀m. m <: range ina ⇒
+      inb (f (finv ina m)) =
+        termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b)
+    ⇒
+    in_fun ina inb f =
+      termsem tmsig (tyass,tmass) (tyval,tmval) (Abs x ty b)``,
+  rw[termsem_def,in_fun_def] >>
+  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
+  rw[] >>
+  match_mp_tac (UNDISCH termsem_typesem) >>
+  simp[] >>
+  qexists_tac`(tysig,tmsig)` >> simp[] >>
+  fs[is_std_interpretation_def] >>
+  fs[is_valuation_def,is_term_valuation_def] >>
+  simp[combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> metis_tac[])
+
 val base_tysig_def = Define`
   base_tysig = FEMPTY |++ [("fun",2);("bool",0)]`
 val base_tmsig_def = Define`
   base_tmsig = FEMPTY |++ [("=",Fun (Tyvar "A") (Tyvar "A"))]`
 
+(*
 val P = ``x:bool``
 val tysig = ``base_tysig``
 val tmsig = ``base_tmsig``
-
 val thm = prove(
   ``is_set_theory ^mem ∧
     is_interpretation (^tysig,^tmsig) (tyass,tmass) ∧
@@ -183,6 +235,64 @@ val thm = prove(
       termsem ^tmsig (tyass,tmass) (tyval,tmval) (Var "x" Bool)``,
   rw[termsem_def])
 
+
+val P = ``(f:bool->bool) x``
+val tysig = ``base_tysig``
+val tmsig = ``base_tmsig``
+
+val P = ``λ(x:bool). x``
+val tysig = ``base_tysig``
+val tmsig = ``base_tmsig``
+val Abs_thm = store_thm("Abs_thm",
+  ``is_set_theory ^mem ∧
+    is_interpretation (^tysig,^tmsig) (tyass,tmass) ∧
+    is_std_interpretation (tyass,tmass) ∧
+    is_valuation ^tysig tmass (tyval,tmval)
+    ⇒
+    in_fun in_bool in_bool ^P =
+      termsem ^tmsig (tyass,tmass) (tyval,tmval) (^(term_to_deep P))``,
+  rw[termsem_def,in_fun_def] >>
+  rw[typesem_def] >>
+  `tyass "bool" [] = boolset` by (
+    fs[is_std_interpretation_def,is_std_type_assignment_def] )>>
+  `range in_bool = boolset` by (
+    imp_res_tac is_in_in_bool >>
+    imp_res_tac is_in_range_thm >>
+    imp_res_tac is_extensional >>
+    fs[extensional_def] >>
+    pop_assum kall_tac >>
+    simp[mem_boolset] >>
+    fs[BIJ_IFF_INV,ext_def,in_bool_def,boolean_def] >>
+    metis_tac[] ) >>
+  simp[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[combinTheory.APPLY_UPDATE_THM] >>
+  imp_res_tac is_in_in_bool >>
+  imp_res_tac is_in_range_thm >>
+  rfs[ext_def,BIJ_DEF,INJ_DEF] >>
+  metis_tac[is_in_finv_right,is_in_in_bool])
+
+rw[typesem_def] >>
+`tyass "bool" [] = boolset` by (
+  fs[is_std_interpretation_def,is_std_type_assignment_def] )>>
+
+`range in_bool = boolset` by (
+  imp_res_tac is_in_in_bool >>
+  imp_res_tac is_in_range_thm >>
+  imp_res_tac is_extensional >>
+  fs[extensional_def] >>
+  pop_assum kall_tac >>
+  simp[mem_boolset] >>
+  fs[BIJ_IFF_INV,ext_def,in_bool_def,boolean_def] >>
+  metis_tac[] ) >>
+simp[] >>
+match_mp_tac (UNDISCH abstract_eq) >>
+simp[combinTheory.APPLY_UPDATE_THM] >>
+imp_res_tac is_in_in_bool >>
+imp_res_tac is_in_range_thm >>
+rfs[ext_def,BIJ_DEF,INJ_DEF] >>
+metis_tac[is_in_finv_right,is_in_in_bool])
+*)
 
 (*
 P = ``ARB (c:α->β) (x:ind->ind) (ARB:α list)``
@@ -223,7 +333,6 @@ val example_sequent =
     ]
   , ``in_fun in_α (in_fun in_β in_ind) P =
         termsem ^tmsig (tyass,tmass) (tyval,tmval) ^P_deep`` )
-
 
 fun underscores [] = ""
   | underscores (x::xs) = "_" ^ x ^ underscores xs
