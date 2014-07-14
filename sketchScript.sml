@@ -163,31 +163,6 @@ val is_in_in_fun = store_thm("is_in_in_fun",
   imp_res_tac is_in_finv_right >>
   rw[])
 
-val Comb_thm = store_thm("Comb_thm",
-  ``is_set_theory ^mem ∧
-    is_interpretation (tysig,tmsig) (tyass,tmass) ∧
-    is_std_interpretation (tyass,tmass) ∧
-    is_valuation tysig tyass (tyval,tmval) ∧
-    is_in ina ∧
-    is_in inb ∧
-    in_fun ina inb f = termsem tmsig (tyass,tmass) (tyval,tmval) ftm ∧
-    ina x = termsem tmsig (tyass,tmass) (tyval,tmval) xtm
-    ⇒
-    inb (f x) =
-      termsem tmsig (tyass,tmass) (tyval,tmval) (Comb ftm xtm)``,
-  rw[termsem_def] >>
-  rpt(first_x_assum(SUBST1_TAC o SYM)) >>
-  rw[in_fun_def] >>
-  match_mp_tac EQ_SYM >>
-  match_mp_tac apply_abstract_matchable >>
-  simp[] >>
-  imp_res_tac is_in_range_thm >>
-  fs[BIJ_DEF,ext_def,INJ_DEF] >>
-  AP_TERM_TAC >>
-  AP_TERM_TAC >>
-  match_mp_tac is_in_finv_left >>
-  simp[])
-
 val Abs_thm = store_thm("Abs_thm",
   ``is_set_theory ^mem ∧
     is_interpretation (tysig,tmsig) (tyass,tmass) ∧
@@ -214,6 +189,111 @@ val Abs_thm = store_thm("Abs_thm",
   fs[is_valuation_def,is_term_valuation_def] >>
   simp[combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> metis_tac[])
+
+fun underscores [] = ""
+  | underscores (x::xs) = "_" ^ x ^ underscores xs
+
+fun type_name (ty : hol_type) =
+  if is_type ty then case dest_thy_type ty of
+    { Args = args, Thy = thy, Tyop = tyop } =>
+      tyop ^ underscores (map type_name args)
+  else
+    dest_vartype ty
+
+fun mk_in_var (ty : hol_type) =
+  mk_var ("in_" ^ type_name ty, ``:^(ty) -> 'U``)
+
+fun mk_in (ty : hol_type) =
+  if is_type ty then case dest_thy_type ty of
+      { Args = [], Thy = thy, Tyop = "bool" } =>
+        ``in_bool``
+    | { Args = [ty1,ty2], Thy = thy, Tyop = "fun" } =>
+        ``in_fun ^(mk_in ty1) ^(mk_in ty2)``
+    | { Args = args, Thy = thy, Tyop = tyop } =>
+        mk_in_var ty
+  else
+    mk_in_var ty
+
+open pairSyntax
+
+val tysig = genvar ``:tyenv``
+val tmsig = genvar ``:tmenv``
+val tyass = genvar ``:'U tyass``
+val tmass = genvar ``:'U tmass``
+val tyval = genvar ``:'U tyval``
+val tmval = genvar ``:'U tmval``
+val signaturet = mk_pair(tysig,tmsig)
+val interpretation = mk_pair(tyass,tmass)
+val valuation = mk_pair(tyval,tmval)
+val termsem_tm = ``termsem0 ^mem``
+fun mk_termsem d =
+  list_mk_comb(termsem_tm,[tmsig,interpretation,valuation,d])
+
+val Var_thm = store_thm("Var_thm",
+  ``^tmval (x,ty) = inty v ⇒
+    ∀mem. inty v = termsem0 mem ^tmsig (^tyass,^tmass) (^tyval,^tmval) (Var x ty)``,
+  rw[termsem_def])
+
+val good_context_def = Define`
+  good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval ^tmval ⇔
+    is_set_theory ^mem ∧
+    is_interpretation ^signaturet ^interpretation ∧
+    is_std_interpretation ^interpretation ∧
+    is_valuation ^tysig ^tyass ^valuation`
+val good_context = good_context_def |> concl |> strip_forall |> snd |> lhs
+
+val Comb_thm = store_thm("Comb_thm",
+  ``^good_context ⇒
+    is_in ina ∧ is_in inb ⇒
+    in_fun ina inb f = termsem ^tmsig ^interpretation ^valuation ftm ∧
+    ina x = termsem ^tmsig ^interpretation ^valuation xtm
+    ⇒
+    inb (f x) =
+      termsem ^tmsig ^interpretation ^valuation (Comb ftm xtm)``,
+  rw[good_context_def,termsem_def] >>
+  rpt(first_x_assum(SUBST1_TAC o SYM)) >>
+  rw[in_fun_def] >>
+  match_mp_tac EQ_SYM >>
+  match_mp_tac apply_abstract_matchable >>
+  simp[] >>
+  imp_res_tac is_in_range_thm >>
+  fs[BIJ_DEF,ext_def,INJ_DEF] >>
+  AP_TERM_TAC >>
+  AP_TERM_TAC >>
+  match_mp_tac is_in_finv_left >>
+  simp[]) |> UNDISCH
+
+fun var_to_cert v =
+  let
+    val v_deep = term_to_deep (assert is_var v)
+    val (_,[x_deep,ty_deep]) = strip_comb v_deep
+    val l = mk_comb(mk_in (type_of v),v)
+    val a = mk_eq(mk_comb(tmval,mk_pair(x_deep,ty_deep)),l)
+  in
+    MATCH_MP Var_thm (ASSUME a) |> SPEC mem
+  end
+
+(*
+fun term_to_cert tm =
+  case dest_term tm of
+    VAR _ => var_to_cert tm
+  | CONST _ => raise(Fail"unimpleented")
+  | COMB(t1,t2) =>
+    let
+      val c1 = term_to_cert t1
+      val c2 = term_to_cert t2
+    in
+
+  Comb_thm
+*)
+
+(*
+fun const_to_cert c =
+  let
+    val c_deep = term_to_deep (assert is_const c)
+
+show_assums := true
+*)
 
 val base_tysig_def = Define`
   base_tysig = FEMPTY |++ [("fun",2);("bool",0)]`
@@ -333,29 +413,5 @@ val example_sequent =
     ]
   , ``in_fun in_α (in_fun in_β in_ind) P =
         termsem ^tmsig (tyass,tmass) (tyval,tmval) ^P_deep`` )
-
-fun underscores [] = ""
-  | underscores (x::xs) = "_" ^ x ^ underscores xs
-
-fun type_name (ty : hol_type) =
-  if is_type ty then case dest_thy_type ty of
-    { Args = args, Thy = thy, Tyop = tyop } =>
-      tyop ^ underscores (map type_name args)
-  else
-    dest_vartype ty
-
-fun mk_in_var (ty : hol_type) =
-  mk_var ("in_" ^ type_name ty, ``:^(ty) -> 'U``)
-
-fun mk_in (ty : hol_type) =
-  if is_type ty then case dest_thy_type ty of
-      { Args = [], Thy = thy, Tyop = "bool" } =>
-        ``in_bool``
-    | { Args = [ty1,ty2], Thy = thy, Tyop = "fun" } =>
-        ``in_fun ^(mk_in ty1) ^(mk_in ty2)``
-    | { Args = args, Thy = thy, Tyop = tyop } =>
-        mk_in_var ty
-  else
-    mk_in_var ty
 
 val _ = export_theory()
