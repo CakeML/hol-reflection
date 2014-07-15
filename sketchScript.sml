@@ -156,26 +156,6 @@ val Abs_thm = prove(
   simp[combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> metis_tac[]) |> UNDISCH
 
-fun var_to_cert v =
-  let
-    val v_deep = term_to_deep (assert is_var v)
-    val (x_deep,ty_deep) = dest_Var v_deep
-    val l = mk_comb(mk_in (type_of v),v)
-    val a = mk_eq(mk_comb(tmval,mk_pair(x_deep,ty_deep)),l)
-  in
-    MATCH_MP Var_thm (ASSUME a) |> SPEC mem
-  end
-
-fun const_to_cert c =
-  let
-    val c_deep = term_to_deep (assert is_const c)
-    val (name_deep,ty_deep) = dest_Const c_deep
-    val l = mk_comb(mk_in (type_of c),c)
-    val a = mk_eq(mk_instance name_deep ty_deep,l)
-  in
-    MATCH_MP Const_thm (ASSUME a) |> SPEC mem
-  end
-
 val good_context_is_in_in_bool = prove(mk_imp(good_context,rand(concl(is_in_in_bool))),
   rw[good_context_def,is_in_in_bool]) |> UNDISCH
 val good_context_is_in_in_fun = prove(mk_imp(good_context,rand(concl(is_in_in_fun))),
@@ -277,7 +257,27 @@ fun replace_assum th simpth =
     MP th1 th4
   end
 
+fun var_to_cert v =
+  let
+    val v_deep = term_to_deep (assert is_var v)
+    val (x_deep,ty_deep) = dest_Var v_deep
+    val l = mk_comb(mk_in (type_of v),v)
+    val a = mk_eq(mk_comb(tmval,mk_pair(x_deep,ty_deep)),l)
+  in
+    MATCH_MP Var_thm (ASSUME a) |> SPEC mem
+  end
 
+fun const_to_cert c =
+  let
+    val c_deep = term_to_deep (assert is_const c)
+    val (name_deep,ty_deep) = dest_Const c_deep
+    val l = mk_comb(mk_in (type_of c),c)
+    val a = mk_eq(mk_instance name_deep ty_deep,l)
+    val th = MATCH_MP Const_thm (ASSUME a) |> SPEC mem
+  in
+    (replace_assum th good_context_instance_equality
+     handle HOL_ERR _ => th)
+  end
 
 fun mk_is_in_thm ty = case type_view ty of
     Tyapp ("min","Bool",[]) => is_in_in_bool
@@ -312,17 +312,28 @@ fun term_to_cert tm =
       val cb = term_to_cert b
       val ina = cx |> concl |> lhs |> rator
       val inb = cb |> concl |> lhs |> rator
-      val th = Abs_thm |> ISPECL[ina,inb,tm,xd,tyd,bd] |> funpow 4 UNDISCH
+      val th = Abs_thm |> ISPECL[ina,inb,tm,xd,tyd,bd] |> funpow 2 UNDISCH
+      val thd = mk_is_in_thm (type_of x)
+      val thr = mk_is_in_thm (type_of b)
+      val th = MATCH_MP th thd
+      val th = MATCH_MP th thr
       val goal = (mk_set(hyp cb @ hyp th), th |> concl |> dest_imp |> fst)
       val th1 = TAC_PROOF(goal,
-        rw[] >>
+        gen_tac >> strip_tac >>
+        SIMP_TAC bool_ss [] >>
         match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
-        simp[combinTheory.APPLY_UPDATE_THM] >>
+        ASM_SIMP_TAC bool_ss [combinTheory.APPLY_UPDATE_THM] >>
+        match_mp_tac EQ_SYM >>
+        match_mp_tac (MP_CANON is_in_finv_right) >>
+        rw[])
+        (*
+        fs[typesem_def] >>
         TRY (
         conj_tac >- (
           match_mp_tac good_context_extend_tmval >>
           rw[] ) >>
         metis_tac[is_in_finv_right] ))
+        *)
       val th2 = MP th th1
     in
       UNDISCH th2
@@ -334,6 +345,8 @@ val MID_EXISTS_AND_THM = prove(
 
 val test_tm = ``λg. g (f T)``
 val test_tm = ``g = (λx. F)``
+val test = term_to_cert ``λx. x``
+val tm = ``λx. x``
 val test = term_to_cert test_tm
 (*
 val cs = listLib.list_compset()
