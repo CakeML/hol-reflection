@@ -1,3 +1,5 @@
+load "holSyntaxSyntax";
+
 open HolKernel boolLib bossLib lcsymtacs
 open miscLib pairSyntax stringSyntax listSyntax holSyntaxSyntax
 open reflectionTheory pred_setTheory setSpecTheory holSyntaxTheory holSemanticsTheory holSemanticsExtraTheory
