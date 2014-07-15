@@ -1,75 +1,122 @@
-open HolKernel boolLib bossLib lcsymtacs listTheory finite_mapTheory alistTheory pred_setTheory pairTheory
-open miscLib miscTheory setSpecTheory setModelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open HolKernel boolLib bossLib lcsymtacs
+open miscLib pred_setTheory setSpecTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
 
-val mem = ``mem:'U->'U-> bool``
-val indin = ``indin:ind->'U``
+val finv_def = Define`
+  finv f x = @y. f y = x`
 
-datatype simple_type = Ind | Bool | Fun of simple_type * simple_type
+val mem = ``mem:'U->'U->bool``
 
-fun type_name Ind = "ind"
-  | type_name Bool = "bool"
-  | type_name (Fun (s,t)) = "fun_" ^ type_name s ^ "_" ^ type_name t
+val is_in_def = xDefine"is_in"`
+  is_in0 ^mem f = ∃x. BIJ f UNIV {a | mem a x}`
+val _ = Parse.overload_on("is_in",``is_in0 ^mem``)
 
-fun type_type Ind = mk_type("ind",[])
-  | type_type Bool = mk_type("bool",[])
-  | type_type (Fun (s,t)) = (type_type s --> type_type t) : hol_type
+val is_in_finv_left = store_thm("is_in_finv_left",
+  ``∀ina.
+    is_in ina ⇒ ∀x. finv ina (ina x) = x``,
+  rw[finv_def] >>
+  SELECT_ELIM_TAC >>
+  conj_tac >-metis_tac[] >>
+  fs[is_in_def,BIJ_DEF,INJ_DEF])
 
+val ext_def = xDefine"ext"`
+  ext0 ^mem s = { a | mem a s }`
+val _ = Parse.overload_on("ext",``ext0 ^mem``)
 
-fun set_type t = let val u = mk_vartype("'U") in
-  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u)
-                                   --> u
-end
+val range_def = xDefine"range"`
+  range0 ^mem (f : α -> 'U) = @x. BIJ f UNIV {a | mem a x}`
+val _ = Parse.overload_on("range",``range0 ^mem``)
 
-fun in_type t = let val u = mk_vartype("'U") in
-  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u)
-                                   --> type_type t --> u
-end
+val is_in_range_thm = store_thm("is_in_range_thm",
+  ``∀f. is_in f ⇒ BIJ f UNIV (ext (range f))``,
+  rw[is_in_def,range_def] >>
+  SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
+  rw[ext_def])
 
-fun out_type t = let val u = mk_vartype("'U") in
-  (u --> u --> mk_type("bool",[])) --> (mk_type("ind",[]) --> u)
-                                   --> u --> type_type t
-end
+val is_in_finv_right = store_thm("is_in_finv_right",
+  ``∀ina.
+    is_in ina ⇒ ∀x. x <: range ina ⇒
+      (ina (finv ina x)) = x``,
+  rw[finv_def] >>
+  SELECT_ELIM_TAC >>
+  conj_tac >-(
+    imp_res_tac is_in_range_thm >>
+    fs[ext_def,BIJ_DEF,SURJ_DEF] ) >>
+  rw[])
 
-fun set_var t = mk_var ("set_" ^ type_name t, set_type t)
-fun in_var t = mk_var ("in_" ^ type_name t, in_type t)
-fun out_var t = mk_var ("out_" ^ type_name t, out_type t)
+val in_bool_def = xDefine"in_bool"`
+  in_bool0 ^mem = Boolean`
+val _ = Parse.overload_on("in_bool",``in_bool0 ^mem``)
 
-fun set_const t = mk_const ("set_" ^ type_name t, set_type t)
-fun in_const t = mk_const ("in_" ^ type_name t, in_type t)
-fun out_const t = mk_const ("out_" ^ type_name t, out_type t)
+val is_in_in_bool = store_thm("is_in_in_bool",
+  ``is_set_theory ^mem ⇒
+    is_in in_bool``,
+  rw[is_in_def,BIJ_IFF_INV] >>
+  qexists_tac`boolset` >>
+  rw[in_bool_def,boolean_in_boolset] >>
+  qexists_tac`λx. x = True` >>
+  rw[in_bool_def,boolean_eq_true] >>
+  rfs[mem_boolset,boolean_eq_true,true_neq_false,boolean_def])
 
-fun set_expr Bool = `set_bool ^mem ^indin = boolset`
-  | set_expr Ind = `
-      set_ind ^mem ^indin = @indset. (!i. mem (indin i) indset)
-                                  /\ (!x. mem x indset ==> ?i. x = indin i)`
-  | set_expr (Fun (s,t)) = `
-      ^(set_var (Fun (s,t))) ^mem ^indin =
-        Funspace (^(set_const s) mem indin) (^(set_const t) mem indin)`
+val in_fun_def = xDefine"in_fun"`
+  in_fun0 ^mem ina inb f =
+    Abstract (range ina) (range inb) (λx. inb (f (finv ina x)))`
+val _ = Parse.overload_on("in_fun",``in_fun0 ^mem``)
 
-fun in_expr Bool =
-      `(in_bool ^mem ^indin T = True) /\ (in_bool ^mem ^indin F = False)`
-  | in_expr Ind =
-      `in_ind ^mem ^indin i = indin i`
-  | in_expr (Fun (s,t)) =
-      `^(in_var (Fun (s,t))) ^mem ^indin f =
-           Abstract (^(set_const s) mem indin) (^(set_const t) mem indin) \x.
-             ^(in_const t) mem indin (f (^(out_const s) mem indin x))`
+val out_fun_def = xDefine"out_fun"`
+  out_fun0 ^mem ina inb mf x = finv inb (mf ' (ina x))`
+val _ = Parse.overload_on("out_fun",``out_fun0 ^mem``)
 
-fun out_expr t =
-  `^(out_var t) ^mem ^indin x = @y. ^(in_const t) mem indin y = x`
-
-fun mk t = ( xDefine ("set_" ^ type_name t) (set_expr t)
-           , xDefine ("in_" ^ type_name t) (in_expr t)
-           , xDefine ("out_" ^ type_name t) (out_expr t) )
-
-val res1 = mk Bool;
-val res2 = mk Ind;
-val res3 = mk (Fun (Bool,Bool));
-val res4 = mk (Fun (Ind,Ind));
-val res5 = mk (Fun (Ind,Bool));
-val res6 = mk (Fun (Fun (Ind,Ind), Fun (Ind,Bool)));
+val is_in_in_fun = store_thm("is_in_in_fun",
+  ``is_set_theory ^mem ⇒
+    ∀ina inb. is_in ina ∧ is_in inb ⇒ is_in (in_fun ina inb)``,
+  rw[] >>
+  rw[is_in_def,BIJ_IFF_INV] >>
+  qexists_tac`Funspace (range ina) (range inb)` >>
+  conj_tac >- (
+    rw[in_fun_def] >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[range_def] >>
+    SELECT_ELIM_TAC >>
+    conj_tac >- metis_tac[is_in_def] >>
+    rw[] >>
+    SELECT_ELIM_TAC >>
+    conj_tac >- metis_tac[is_in_def] >>
+    rw[] >>
+    fs[BIJ_IFF_INV] ) >>
+  qexists_tac`out_fun ina inb` >>
+  conj_tac >- (
+    rw[out_fun_def,in_fun_def,FUN_EQ_THM] >>
+    qmatch_abbrev_tac`finv invb (Abstract s t f ' a) = Z` >>
+    rfs[] >>
+    `Abstract s t f ' a = f a` by (
+      match_mp_tac (UNDISCH apply_abstract) >>
+      imp_res_tac is_in_range_thm >>
+      fs[ext_def,BIJ_IFF_INV] >>
+      unabbrev_all_tac >> fs[] ) >>
+    rw[Abbr`Z`,Abbr`f`,Abbr`a`,Abbr`invb`] >>
+    imp_res_tac is_in_finv_left >>
+    simp[] ) >>
+  rw[in_fun_def,out_fun_def] >>
+  first_x_assum(mp_tac o
+    MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH in_funspace_abstract))) >>
+  simp[AND_IMP_INTRO] >>
+  discharge_hyps >- (
+    imp_res_tac is_in_range_thm >>
+    fs[ext_def,BIJ_IFF_INV] >>
+    metis_tac[] ) >>
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  gen_tac >>
+  qspecl_then[`f`,`ina (finv ina x)`,`range ina`,`range inb`]mp_tac
+    (UNDISCH apply_abstract) >>
+  discharge_hyps >- (
+    imp_res_tac is_in_range_thm >>
+    fs[ext_def,BIJ_DEF,INJ_DEF] ) >>
+  rw[] >>
+  imp_res_tac is_in_finv_right >>
+  rw[])
 
 val _ = export_theory()
