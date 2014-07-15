@@ -308,6 +308,16 @@ fun replace_assum th simpth =
     MP th1 th4
   end
 
+fun mk_is_in_thm ty = case type_view ty of
+    Tyapp ("min","Bool",[]) => is_in_in_bool
+  | Tyapp ("min","Fun",[ty1,ty2]) =>
+      is_in_in_fun |> UNDISCH 
+		   |> SPEC (mk_in ty1)
+		   |> SPEC (mk_in ty2)
+                   |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
+		                       (mk_is_in_thm ty2))
+  | _ => ASSUME ``is_in ^(mk_in ty)``
+
 fun term_to_cert tm =
   case dest_term tm of
     VAR _ => var_to_cert tm
