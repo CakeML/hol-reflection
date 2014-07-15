@@ -185,6 +185,8 @@ fun const_to_cert c =
 
 val good_context_is_in_in_bool = prove(mk_imp(good_context,rand(concl(is_in_in_bool))),
   rw[good_context_def,is_in_in_bool]) |> UNDISCH
+val good_context_is_in_in_fun = prove(mk_imp(good_context,rand(concl(is_in_in_fun))),
+  rw[good_context_def,is_in_in_fun]) |> UNDISCH
 
 val good_context_extend_tmval = prove(
   ``^good_context ∧
@@ -192,6 +194,44 @@ val good_context_extend_tmval = prove(
      good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval (((x,ty) =+ m) ^tmval)``,
   rw[good_context_def,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> rw[])
+
+fun NCONV 0 c = ALL_CONV
+  | NCONV n c = c THENC (NCONV (n-1) c)
+
+fun n_imp_and_intro 0 = ALL_CONV
+  | n_imp_and_intro n = REWR_CONV (GSYM AND_IMP_INTRO) THENC
+                       (RAND_CONV (n_imp_and_intro (n-1)))
+
+(* given [...,A,...] |- P and H |- A <=> B1 /\ ... /\ Bn
+   produce [...,B1,...,Bn,...] ∪ H |- P *)
+fun simplify_assum th simpth =
+  let
+    val A = lhs(concl simpth)
+    val th1 = DISCH A th
+    val th2 = CONV_RULE(LAND_CONV(REWR_CONV simpth)) th1
+    val n = length(strip_conj(rhs(concl simpth)))
+    val th3 = CONV_RULE (n_imp_and_intro (n-1)) th2
+  in
+    funpow n UNDISCH th3
+  end
+
+(* given [...,A',...] |- P and H |- !x1..xn. B1 /\ ... /\ Bn ==> A
+   produce [...,B1',...,Bn',...] ∪ H |- P *)
+fun replace_assum th simpth =
+  let
+    val c = simpth |> concl
+    val (xs,b) = c |> strip_forall
+    val A = b |> rand
+    val A' = first (can (match_term A)) (hyp th)
+    val th1 = DISCH A' th
+    val (s,_) = match_term A A'
+    val th2 = ISPECL (map (fn x => #residue(first (equal (fst(dest_var x)) o fst o dest_var o #redex) s)) xs) simpth
+    val n = b |> dest_imp |> fst |> strip_conj |> length
+    val th3 = CONV_RULE (NCONV (n-1) (REWR_CONV (GSYM AND_IMP_INTRO))) th2
+    val th4 = funpow n UNDISCH th3
+  in
+    MP th1 th4
+  end
 
 fun term_to_cert tm =
   case dest_term tm of
@@ -220,17 +260,48 @@ fun term_to_cert tm =
         rw[] >>
         match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
         simp[combinTheory.APPLY_UPDATE_THM] >>
+        TRY (
         conj_tac >- (
           match_mp_tac good_context_extend_tmval >>
           rw[] ) >>
-        metis_tac[is_in_finv_right] )
+        metis_tac[is_in_finv_right] ))
       val th2 = MP th th1
     in
       UNDISCH th2
     end
 
+val MID_EXISTS_AND_THM = prove(
+  ``(?x. P x /\ Q /\ R x) <=> (Q /\ ?x. P x /\ R x)``,
+  metis_tac[])
+
 val test_tm = ``λg. g (f T)``
+val test_tm = ``g = (λx. F)``
 val test = term_to_cert test_tm
+(*
+val cs = listLib.list_compset()
+val () = computeLib.add_thms [typeof_def,codomain_def,typesem_def] cs
+val eval = computeLib.CBV_CONV cs
+*)
+val eval = SIMP_CONV (std_ss++listSimps.LIST_ss)
+  [typeof_def,codomain_def,typesem_def,
+   term_ok_def,holSyntaxExtraTheory.WELLTYPED_CLAUSES,
+   type_ok_def,type_11]
+ THENC SIMP_CONV std_ss [GSYM CONJ_ASSOC,MID_EXISTS_AND_THM]
+
+val simpths = mapfilter
+  (QCHANGED_CONV eval)
+  (hyp test)
+(*
+val test1 = simplify_assum test (hd simpths)
+val test2 = simplify_assum test1 (hd (tl simpths))
+val test3 = simplify_assum test2 (hd (tl (tl simpths)))
+*)
+val test1 = foldl (uncurry (C simplify_assum)) test simpths
+val test2 = replace_assum test1 good_context_is_in_in_fun
+val test3 = replace_assum test2 good_context_is_in_in_fun
+val test4 = replace_assum test3 good_context_is_in_in_fun
+
+
 (*
 val tm = ``λx:bool. f x``
 term_to_cert tm
