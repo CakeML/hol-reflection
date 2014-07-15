@@ -339,6 +339,44 @@ fun term_to_cert tm =
       UNDISCH th2
     end
 
+(* example: *)
+open holAxiomsTheory
+val lem = prove(
+``is_set_theory ^mem ⇒
+  (finv in_bool x ⇒ y) ⇒ ((x = True) ⇒ y)``,
+  metis_tac[finv_in_bool_True]) |> UNDISCH
+
+val lem2 = prove(
+  ``(a ==> b) /\ (c ==> a) ==> (c ==> b)``,
+  metis_tac[])
+
+val equation_intro =
+  equation_def |> GSYM
+  |> SPECL[term_to_deep``0``,term_to_deep``1``]
+  |> SIMP_RULE (srw_ss())[]
+
+val cert = term_to_cert ``0 = 1``
+val th2 = AP_TERM``finv in_bool`` cert
+val th3 =
+  is_in_finv_left
+  |> Q.ISPEC`in_bool`
+  |> C MATCH_MP (UNDISCH is_in_in_bool)
+  |> (fn th => CONV_RULE (LAND_CONV (REWR_CONV th)) th2)
+  |> EQ_IMP_RULE |> snd
+val th4 = MATCH_MP lem th3
+val th5 = th4 |> DISCH_ALL
+        |> Q.GEN`tmsig` |> Q.SPEC`tmsof(sigof(thyof ctxt))`
+        |> funpow 10 UNDISCH
+val th = Q.SPEC`thyof ctxt` (Q.GEN`thy`provable_imp_eq_true)
+       |> Q.GEN`i` |> SPEC interpretation
+       |> Q.GEN`v` |> SPEC valuation
+       |> UNDISCH
+       |> SPEC (th5 |> concl |> rator |> rand |> lhs |> rand)
+val final = MATCH_MP lem2 (CONJ th5 th)
+          |> REWRITE_RULE [equation_intro]
+
+val _ = save_thm("example",final)
+
 val MID_EXISTS_AND_THM = prove(
   ``(?x. P x /\ Q /\ R x) <=> (Q /\ ?x. P x /\ R x)``,
   metis_tac[])
@@ -372,14 +410,13 @@ val test1 = foldl (uncurry (C simplify_assum)) test simpths
 val test2 = repeat (fn th => replace_assum th good_context_is_in_in_fun) test1
 val test3 = PROVE_HYP good_context_is_in_in_bool test2
 val test4 = PROVE_HYP good_context_lookup_bool test3
-val test5 = replace_assum test4 good_context_instance_equality
+val test5 = repeat (fn th => replace_assum th good_context_instance_equality) test4
 val simpths = mapfilter
   (QCHANGED_CONV eval)
   (hyp test5)
 val test6 = foldl (uncurry (C simplify_assum)) test5 simpths
 val test7 = PROVE_HYP good_context_lookup_bool test6
 val test8 = PROVE_HYP good_context_lookup_fun test7
-
 
 (*
 val tm = ``λx:bool. f x``
@@ -474,6 +511,7 @@ metis_tac[is_in_finv_right,is_in_in_bool])
 P = ``ARB (c:α->β) (x:ind->ind) (ARB:α list)``
 P_deep = ``Comb (Const ...) ...``
 *)
+(*
 val c_def = Define`c : γ = ARB`
 
 val tysig = ``FEMPTY |++ [("list",1);("ind",0)]``
@@ -509,5 +547,6 @@ val example_sequent =
     ]
   , ``in_fun in_α (in_fun in_β in_ind) P =
         termsem ^tmsig (tyass,tmass) (tyval,tmval) ^P_deep`` )
+*)
 
 val _ = export_theory()
