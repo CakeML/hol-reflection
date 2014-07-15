@@ -42,12 +42,9 @@ fun term_to_deep tm =
 fun underscores [] = ""
   | underscores (x::xs) = "_" ^ x ^ underscores xs
 
-fun type_name (ty : hol_type) =
-  if is_type ty then case dest_thy_type ty of
-    { Args = args, Thy = thy, Tyop = tyop } =>
-      tyop ^ underscores (map type_name args)
-  else
-    ty |> dest_vartype |> tyvar_to_deep
+fun type_name (ty : hol_type) = case type_view ty of
+    Tyvar name            => tyvar_to_deep name
+  | Tyapp (thy,tyop,args) => tyop ^ underscores (map type_name args)
 
 val U = mk_vartype("'U")
 fun mk_in_var (ty : hol_type) =
