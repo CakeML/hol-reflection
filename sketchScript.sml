@@ -295,9 +295,11 @@ fun term_to_cert tm =
     let
       val c1 = term_to_cert t1
       val c2 = term_to_cert t2
+      val (dty,rty) = dom_rng (type_of t1)
     in
       MATCH_MP (Comb_thm) (CONJ c1 c2)
-      |> UNDISCH |> UNDISCH
+      |> C MATCH_MP (mk_is_in_thm dty)
+      |> C MATCH_MP (mk_is_in_thm rty)
       |> PROVE_HYP good_context_is_in_in_bool
     end
   | LAMB(x,b) =>
