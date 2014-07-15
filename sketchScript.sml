@@ -5,6 +5,25 @@ open reflectionTheory pred_setTheory setSpecTheory holSyntaxTheory holSemanticsT
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
 
+val finv_in_bool_True = store_thm("finv_in_bool_True",
+  ``is_set_theory ^mem ⇒ finv in_bool True``,
+  rw[] >>
+  imp_res_tac is_in_in_bool >>
+  `True = (in_bool T)` by simp[in_bool_def,boolean_def] >>
+  pop_assum SUBST1_TAC >>
+  metis_tac[is_in_finv_left])
+
+val provable_imp_eq_true = store_thm("provable_imp_eq_true",
+  ``is_set_theory ^mem ∧
+    i models thy ∧
+    is_valuation (tysof (sigof thy)) (tyaof i) v
+    ⇒
+    ∀p. (thy,[]) |- p ⇒ termsem (tmsof (sigof thy)) i v p = True``,
+  rw[] >>
+  imp_res_tac holSoundnessTheory.proves_sound >>
+  fs[entails_def] >> res_tac >>
+  fs[satisfies_def])
+
 fun NCONV 0 c = ALL_CONV
   | NCONV n c = c THENC (NCONV (n-1) c)
 
