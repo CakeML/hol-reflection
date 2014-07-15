@@ -60,16 +60,20 @@ val U = mk_vartype("'U")
 fun mk_in_var (ty : hol_type) =
   mk_var ("in_" ^ type_name ty, ty --> U)
 
+val in_bool_tm = ``in_bool``
+val in_fun_tm = ``in_fun``
+
 fun mk_in (ty : hol_type) =
   if is_type ty then case dest_thy_type ty of
       { Args = [], Thy = thy, Tyop = "bool" } =>
-        ``in_bool``
+        in_bool_tm
     | { Args = [ty1,ty2], Thy = thy, Tyop = "fun" } =>
-        ``in_fun ^(mk_in ty1) ^(mk_in ty2)``
+        mk_comb(mk_comb(in_fun_tm, mk_in ty1), mk_in ty2)
     | { Args = args, Thy = thy, Tyop = tyop } =>
         mk_in_var ty
   else
     mk_in_var ty
+
 
 fun genv x =
   (*
