@@ -5,6 +5,13 @@ open reflectionTheory pred_setTheory setSpecTheory holSyntaxTheory holSemanticsT
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
 
+fun NCONV 0 c = ALL_CONV
+  | NCONV n c = c THENC (NCONV (n-1) c)
+
+fun n_imp_and_intro 0 = ALL_CONV
+  | n_imp_and_intro n = REWR_CONV (GSYM AND_IMP_INTRO) THENC
+                       (RAND_CONV (n_imp_and_intro (n-1)))
+
 datatype type_view = Tyvar of string | Tyapp of string * string * hol_type list
 
 local open String in
@@ -270,12 +277,7 @@ fun replace_assum th simpth =
     MP th1 th4
   end
 
-fun NCONV 0 c = ALL_CONV
-  | NCONV n c = c THENC (NCONV (n-1) c)
 
-fun n_imp_and_intro 0 = ALL_CONV
-  | n_imp_and_intro n = REWR_CONV (GSYM AND_IMP_INTRO) THENC
-                       (RAND_CONV (n_imp_and_intro (n-1)))
 
 fun mk_is_in_thm ty = case type_view ty of
     Tyapp ("min","Bool",[]) => is_in_in_bool
