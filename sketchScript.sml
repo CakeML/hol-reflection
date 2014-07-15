@@ -72,7 +72,6 @@ fun mk_in (ty : hol_type) =
   else
     mk_in_var ty
 
-
 fun genv x =
   (*
   let
@@ -100,6 +99,7 @@ fun mk_termsem d =
 val good_context_def = Define`
   good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval ^tmval ⇔
     is_set_theory ^mem ∧
+    is_std_sig ^signatur ∧
     is_interpretation ^signatur ^interpretation ∧
     is_std_interpretation ^interpretation ∧
     is_valuation ^tysig ^tyass ^valuation`
@@ -187,6 +187,12 @@ val good_context_is_in_in_bool = prove(mk_imp(good_context,rand(concl(is_in_in_b
   rw[good_context_def,is_in_in_bool]) |> UNDISCH
 val good_context_is_in_in_fun = prove(mk_imp(good_context,rand(concl(is_in_in_fun))),
   rw[good_context_def,is_in_in_fun]) |> UNDISCH
+val good_context_lookup_bool = prove(
+  ``^good_context ⇒ FLOOKUP ^tysig "bool" = SOME 0``,
+  rw[good_context_def,is_std_sig_def]) |> UNDISCH
+val good_context_lookup_fun = prove(
+  ``^good_context ⇒ FLOOKUP ^tysig "fun" = SOME 2``,
+  rw[good_context_def,is_std_sig_def]) |> UNDISCH
 
 val good_context_extend_tmval = prove(
   ``^good_context ∧
@@ -194,6 +200,89 @@ val good_context_extend_tmval = prove(
      good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval (((x,ty) =+ m) ^tmval)``,
   rw[good_context_def,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> rw[])
+
+val EVAL_STRING_SORT =
+  CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (tyvars X)``) tm
+                        then EVAL tm else raise UNCHANGED))
+
+val good_context_instance_equality = prove(
+  ``∀ty ina.
+    ^good_context ∧
+    type_ok ^tysig ty ∧
+    typesem ^tyass ^tyval ty = range (in_fun ina in_bool) ∧
+    is_in ina ⇒
+    instance ^tmsig ^interpretation "=" (Fun ty (Fun ty Bool)) ^tyval =
+      in_fun (in_fun ina in_bool) (in_fun (in_fun ina in_bool) in_bool) $=``,
+  rw[good_context_def] >>
+  fs[is_std_sig_def] >>
+  imp_res_tac instance_def >>
+  first_x_assum(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  simp[holSyntaxLibTheory.REV_ASSOCD] >>
+  disch_then(mp_tac o SPEC interpretation) >>
+  simp[] >> disch_then kall_tac >>
+  EVAL_STRING_SORT >> simp[holSyntaxLibTheory.REV_ASSOCD] >>
+  fs[is_std_interpretation_def,interprets_def] >>
+  first_x_assum(qspec_then`("A"=+ typesem ^tyass ^tyval ty)(K boolset)`mp_tac) >>
+  discharge_hyps >- (
+    simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+    reverse(rw[mem_boolset]) >- metis_tac[] >>
+    qpat_assum`X = Y` (SUBST1_TAC o SYM) >>
+    match_mp_tac (UNDISCH typesem_inhabited) >>
+    fs[is_valuation_def,is_interpretation_def] >>
+    metis_tac[] ) >>
+  simp[combinTheory.APPLY_UPDATE_THM] >>
+  disch_then kall_tac >>
+  simp[in_fun_def] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[] >> gen_tac >> strip_tac >>
+  conj_tac >- (
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[boolean_in_boolset] ) >>
+  Q.ISPECL_THEN[`mem`,`in_bool`,`ina`]mp_tac (GEN_ALL range_in_fun) >>
+  discharge_hyps >- ( simp[is_in_in_bool] ) >>
+  strip_tac >> simp[range_in_bool] >>
+  Q.ISPECL_THEN[`mem`,`in_bool`,`in_fun ina in_bool`]mp_tac (GEN_ALL range_in_fun) >>
+  discharge_hyps >- ( simp[is_in_in_bool,is_in_in_fun] ) >>
+  strip_tac >> simp[range_in_bool] >>
+  conj_tac >- (
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[in_bool_def,boolean_in_boolset] ) >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[in_bool_def,boolean_in_boolset] >>
+  simp[boolean_def] >> rw[true_neq_false] >>
+  spose_not_then strip_assume_tac >>
+  qpat_assum`X = Y`mp_tac >> simp[] >>
+  qmatch_assum_rename_tac`z <: Funspace X boolset`["X"] >>
+  qspecl_then[`z`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
+  discharge_hyps >- (
+    simp[mem_boolset] >>
+    imp_res_tac is_in_range_thm >>
+    metis_tac[] ) >>
+  rw[] >> fs[] >>
+  qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
+  discharge_hyps >- (
+    simp[mem_boolset] >>
+    imp_res_tac is_in_range_thm >>
+    rfs[range_in_bool] >>
+    metis_tac[] ) >>
+  rw[] >> fs[] >>
+  qmatch_assum_abbrev_tac`Abstract a b f1 ≠ Abstract a b f2` >>
+  `(∃x. Abstract a b f1 = in_fun ina Boolean x) ∧
+   (∃x. Abstract a b f2 = in_fun ina Boolean x)` by (
+    conj_tac >>
+    simp[in_fun_def,GSYM in_bool_def,range_in_bool] >|[
+      qexists_tac`finv Boolean o f1 o ina`,
+      qexists_tac`finv Boolean o f2 o ina`] >>
+    match_mp_tac (UNDISCH abstract_eq) >>
+    simp[in_bool_def,Abbr`b`,boolean_in_boolset] >>
+    simp[Abbr`a`] >> rw[] >>
+    imp_res_tac is_in_finv_right >>
+    pop_assum (SUBST1_TAC) >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac (MP_CANON is_in_finv_right) >>
+    simp[GSYM in_bool_def,range_in_bool,is_in_in_bool] ) >>
+  rw[] >>
+  metis_tac[is_in_finv_left,is_in_in_fun,is_in_in_bool,in_bool_def])
 
 fun NCONV 0 c = ALL_CONV
   | NCONV n c = c THENC (NCONV (n-1) c)
@@ -227,7 +316,7 @@ fun replace_assum th simpth =
     val (s,_) = match_term A A'
     val th2 = ISPECL (map (fn x => #residue(first (equal (fst(dest_var x)) o fst o dest_var o #redex) s)) xs) simpth
     val n = b |> dest_imp |> fst |> strip_conj |> length
-    val th3 = CONV_RULE (NCONV (n-1) (REWR_CONV (GSYM AND_IMP_INTRO))) th2
+    val th3 = CONV_RULE (n_imp_and_intro (n-1)) th2
     val th4 = funpow n UNDISCH th3
   in
     MP th1 th4
@@ -297,9 +386,16 @@ val test2 = simplify_assum test1 (hd (tl simpths))
 val test3 = simplify_assum test2 (hd (tl (tl simpths)))
 *)
 val test1 = foldl (uncurry (C simplify_assum)) test simpths
-val test2 = replace_assum test1 good_context_is_in_in_fun
-val test3 = replace_assum test2 good_context_is_in_in_fun
-val test4 = replace_assum test3 good_context_is_in_in_fun
+val test2 = repeat (fn th => replace_assum th good_context_is_in_in_fun) test1
+val test3 = PROVE_HYP good_context_is_in_in_bool test2
+val test4 = PROVE_HYP good_context_lookup_bool test3
+val test5 = replace_assum test4 good_context_instance_equality
+val simpths = mapfilter
+  (QCHANGED_CONV eval)
+  (hyp test5)
+val test6 = foldl (uncurry (C simplify_assum)) test5 simpths
+val test7 = PROVE_HYP good_context_lookup_bool test6
+val test8 = PROVE_HYP good_context_lookup_fun test7
 
 
 (*
