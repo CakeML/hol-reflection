@@ -133,8 +133,7 @@ val Comb_thm = prove(
   match_mp_tac EQ_SYM >>
   match_mp_tac apply_abstract_matchable >>
   simp[] >>
-  imp_res_tac is_in_range_thm >>
-  fs[BIJ_DEF,ext_def,INJ_DEF] >>
+  rw[is_in_range_thm] >>
   AP_TERM_TAC >>
   AP_TERM_TAC >>
   match_mp_tac is_in_finv_left >>
@@ -284,7 +283,7 @@ val Abs_thm = store_thm("Abs_thm",
     fs[is_std_interpretation_def,is_std_type_assignment_def] )>>
   `range in_bool = boolset` by (
     imp_res_tac is_in_in_bool >>
-    imp_res_tac is_in_range_thm >>
+    imp_res_tac is_in_bij_thm >>
     imp_res_tac is_extensional >>
     fs[extensional_def] >>
     pop_assum kall_tac >>
@@ -295,7 +294,7 @@ val Abs_thm = store_thm("Abs_thm",
   match_mp_tac (UNDISCH abstract_eq) >>
   simp[combinTheory.APPLY_UPDATE_THM] >>
   imp_res_tac is_in_in_bool >>
-  imp_res_tac is_in_range_thm >>
+  imp_res_tac is_in_bij_thm >>
   rfs[ext_def,BIJ_DEF,INJ_DEF] >>
   metis_tac[is_in_finv_right,is_in_in_bool])
 
@@ -305,7 +304,7 @@ rw[typesem_def] >>
 
 `range in_bool = boolset` by (
   imp_res_tac is_in_in_bool >>
-  imp_res_tac is_in_range_thm >>
+  imp_res_tac is_in_bij_thm >>
   imp_res_tac is_extensional >>
   fs[extensional_def] >>
   pop_assum kall_tac >>
@@ -316,7 +315,7 @@ simp[] >>
 match_mp_tac (UNDISCH abstract_eq) >>
 simp[combinTheory.APPLY_UPDATE_THM] >>
 imp_res_tac is_in_in_bool >>
-imp_res_tac is_in_range_thm >>
+imp_res_tac is_in_bij_thm >>
 rfs[ext_def,BIJ_DEF,INJ_DEF] >>
 metis_tac[is_in_finv_right,is_in_in_bool])
 *)

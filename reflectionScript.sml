@@ -29,11 +29,17 @@ val range_def = xDefine"range"`
   range0 ^mem (f : α -> 'U) = @x. BIJ f UNIV {a | mem a x}`
 val _ = Parse.overload_on("range",``range0 ^mem``)
 
-val is_in_range_thm = store_thm("is_in_range_thm",
+val is_in_bij_thm = store_thm("is_in_bij_thm",
   ``∀f. is_in f ⇒ BIJ f UNIV (ext (range f))``,
   rw[is_in_def,range_def] >>
   SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
   rw[ext_def])
+
+val is_in_range_thm = store_thm("is_in_range_thm",
+  ``∀f x. is_in f ⇒ f x <: range f``,
+  rw[] >>
+  imp_res_tac is_in_bij_thm >>
+  fs[BIJ_DEF,ext_def,INJ_DEF])
 
 val is_in_finv_right = store_thm("is_in_finv_right",
   ``∀ina.
@@ -42,7 +48,7 @@ val is_in_finv_right = store_thm("is_in_finv_right",
   rw[finv_def] >>
   SELECT_ELIM_TAC >>
   conj_tac >-(
-    imp_res_tac is_in_range_thm >>
+    imp_res_tac is_in_bij_thm >>
     fs[ext_def,BIJ_DEF,SURJ_DEF] ) >>
   rw[])
 
@@ -93,7 +99,7 @@ val is_in_in_fun = store_thm("is_in_in_fun",
     rfs[] >>
     `Abstract s t f ' a = f a` by (
       match_mp_tac (UNDISCH apply_abstract) >>
-      imp_res_tac is_in_range_thm >>
+      imp_res_tac is_in_bij_thm >>
       fs[ext_def,BIJ_IFF_INV] >>
       unabbrev_all_tac >> fs[] ) >>
     rw[Abbr`Z`,Abbr`f`,Abbr`a`,Abbr`invb`] >>
@@ -104,7 +110,7 @@ val is_in_in_fun = store_thm("is_in_in_fun",
     MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH in_funspace_abstract))) >>
   simp[AND_IMP_INTRO] >>
   discharge_hyps >- (
-    imp_res_tac is_in_range_thm >>
+    imp_res_tac is_in_bij_thm >>
     fs[ext_def,BIJ_IFF_INV] >>
     metis_tac[] ) >>
   rw[] >>
@@ -113,7 +119,7 @@ val is_in_in_fun = store_thm("is_in_in_fun",
   qspecl_then[`f`,`ina (finv ina x)`,`range ina`,`range inb`]mp_tac
     (UNDISCH apply_abstract) >>
   discharge_hyps >- (
-    imp_res_tac is_in_range_thm >>
+    imp_res_tac is_in_bij_thm >>
     fs[ext_def,BIJ_DEF,INJ_DEF] ) >>
   rw[] >>
   imp_res_tac is_in_finv_right >>
