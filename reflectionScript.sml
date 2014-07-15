@@ -130,7 +130,7 @@ val range_in_bool = store_thm("range_in_bool",
     range in_bool = boolset``,
   strip_tac >>
   imp_res_tac is_in_in_bool >>
-  imp_res_tac is_in_range_thm >>
+  imp_res_tac is_in_bij_thm >>
   imp_res_tac is_extensional >>
   pop_assum mp_tac >>
   simp[extensional_def] >>
@@ -144,7 +144,7 @@ val range_in_fun = store_thm("range_in_fun",
     range (in_fun ina inb) = Funspace (range ina) (range inb)``,
   rw[] >>
   strip_assume_tac(SPEC_ALL (UNDISCH is_in_in_fun)) >> rfs[] >>
-  imp_res_tac is_in_range_thm >>
+  imp_res_tac is_in_bij_thm >>
   imp_res_tac is_extensional >>
   pop_assum mp_tac >>
   simp[extensional_def] >>
