@@ -237,45 +237,7 @@ val good_context_instance_equality = prove(
   simp[in_bool_def,boolean_in_boolset] >>
   simp[boolean_def] >> rw[true_neq_false] >>
   spose_not_then strip_assume_tac >>
-  qpat_assum`X = Y`mp_tac >> simp[] >>
-  qmatch_assum_rename_tac`z <: Funspace X boolset`["X"] >>
-  qspecl_then[`z`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
-  discharge_hyps >- (
-    simp[mem_boolset] >>
-    imp_res_tac is_in_range_thm >>
-    metis_tac[] ) >>
-  rw[] >> fs[] >>
-  qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
-  discharge_hyps >- (
-    simp[mem_boolset] >>
-    imp_res_tac is_in_range_thm >>
-    rfs[range_in_bool] >>
-    metis_tac[] ) >>
-  rw[] >> fs[] >>
-  qmatch_assum_abbrev_tac`Abstract a b f1 ≠ Abstract a b f2` >>
-  `(∃x. Abstract a b f1 = in_fun ina Boolean x) ∧
-   (∃x. Abstract a b f2 = in_fun ina Boolean x)` by (
-    conj_tac >>
-    simp[in_fun_def,GSYM in_bool_def,range_in_bool] >|[
-      qexists_tac`finv Boolean o f1 o ina`,
-      qexists_tac`finv Boolean o f2 o ina`] >>
-    match_mp_tac (UNDISCH abstract_eq) >>
-    simp[in_bool_def,Abbr`b`,boolean_in_boolset] >>
-    simp[Abbr`a`] >> rw[] >>
-    imp_res_tac is_in_finv_right >>
-    pop_assum (SUBST1_TAC) >>
-    match_mp_tac EQ_SYM >>
-    match_mp_tac (MP_CANON is_in_finv_right) >>
-    simp[GSYM in_bool_def,range_in_bool,is_in_in_bool] ) >>
-  rw[] >>
-  metis_tac[is_in_finv_left,is_in_in_fun,is_in_in_bool,in_bool_def])
-
-fun NCONV 0 c = ALL_CONV
-  | NCONV n c = c THENC (NCONV (n-1) c)
-
-fun n_imp_and_intro 0 = ALL_CONV
-  | n_imp_and_intro n = REWR_CONV (GSYM AND_IMP_INTRO) THENC
-                       (RAND_CONV (n_imp_and_intro (n-1)))
+  metis_tac[is_in_finv_right])
 
 (* given [...,A,...] |- P and H |- A <=> B1 /\ ... /\ Bn
    produce [...,B1,...,Bn,...] ∪ H |- P *)
@@ -307,6 +269,13 @@ fun replace_assum th simpth =
   in
     MP th1 th4
   end
+
+fun NCONV 0 c = ALL_CONV
+  | NCONV n c = c THENC (NCONV (n-1) c)
+
+fun n_imp_and_intro 0 = ALL_CONV
+  | n_imp_and_intro n = REWR_CONV (GSYM AND_IMP_INTRO) THENC
+                       (RAND_CONV (n_imp_and_intro (n-1)))
 
 fun mk_is_in_thm ty = case type_view ty of
     Tyapp ("min","Bool",[]) => is_in_in_bool
