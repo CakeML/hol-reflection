@@ -225,9 +225,9 @@ fun replace_assum th simpth =
     val A = b |> rand
     val A' = first (can (match_term A)) (hyp th)
     val th1 = DISCH A' th
-    val n = b |> dest_imp |> fst |> strip_conj |> length
     val (s,_) = match_term A A'
-    val th2 = SPECL (map (subst s) xs) simpth
+    val th2 = ISPECL (map (fn x => #residue(first (equal (fst(dest_var x)) o fst o dest_var o #redex) s)) xs) simpth
+    val n = b |> dest_imp |> fst |> strip_conj |> length
     val th3 = CONV_RULE (NCONV (n-1) (REWR_CONV (GSYM AND_IMP_INTRO))) th2
     val th4 = funpow n UNDISCH th3
   in
@@ -261,16 +261,22 @@ fun term_to_cert tm =
         rw[] >>
         match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
         simp[combinTheory.APPLY_UPDATE_THM] >>
+        TRY (
         conj_tac >- (
           match_mp_tac good_context_extend_tmval >>
           rw[] ) >>
-        metis_tac[is_in_finv_right] )
+        metis_tac[is_in_finv_right] ))
       val th2 = MP th th1
     in
       UNDISCH th2
     end
 
+val MID_EXISTS_AND_THM = prove(
+  ``(?x. P x /\ Q /\ R x) <=> (Q /\ ?x. P x /\ R x)``,
+  metis_tac[])
+
 val test_tm = ``λg. g (f T)``
+val test_tm = ``g = (λx. F)``
 val test = term_to_cert test_tm
 (*
 val cs = listLib.list_compset()
@@ -281,7 +287,7 @@ val eval = SIMP_CONV (std_ss++listSimps.LIST_ss)
   [typeof_def,codomain_def,typesem_def,
    term_ok_def,holSyntaxExtraTheory.WELLTYPED_CLAUSES,
    type_ok_def,type_11]
- THENC SIMP_CONV std_ss [GSYM CONJ_ASSOC]
+ THENC SIMP_CONV std_ss [GSYM CONJ_ASSOC,MID_EXISTS_AND_THM]
 
 val simpths = mapfilter
   (QCHANGED_CONV eval)
@@ -293,6 +299,8 @@ val test3 = simplify_assum test2 (hd (tl (tl simpths)))
 *)
 val test1 = foldl (uncurry (C simplify_assum)) test simpths
 val test2 = replace_assum test1 good_context_is_in_in_fun
+val test3 = replace_assum test2 good_context_is_in_in_fun
+val test4 = replace_assum test3 good_context_is_in_in_fun
 
 
 (*
