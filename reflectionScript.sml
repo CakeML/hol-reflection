@@ -125,4 +125,45 @@ val is_in_in_fun = store_thm("is_in_in_fun",
   imp_res_tac is_in_finv_right >>
   rw[])
 
+val range_in_bool = store_thm("range_in_bool",
+  ``is_set_theory ^mem ⇒
+    range in_bool = boolset``,
+  strip_tac >>
+  imp_res_tac is_in_in_bool >>
+  imp_res_tac is_in_bij_thm >>
+  imp_res_tac is_extensional >>
+  pop_assum mp_tac >>
+  simp[extensional_def] >>
+  disch_then kall_tac >>
+  fs[ext_def,BIJ_IFF_INV,mem_boolset] >>
+  fs[in_bool_def,boolean_def] >>
+  metis_tac[] )
+
+val range_in_fun = store_thm("range_in_fun",
+  ``is_set_theory ^mem ∧ is_in ina ∧ is_in inb ⇒
+    range (in_fun ina inb) = Funspace (range ina) (range inb)``,
+  rw[] >>
+  strip_assume_tac(SPEC_ALL (UNDISCH is_in_in_fun)) >> rfs[] >>
+  imp_res_tac is_in_bij_thm >>
+  imp_res_tac is_extensional >>
+  pop_assum mp_tac >>
+  simp[extensional_def] >>
+  disch_then kall_tac >>
+  fs[ext_def,BIJ_IFF_INV] >>
+  rw[EQ_IMP_THM] >- (
+    fs[in_fun_def] >>
+    res_tac >>
+    pop_assum(SUBST1_TAC o SYM) >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    rw[] ) >>
+  qspecl_then[`a`,`range ina`,`range inb`]mp_tac (UNDISCH in_funspace_abstract) >>
+  simp[] >>
+  discharge_hyps >- metis_tac[] >> strip_tac >>
+  qpat_assum`a = X`(SUBST1_TAC) >>
+  qsuff_tac`∃x. Abstract (range ina) (range inb) f = in_fun ina inb x` >- metis_tac[] >>
+  rw[in_fun_def] >>
+  qexists_tac`finv inb o f o ina` >>
+  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
+  metis_tac[is_in_finv_right,is_in_finv_left])
+
 val _ = export_theory()
