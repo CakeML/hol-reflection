@@ -66,7 +66,7 @@ fun mk_in (ty : hol_type) =
       { Args = [], Thy = thy, Tyop = "bool" } =>
         in_bool_tm
     | { Args = [ty1,ty2], Thy = thy, Tyop = "fun" } =>
-        mk_comb(mk_comb(in_fun_tm, mk_in ty1), mk_in ty2)
+        mk_binop in_fun_tm (mk_in ty1, mk_in ty2)
     | { Args = args, Thy = thy, Tyop = tyop } =>
         mk_in_var ty
   else
