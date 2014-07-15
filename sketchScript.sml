@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs
 open miscLib pairSyntax stringSyntax listSyntax holSyntaxSyntax
-open pred_setTheory setSpecTheory holSemanticsTheory holSemanticsExtraTheory
+open pred_setTheory setSpecTheory holSyntaxTheory holSemanticsTheory holSemanticsExtraTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
@@ -251,13 +251,14 @@ val Comb_thm = store_thm("Comb_thm",
 
 val Abs_thm = store_thm("Abs_thm",
   ``^good_context ⇒
-    range ina = typesem tyass tyval ty ∧
-    range inb = typesem tyass tyval (typeof b) ∧
-    term_ok (tysig,tmsig) b ∧
+    ∀ina inb f x ty b.
+    range ina = typesem tyass tyval ty ⇒
+    range inb = typesem tyass tyval (typeof b) ⇒
+    is_in ina ⇒ is_in inb ⇒
     (∀m. m <: range ina ⇒
       inb (f (finv ina m)) =
         termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b) ⇒
-    is_in ina ⇒ is_in inb
+    term_ok (tysig,tmsig) b
     ⇒
     in_fun ina inb f =
       termsem tmsig (tyass,tmass) (tyval,tmval) (Abs x ty b)``,
@@ -295,7 +296,12 @@ fun const_to_cert c =
 val good_context_is_in_in_bool = prove(mk_imp(good_context,rand(concl(is_in_in_bool))),
   rw[good_context_def,is_in_in_bool]) |> UNDISCH
 
-val tm = ``λx. x``
+val good_context_extend_tmval = prove(
+  ``^good_context ∧
+     m <: typesem ^tyass ^tyval ty ⇒
+     good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval (((x,ty) =+ m) ^tmval)``,
+  rw[good_context_def,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> rw[])
 
 fun term_to_cert tm =
   case dest_term tm of
@@ -312,14 +318,36 @@ fun term_to_cert tm =
     end
   | LAMB(x,b) =>
     let
+      val (xd,tyd) = dest_Var(term_to_deep x)
+      val bd = term_to_deep b
+      val cx = var_to_cert x
       val cb = term_to_cert b
+      val ina = cx |> concl |> lhs |> rator
+      val inb = cb |> concl |> lhs |> rator
+      val th = Abs_thm |> ISPECL[ina,inb,tm,xd,tyd,bd] |> funpow 4 UNDISCH
+      val goal = (mk_set(hyp cb @ hyp th), th |> concl |> dest_imp |> fst)
+      val th1 = TAC_PROOF(goal,
+        rw[] >>
+        match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
+        simp[combinTheory.APPLY_UPDATE_THM] >>
+        conj_tac >- (
+          match_mp_tac good_context_extend_tmval >>
+          rw[] ) >>
+        metis_tac[is_in_finv_right] )
+      val th2 = MP th th1
     in
-      raise(Fail"unimplemented")
+      UNDISCH th2
     end
 
-(* term_to_cert ``g (f T)`` *)
+(*
+val tm = ``λx:bool. f x``
+term_to_cert tm
+term_to_cert ``λg. g (f T)``
+*)
 
 (*
+      val it = set_goal goal
+
 fun const_to_cert c =
   let
     val c_deep = term_to_deep (assert is_const c)
