@@ -1,11 +1,9 @@
 open HolKernel boolLib bossLib lcsymtacs
-open miscLib stringSyntax listSyntax pred_setTheory
+open miscLib stringSyntax listSyntax holSyntaxSyntax pred_setTheory
 open setSpecTheory holSemanticsTheory holSemanticsExtraTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
-
-(* TODO: use mk_syntax_fns *)
 
 local open String in
 fun tyvar_to_deep s =
@@ -15,8 +13,6 @@ fun tyvar_to_deep s =
   else s
 end
 
-val type_ty = ``:type``
-
 fun type_to_deep ty =
   if is_type ty then
     case dest_thy_type ty of { Args = args, Thy = thy, Tyop = tyop } =>
@@ -25,7 +21,7 @@ fun type_to_deep ty =
         val args = List.map type_to_deep args
         val args = mk_list(args,type_ty)
       in
-        ``Tyapp ^name ^args``
+        mk_Tyapp(name,args)
       end
   else
     let
@@ -33,19 +29,19 @@ fun type_to_deep ty =
       val name = tyvar_to_deep name
       val name = fromMLstring name
     in
-      ``Tyvar ^name``
+      mk_Tyvar(name)
     end
 
 fun term_to_deep tm =
   case dest_term tm of
-    VAR(x,ty) => ``Var ^(fromMLstring x) ^(type_to_deep ty)``
-  | CONST {Name,Thy,Ty} => ``Const ^(fromMLstring Name) ^(type_to_deep Ty)``
-  | COMB (f,x) => ``Comb ^(term_to_deep f) ^(term_to_deep x)``
+    VAR(x,ty) => mk_Var(fromMLstring x, type_to_deep ty)
+  | CONST {Name,Thy,Ty} => mk_Const(fromMLstring Name, type_to_deep Ty)
+  | COMB (f,x) => mk_Comb(term_to_deep f, term_to_deep x)
   | LAMB (x,b) =>
       let
         val (x,ty) = dest_var x
       in
-        ``Abs ^(fromMLstring x) ^(type_to_deep ty) ^(term_to_deep b)``
+        mk_Abs(fromMLstring x, type_to_deep ty, term_to_deep b)
       end
 
 val mem = ``mem:'U->'U->bool``
