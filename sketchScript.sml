@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs
-open miscLib stringSyntax listSyntax holSyntaxSyntax pred_setTheory
-open setSpecTheory holSemanticsTheory holSemanticsExtraTheory
+open miscLib pairSyntax stringSyntax listSyntax holSyntaxSyntax
+open pred_setTheory setSpecTheory holSemanticsTheory holSemanticsExtraTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
@@ -159,33 +159,6 @@ val is_in_in_fun = store_thm("is_in_in_fun",
   imp_res_tac is_in_finv_right >>
   rw[])
 
-val Abs_thm = store_thm("Abs_thm",
-  ``is_set_theory ^mem ∧
-    is_interpretation (tysig,tmsig) (tyass,tmass) ∧
-    is_std_interpretation (tyass,tmass) ∧
-    is_valuation tysig tyass (tyval,tmval) ∧
-    is_in ina ∧
-    is_in inb ∧
-    range ina = typesem tyass tyval ty ∧
-    range inb = typesem tyass tyval (typeof b) ∧
-    term_ok (tysig,tmsig) b ∧
-    (∀m. m <: range ina ⇒
-      inb (f (finv ina m)) =
-        termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b)
-    ⇒
-    in_fun ina inb f =
-      termsem tmsig (tyass,tmass) (tyval,tmval) (Abs x ty b)``,
-  rw[termsem_def,in_fun_def] >>
-  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
-  rw[] >>
-  match_mp_tac (UNDISCH termsem_typesem) >>
-  simp[] >>
-  qexists_tac`(tysig,tmsig)` >> simp[] >>
-  fs[is_std_interpretation_def] >>
-  fs[is_valuation_def,is_term_valuation_def] >>
-  simp[combinTheory.APPLY_UPDATE_THM] >>
-  rw[] >> metis_tac[])
-
 fun underscores [] = ""
   | underscores (x::xs) = "_" ^ x ^ underscores xs
 
@@ -194,7 +167,7 @@ fun type_name (ty : hol_type) =
     { Args = args, Thy = thy, Tyop = tyop } =>
       tyop ^ underscores (map type_name args)
   else
-    dest_vartype ty
+    ty |> dest_vartype |> tyvar_to_deep
 
 fun mk_in_var (ty : hol_type) =
   mk_var ("in_" ^ type_name ty, ``:^(ty) -> 'U``)
@@ -210,25 +183,28 @@ fun mk_in (ty : hol_type) =
   else
     mk_in_var ty
 
-open pairSyntax
+fun genv x =
+  (*
+  let
+    val (name,ty) = dest_var x in
+  in
+    genvar ty
+  end
+  *)
+  variant [] x
 
-val tysig = genvar ``:tyenv``
-val tmsig = genvar ``:tmenv``
-val tyass = genvar ``:'U tyass``
-val tmass = genvar ``:'U tmass``
-val tyval = genvar ``:'U tyval``
-val tmval = genvar ``:'U tmval``
+val tysig = genv ``tysig:tyenv``
+val tmsig = genv ``tmsig:tmenv``
+val tyass = genv ``tyass:'U tyass``
+val tmass = genv ``tmass:'U tmass``
+val tyval = genv ``tyval:'U tyval``
+val tmval = genv ``tmval:'U tmval``
 val signaturet = mk_pair(tysig,tmsig)
 val interpretation = mk_pair(tyass,tmass)
 val valuation = mk_pair(tyval,tmval)
 val termsem_tm = ``termsem0 ^mem``
 fun mk_termsem d =
   list_mk_comb(termsem_tm,[tmsig,interpretation,valuation,d])
-
-val Var_thm = store_thm("Var_thm",
-  ``^tmval (x,ty) = inty v ⇒
-    ∀mem. inty v = termsem0 mem ^tmsig (^tyass,^tmass) (^tyval,^tmval) (Var x ty)``,
-  rw[termsem_def])
 
 val good_context_def = Define`
   good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval ^tmval ⇔
@@ -238,11 +214,25 @@ val good_context_def = Define`
     is_valuation ^tysig ^tyass ^valuation`
 val good_context = good_context_def |> concl |> strip_forall |> snd |> lhs
 
+val Var_thm = store_thm("Var_thm",
+  ``^tmval (x,ty) = inty v ⇒
+    ∀mem. inty v = termsem0 mem ^tmsig (^tyass,^tmass) (^tyval,^tmval) (Var x ty)``,
+  rw[termsem_def])
+
+val Const_thm = store_thm("Const_thm",
+  ``instance ^tmsig ^interpretation name ty ^tyval = inty c ⇒
+    ∀mem. inty c = termsem0 mem ^tmsig ^interpretation ^valuation (Const name ty)``,
+  rw[termsem_def])
+
+val instance_tm = Term.inst[alpha|->``:'U``]``instance``
+fun mk_instance name ty =
+  list_mk_comb(instance_tm,[tmsig,interpretation,name,ty,tyval])
+
 val Comb_thm = store_thm("Comb_thm",
   ``^good_context ⇒
-    is_in ina ∧ is_in inb ⇒
     in_fun ina inb f = termsem ^tmsig ^interpretation ^valuation ftm ∧
-    ina x = termsem ^tmsig ^interpretation ^valuation xtm
+    ina x = termsem ^tmsig ^interpretation ^valuation xtm ⇒
+    is_in ina ⇒ is_in inb
     ⇒
     inb (f x) =
       termsem ^tmsig ^interpretation ^valuation (Comb ftm xtm)``,
@@ -259,29 +249,75 @@ val Comb_thm = store_thm("Comb_thm",
   match_mp_tac is_in_finv_left >>
   simp[]) |> UNDISCH
 
+val Abs_thm = store_thm("Abs_thm",
+  ``^good_context ⇒
+    range ina = typesem tyass tyval ty ∧
+    range inb = typesem tyass tyval (typeof b) ∧
+    term_ok (tysig,tmsig) b ∧
+    (∀m. m <: range ina ⇒
+      inb (f (finv ina m)) =
+        termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b) ⇒
+    is_in ina ⇒ is_in inb
+    ⇒
+    in_fun ina inb f =
+      termsem tmsig (tyass,tmass) (tyval,tmval) (Abs x ty b)``,
+  rw[termsem_def,in_fun_def,good_context_def] >>
+  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
+  rw[] >>
+  match_mp_tac (UNDISCH termsem_typesem) >>
+  simp[] >>
+  qexists_tac`(tysig,tmsig)` >> simp[] >>
+  fs[is_std_interpretation_def] >>
+  fs[is_valuation_def,is_term_valuation_def] >>
+  simp[combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> metis_tac[]) |> UNDISCH
+
 fun var_to_cert v =
   let
     val v_deep = term_to_deep (assert is_var v)
-    val (_,[x_deep,ty_deep]) = strip_comb v_deep
+    val (x_deep,ty_deep) = dest_Var v_deep
     val l = mk_comb(mk_in (type_of v),v)
     val a = mk_eq(mk_comb(tmval,mk_pair(x_deep,ty_deep)),l)
   in
     MATCH_MP Var_thm (ASSUME a) |> SPEC mem
   end
 
-(*
+fun const_to_cert c =
+  let
+    val c_deep = term_to_deep (assert is_const c)
+    val (name_deep,ty_deep) = dest_Const c_deep
+    val l = mk_comb(mk_in (type_of c),c)
+    val a = mk_eq(mk_instance name_deep ty_deep,l)
+  in
+    MATCH_MP Const_thm (ASSUME a) |> SPEC mem
+  end
+
+val good_context_is_in_in_bool = prove(mk_imp(good_context,rand(concl(is_in_in_bool))),
+  rw[good_context_def,is_in_in_bool]) |> UNDISCH
+
+val tm = ``λx. x``
+
 fun term_to_cert tm =
   case dest_term tm of
     VAR _ => var_to_cert tm
-  | CONST _ => raise(Fail"unimpleented")
+  | CONST _ => const_to_cert tm
   | COMB(t1,t2) =>
     let
       val c1 = term_to_cert t1
       val c2 = term_to_cert t2
     in
+      MATCH_MP (Comb_thm) (CONJ c1 c2)
+      |> UNDISCH |> UNDISCH
+      |> PROVE_HYP good_context_is_in_in_bool
+    end
+  | LAMB(x,b) =>
+    let
+      val cb = term_to_cert b
+    in
+      raise(Fail"unimplemented")
+    end
 
-  Comb_thm
-*)
+(* term_to_cert ``g (f T)`` *)
 
 (*
 fun const_to_cert c =
