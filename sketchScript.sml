@@ -5,6 +5,8 @@ open reflectionTheory pred_setTheory setSpecTheory holSyntaxTheory holSemanticsT
 val _ = temp_tight_equality()
 val _ = new_theory"sketch"
 
+datatype type_view = Tyvar of string | Tyapp of string * string * hol_type list
+
 local open String in
 fun tyvar_to_deep s =
   if sub(s,0) = #"'" then
@@ -13,24 +15,17 @@ fun tyvar_to_deep s =
   else s
 end
 
-fun type_to_deep ty =
+fun type_view (ty : hol_type) = 
   if is_type ty then
     case dest_thy_type ty of { Args = args, Thy = thy, Tyop = tyop } =>
-      let
-        val name = fromMLstring tyop
-        val args = List.map type_to_deep args
-        val args = mk_list(args,type_ty)
-      in
-        mk_Tyapp(name,args)
-      end
+      Tyapp (thy, tyop, args)
   else
-    let
-      val name = dest_vartype ty
-      val name = tyvar_to_deep name
-      val name = fromMLstring name
-    in
-      mk_Tyvar(name)
-    end
+    Tyvar (tyvar_to_deep (dest_vartype ty))
+
+fun type_to_deep ty = case type_view ty of
+    Tyvar name => mk_Tyvar (fromMLstring name)
+  | Tyapp (thy,name,args) =>
+      mk_Tyapp(fromMLstring name, mk_list(List.map type_to_deep args, type_ty))
 
 fun term_to_deep tm =
   case dest_term tm of
@@ -61,17 +56,10 @@ fun mk_in_var (ty : hol_type) =
 val in_bool_tm = ``in_bool``
 val in_fun_tm = ``in_fun``
 
-fun mk_in (ty : hol_type) =
-  if is_type ty then case dest_thy_type ty of
-      { Args = [], Thy = thy, Tyop = "bool" } =>
-        in_bool_tm
-    | { Args = [ty1,ty2], Thy = thy, Tyop = "fun" } =>
-        mk_binop in_fun_tm (mk_in ty1, mk_in ty2)
-    | { Args = args, Thy = thy, Tyop = tyop } =>
-        mk_in_var ty
-  else
-    mk_in_var ty
-
+fun mk_in (ty : hol_type) = case type_view ty of
+    Tyapp(thy, "bool", [])        => in_bool_tm
+  | Tyapp(thy, "fun",  [ty1,ty2]) => mk_binop in_fun_tm (mk_in ty1, mk_in ty2)
+  | _                             => mk_in_var ty
 
 fun genv x =
   (*
