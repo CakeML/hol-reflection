@@ -41,7 +41,7 @@ fun tyvar_to_deep s =
   else s
 end
 
-fun type_view (ty : hol_type) = 
+fun type_view (ty : hol_type) =
   if is_type ty then
     case dest_thy_type ty of { Args = args, Thy = thy, Tyop = tyop } =>
       Tyapp (thy, tyop, args)
@@ -364,6 +364,7 @@ val MID_EXISTS_AND_THM = prove(
 
 val test_tm = ``λg. g (f T)``
 val test_tm = ``g = (λx. F)``
+val test_tm = ``g = (λx:num. F)``
 val test = term_to_cert ``λx. x``
 val tm = ``λx. x``
 val test = term_to_cert test_tm
