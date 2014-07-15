@@ -195,10 +195,10 @@ val good_context_instance_equality = prove(
   ``∀ty ina.
     ^good_context ∧
     type_ok ^tysig ty ∧
-    typesem ^tyass ^tyval ty = range (in_fun ina in_bool) ∧
+    typesem ^tyass ^tyval ty = range ina ∧
     is_in ina ⇒
     instance ^tmsig ^interpretation "=" (Fun ty (Fun ty Bool)) ^tyval =
-      in_fun (in_fun ina in_bool) (in_fun (in_fun ina in_bool) in_bool) $=``,
+      in_fun ina (in_fun ina in_bool) $=``,
   rw[good_context_def] >>
   fs[is_std_sig_def] >>
   imp_res_tac instance_def >>
@@ -227,8 +227,8 @@ val good_context_instance_equality = prove(
   Q.ISPECL_THEN[`mem`,`in_bool`,`ina`]mp_tac (GEN_ALL range_in_fun) >>
   discharge_hyps >- ( simp[is_in_in_bool] ) >>
   strip_tac >> simp[range_in_bool] >>
-  Q.ISPECL_THEN[`mem`,`in_bool`,`in_fun ina in_bool`]mp_tac (GEN_ALL range_in_fun) >>
-  discharge_hyps >- ( simp[is_in_in_bool,is_in_in_fun] ) >>
+  Q.ISPECL_THEN[`mem`,`in_bool`,`ina`]mp_tac (GEN_ALL range_in_fun) >>
+  discharge_hyps >- ( simp[is_in_in_bool] ) >>
   strip_tac >> simp[range_in_bool] >>
   conj_tac >- (
     match_mp_tac (UNDISCH abstract_in_funspace) >>
