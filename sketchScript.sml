@@ -54,8 +54,9 @@ fun type_name (ty : hol_type) =
   else
     ty |> dest_vartype |> tyvar_to_deep
 
+val U = mk_vartype("'U")
 fun mk_in_var (ty : hol_type) =
-  mk_var ("in_" ^ type_name ty, ``:^(ty) -> 'U``)
+  mk_var ("in_" ^ type_name ty, ty --> U)
 
 fun mk_in (ty : hol_type) =
   if is_type ty then case dest_thy_type ty of
@@ -85,7 +86,7 @@ val tyass = genv ``tyass:'U tyass``
 val tmass = genv ``tmass:'U tmass``
 val tyval = genv ``tyval:'U tyval``
 val tmval = genv ``tmval:'U tmval``
-val signaturet = mk_pair(tysig,tmsig)
+val signatur = mk_pair(tysig,tmsig)
 val interpretation = mk_pair(tyass,tmass)
 val valuation = mk_pair(tyval,tmval)
 val termsem_tm = ``termsem0 ^mem``
@@ -95,14 +96,14 @@ fun mk_termsem d =
 val good_context_def = Define`
   good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval ^tmval ⇔
     is_set_theory ^mem ∧
-    is_interpretation ^signaturet ^interpretation ∧
+    is_interpretation ^signatur ^interpretation ∧
     is_std_interpretation ^interpretation ∧
     is_valuation ^tysig ^tyass ^valuation`
 val good_context = good_context_def |> concl |> strip_forall |> snd |> lhs
 
 val Var_thm = prove(
   ``^tmval (x,ty) = inty v ⇒
-    ∀mem. inty v = termsem0 mem ^tmsig (^tyass,^tmass) (^tyval,^tmval) (Var x ty)``,
+    ∀mem. inty v = termsem0 mem ^tmsig ^interpretation ^valuation (Var x ty)``,
   rw[termsem_def])
 
 val Const_thm = prove(
@@ -225,19 +226,15 @@ fun term_to_cert tm =
       UNDISCH th2
     end
 
+val test_tm = ``λg. g (f T)``
+val test = term_to_cert test_tm
 (*
 val tm = ``λx:bool. f x``
 term_to_cert tm
-term_to_cert ``λg. g (f T)``
 *)
 
 (*
-      val it = set_goal goal
-
-fun const_to_cert c =
-  let
-    val c_deep = term_to_deep (assert is_const c)
-
+val it = set_goal goal
 show_assums := true
 *)
 
