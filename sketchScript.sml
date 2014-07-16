@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs
+open HolKernel boolLib bossLib lcsymtacs stringSimps
 open miscLib pairSyntax stringSyntax listSyntax holSyntaxSyntax
 open reflectionTheory pred_setTheory setSpecTheory holSyntaxTheory holSemanticsTheory holSemanticsExtraTheory
 
@@ -226,6 +226,16 @@ val good_context_instance_equality = prove(
   spose_not_then strip_assume_tac >>
   metis_tac[is_in_finv_right])
 
+fun mk_is_in_thm ty = case type_view ty of
+    Tyapp ("min","bool",[]) => good_context_is_in_in_bool
+  | Tyapp ("min","fun",[ty1,ty2]) =>
+       good_context_is_in_in_fun
+		   |> ISPEC (mk_in ty1)
+		   |> ISPEC (mk_in ty2)
+       |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
+                           (mk_is_in_thm ty2))
+  | _ => ASSUME ``is_in ^(mk_in ty)``
+
 (* given [...,A,...] |- P and H |- A <=> B1 /\ ... /\ Bn
    produce [...,B1,...,Bn,...] ∪ H |- P *)
 fun simplify_assum th simpth =
@@ -301,16 +311,6 @@ fun const_to_cert c =
     full_simp_asms th
   end
 
-fun mk_is_in_thm ty = case type_view ty of
-    Tyapp ("min","bool",[]) => good_context_is_in_in_bool
-  | Tyapp ("min","fun",[ty1,ty2]) =>
-       good_context_is_in_in_fun
-		   |> ISPEC (mk_in ty1)
-		   |> ISPEC (mk_in ty2)
-       |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
-                           (mk_is_in_thm ty2))
-  | _ => ASSUME ``is_in ^(mk_in ty)``
-
 fun term_to_cert tm =
   case dest_term tm of
     VAR _ => var_to_cert tm
@@ -363,46 +363,55 @@ val tm = ``g = (λx. (f:bool->num) x)``
 val th = term_to_cert tm
 *)
 
-(* example: *)
-open holAxiomsTheory
 val lem = prove(
-``is_set_theory ^mem ⇒
+``^good_context ⇒
   (finv in_bool x ⇒ y) ⇒ ((x = True) ⇒ y)``,
-  metis_tac[finv_in_bool_True]) |> UNDISCH
+  metis_tac[finv_in_bool_True,good_context_def]) |> UNDISCH
 
 val lem2 = prove(
   ``(a ==> b) /\ (c ==> a) ==> (c ==> b)``,
   metis_tac[])
 
-val equation_intro =
-  equation_def |> GSYM
-  |> SPECL[term_to_deep``0``,term_to_deep``1``]
-  |> SIMP_RULE (srw_ss())[]
+fun find_equation_thms p acc =
+  let
+    val (l,r) = dest_eq p
+    val acc = find_equation_thms l acc
+    val acc = find_equation_thms r acc
+    val a = equation_def
+          |> SPECL[term_to_deep l, term_to_deep r]
+          |> SYM
+          |> SIMP_RULE (srw_ss())[]
+  in
+    a::acc
+  end handle HOL_ERR _ => acc
 
-val cert = term_to_cert ``0 = 1``
-val th2 = AP_TERM``finv in_bool`` cert
-val th3 =
-  is_in_finv_left
-  |> Q.ISPEC`in_bool`
-  |> C MATCH_MP (UNDISCH is_in_in_bool)
-  |> (fn th => CONV_RULE (LAND_CONV (REWR_CONV th)) th2)
-  |> EQ_IMP_RULE |> snd
-val th4 = MATCH_MP lem th3
-val th5 = th4 |> DISCH_ALL
-        |> Q.GEN`tmsig` |> Q.SPEC`tmsof(sigof(thyof ctxt))`
-        |> funpow 9 UNDISCH
-val th = Q.SPEC`thyof ctxt` (Q.GEN`thy`provable_imp_eq_true)
-       |> Q.GEN`i` |> SPEC interpretation
-       |> Q.GEN`v` |> SPEC valuation
-       |> CONV_RULE (n_imp_and_intro 2) |> funpow 3 UNDISCH
-       |> SPEC (th5 |> concl |> rator |> rand |> lhs |> rand)
-val th6 = MATCH_MP lem2 (CONJ th5 th)
-        |> REWRITE_RULE [equation_intro]
-        |> C simplify_assum
-             (SPECL [mem,tysig,``tmsof(sigof(thyof ctxt))``,tyass,tmass,tyval,tmval] good_context_def)
-val final = simp_asms th6
+fun prop_to_loeb_hyp p =
+  let
+    val cert = term_to_cert p
+    val equation_intro_rule = PURE_REWRITE_RULE (find_equation_thms p [])
+    val th2 = AP_TERM``finv in_bool`` cert
+    val th3 =
+      is_in_finv_left
+      |> Q.ISPEC`in_bool`
+      |> C MATCH_MP good_context_is_in_in_bool
+      |> (fn th => CONV_RULE (LAND_CONV (REWR_CONV th)) th2)
+      |> EQ_IMP_RULE |> snd
+    val th4 = MATCH_MP lem th3
+    val inst_tmsig = Q.INST[`tmsig`|->`tmsof(sigof(thyof ctxt))`]
+    val th5 = th4 |> inst_tmsig
+    val th = Q.SPEC`thyof ctxt` (Q.GEN`thy`provable_imp_eq_true)
+           |> Q.GEN`i` |> SPEC interpretation
+           |> Q.GEN`v` |> SPEC valuation
+           |> CONV_RULE (n_imp_and_intro 2) |> funpow 3 UNDISCH
+           |> SPEC (th5 |> concl |> rator |> rand |> lhs |> rand)
+    val th6 = MATCH_MP lem2 (CONJ th5 th)
+            |> equation_intro_rule
+            |> C simplify_assum (inst_tmsig (SPEC_ALL good_context_def))
+  in
+    simp_asms th6
+  end
 
-val _ = save_thm("example",final)
+val _ = save_thm("example",prop_to_loeb_hyp``0 = 1``)
 
 val test_tm = ``λg. g (f T)``
 val test_tm = ``g = (λx. F)``
