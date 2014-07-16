@@ -103,7 +103,7 @@ in
         val goal = (mk_set(hyp cb @ hyp th), th |> concl |> dest_imp |> fst)
         val th1 = TAC_PROOF(goal,
           gen_tac >> strip_tac >>
-          SIMP_TAC bool_ss [] >>
+          CONV_TAC(LAND_CONV(RAND_CONV(BETA_CONV))) >>
           match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
           ASM_SIMP_TAC (std_ss++LIST_ss++STRING_ss)
             [combinTheory.APPLY_UPDATE_THM] >>
@@ -111,6 +111,9 @@ in
             conj_tac >- (
               match_mp_tac good_context_extend_tmval >>
               PROVE_TAC[])) >>
+          TRY (
+            match_mp_tac good_context_extend_tmval >>
+            PROVE_TAC[]) >>
           match_mp_tac EQ_SYM >>
           match_mp_tac (MP_CANON is_in_finv_right) >>
           PROVE_TAC[good_context_is_in_in_bool,good_context_is_in_in_fun])
