@@ -245,17 +245,40 @@ fun replace_assum th simpth =
   let
     val c = simpth |> concl
     val (xs,b) = c |> strip_forall
-    val A = b |> rand
+    val (B,A) = dest_imp b handle HOL_ERR _ => (T,b)
     val A' = first (can (match_term A)) (hyp th)
     val th1 = DISCH A' th
     val (s,_) = match_term A A'
     val th2 = ISPECL (map (fn x => #residue(first (equal (fst(dest_var x)) o fst o dest_var o #redex) s)) xs) simpth
-    val n = b |> dest_imp |> fst |> strip_conj |> length
+    val n = B |> strip_conj |> length
     val th3 = CONV_RULE (n_imp_and_intro (n-1)) th2
-    val th4 = funpow n UNDISCH th3
+    val th4 = funpow n UNDISCH th3 handle HOL_ERR _ => th3
   in
     MP th1 th4
   end
+
+val MID_EXISTS_AND_THM = prove(
+  ``(?x. P x /\ Q /\ R x) <=> (Q /\ ?x. P x /\ R x)``,
+  metis_tac[])
+val eval = SIMP_CONV (std_ss++listSimps.LIST_ss)
+  [typeof_def,codomain_def,typesem_def,
+   term_ok_def,holSyntaxExtraTheory.WELLTYPED_CLAUSES,
+   type_ok_def,type_11]
+ THENC SIMP_CONV std_ss [GSYM CONJ_ASSOC,MID_EXISTS_AND_THM]
+val get_simpths = mapfilter (QCHANGED_CONV eval) o hyp
+fun simp_asms th = foldl (uncurry (C simplify_assum)) th (get_simpths th)
+val replace_asms =
+  repeat (C replace_assum good_context_is_in_in_fun) o
+  repeat (C replace_assum good_context_instance_equality) o
+  repeat (C replace_assum good_context_is_in_in_bool) o
+  repeat (C replace_assum good_context_lookup_bool) o
+  repeat (C replace_assum good_context_lookup_fun) o
+  repeat (C replace_assum TRUTH)
+fun changed f th =
+    assert (not o curry HOLset.equal (hypset th) o hypset)
+           (f th)
+
+val full_simp_asms = repeat (changed (simp_asms o replace_asms))
 
 fun var_to_cert v =
   let
@@ -275,18 +298,17 @@ fun const_to_cert c =
     val a = mk_eq(mk_instance name_deep ty_deep,l)
     val th = MATCH_MP Const_thm (ASSUME a) |> SPEC mem
   in
-    (replace_assum th good_context_instance_equality
-     handle HOL_ERR _ => th)
+    full_simp_asms th
   end
 
 fun mk_is_in_thm ty = case type_view ty of
-    Tyapp ("min","Bool",[]) => is_in_in_bool
-  | Tyapp ("min","Fun",[ty1,ty2]) =>
-      is_in_in_fun |> UNDISCH 
-		   |> SPEC (mk_in ty1)
-		   |> SPEC (mk_in ty2)
-                   |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
-		                       (mk_is_in_thm ty2))
+    Tyapp ("min","bool",[]) => good_context_is_in_in_bool
+  | Tyapp ("min","fun",[ty1,ty2]) =>
+       good_context_is_in_in_fun
+		   |> ISPEC (mk_in ty1)
+		   |> ISPEC (mk_in ty2)
+       |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
+                           (mk_is_in_thm ty2))
   | _ => ASSUME ``is_in ^(mk_in ty)``
 
 fun term_to_cert tm =
@@ -302,7 +324,7 @@ fun term_to_cert tm =
       MATCH_MP (Comb_thm) (CONJ c1 c2)
       |> C MATCH_MP (mk_is_in_thm dty)
       |> C MATCH_MP (mk_is_in_thm rty)
-      |> PROVE_HYP good_context_is_in_in_bool
+      |> full_simp_asms
     end
   | LAMB(x,b) =>
     let
@@ -322,22 +344,24 @@ fun term_to_cert tm =
         gen_tac >> strip_tac >>
         SIMP_TAC bool_ss [] >>
         match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
-        ASM_SIMP_TAC bool_ss [combinTheory.APPLY_UPDATE_THM] >>
+        ASM_SIMP_TAC (std_ss++listSimps.LIST_ss++stringSimps.STRING_ss)
+          [combinTheory.APPLY_UPDATE_THM] >>
+        TRY (
+          conj_tac >- (
+            match_mp_tac good_context_extend_tmval >>
+            PROVE_TAC[])) >>
         match_mp_tac EQ_SYM >>
         match_mp_tac (MP_CANON is_in_finv_right) >>
-        rw[])
-        (*
-        fs[typesem_def] >>
-        TRY (
-        conj_tac >- (
-          match_mp_tac good_context_extend_tmval >>
-          rw[] ) >>
-        metis_tac[is_in_finv_right] ))
-        *)
+        PROVE_TAC[good_context_is_in_in_bool,good_context_is_in_in_fun])
       val th2 = MP th th1
     in
-      UNDISCH th2
+      th2 |> UNDISCH |> full_simp_asms
     end
+
+(*
+val tm = ``g = (λx. (f:bool->num) x)``
+val th = term_to_cert tm
+*)
 
 (* example: *)
 open holAxiomsTheory
@@ -366,46 +390,35 @@ val th3 =
 val th4 = MATCH_MP lem th3
 val th5 = th4 |> DISCH_ALL
         |> Q.GEN`tmsig` |> Q.SPEC`tmsof(sigof(thyof ctxt))`
-        |> funpow 10 UNDISCH
+        |> funpow 9 UNDISCH
 val th = Q.SPEC`thyof ctxt` (Q.GEN`thy`provable_imp_eq_true)
        |> Q.GEN`i` |> SPEC interpretation
        |> Q.GEN`v` |> SPEC valuation
-       |> UNDISCH
+       |> CONV_RULE (n_imp_and_intro 2) |> funpow 3 UNDISCH
        |> SPEC (th5 |> concl |> rator |> rand |> lhs |> rand)
-val final = MATCH_MP lem2 (CONJ th5 th)
-          |> REWRITE_RULE [equation_intro]
+val th6 = MATCH_MP lem2 (CONJ th5 th)
+        |> REWRITE_RULE [equation_intro]
+        |> C simplify_assum
+             (SPECL [mem,tysig,``tmsof(sigof(thyof ctxt))``,tyass,tmass,tyval,tmval] good_context_def)
+val final = simp_asms th6
 
 val _ = save_thm("example",final)
-
-val MID_EXISTS_AND_THM = prove(
-  ``(?x. P x /\ Q /\ R x) <=> (Q /\ ?x. P x /\ R x)``,
-  metis_tac[])
 
 val test_tm = ``λg. g (f T)``
 val test_tm = ``g = (λx. F)``
 val test_tm = ``g = (λx:num. F)``
 val test = term_to_cert ``λx. x``
-val tm = ``λx. x``
 val test = term_to_cert test_tm
 (*
 val cs = listLib.list_compset()
 val () = computeLib.add_thms [typeof_def,codomain_def,typesem_def] cs
 val eval = computeLib.CBV_CONV cs
 *)
-val eval = SIMP_CONV (std_ss++listSimps.LIST_ss)
-  [typeof_def,codomain_def,typesem_def,
-   term_ok_def,holSyntaxExtraTheory.WELLTYPED_CLAUSES,
-   type_ok_def,type_11]
- THENC SIMP_CONV std_ss [GSYM CONJ_ASSOC,MID_EXISTS_AND_THM]
 
-val simpths = mapfilter
-  (QCHANGED_CONV eval)
-  (hyp test)
 (*
 val test1 = simplify_assum test (hd simpths)
 val test2 = simplify_assum test1 (hd (tl simpths))
 val test3 = simplify_assum test2 (hd (tl (tl simpths)))
-*)
 val test1 = foldl (uncurry (C simplify_assum)) test simpths
 val test2 = repeat (fn th => replace_assum th good_context_is_in_in_fun) test1
 val test3 = PROVE_HYP good_context_is_in_in_bool test2
@@ -417,15 +430,11 @@ val simpths = mapfilter
 val test6 = foldl (uncurry (C simplify_assum)) test5 simpths
 val test7 = PROVE_HYP good_context_lookup_bool test6
 val test8 = PROVE_HYP good_context_lookup_fun test7
+*)
 
 (*
 val tm = ``λx:bool. f x``
 term_to_cert tm
-*)
-
-(*
-val it = set_goal goal
-show_assums := true
 *)
 
 val base_tysig_def = Define`
