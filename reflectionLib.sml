@@ -13,6 +13,9 @@ local
      term_ok_def,WELLTYPED_CLAUSES,
      type_ok_def,type_11]
    THENC SIMP_CONV std_ss [GSYM CONJ_ASSOC,MID_EXISTS_AND_THM]
+
+  val tyass_eq_sym = PROVE[](``∀x y z. (^tyass x y = z) ⇒ (z = ^tyass x y)``)
+  val tyval_eq_sym = PROVE[](``∀x z. (^tyval x = z) ⇒ (z = ^tyval x)``)
 in
 
   val get_simpths = mapfilter (QCHANGED_CONV eval) o hyp
@@ -23,6 +26,8 @@ in
     repeat (C replace_assum good_context_is_in_in_bool) o
     repeat (C replace_assum good_context_lookup_bool) o
     repeat (C replace_assum good_context_lookup_fun) o
+    repeat (C replace_assum tyass_eq_sym) o
+    repeat (C replace_assum tyval_eq_sym) o
     repeat (C replace_assum TRUTH)
   fun changed f th =
       assert (not o curry HOLset.equal (hypset th) o hypset)
@@ -147,15 +152,16 @@ in
         |> (fn th => CONV_RULE (LAND_CONV (REWR_CONV th)) th2)
         |> EQ_IMP_RULE |> snd
       val th4 = MATCH_MP finv_in_bool_True th3
-      val inst_tmsig = Q.INST[`tmsig`|->`tmsof(sigof(thyof ctxt))`]
-      val th5 = th4 |> inst_tmsig
+      val inst_sig = Q.INST[`tmsig`|->`tmsof(sigof(thyof ctxt))`,
+                            `tysig`|->`tysof(sigof(thyof ctxt))`]
+      val th5 = th4 |> inst_sig
       val th = Q.SPEC`thyof ctxt` provable_imp_eq_true
              |> SPECL [interpretation,valuation]
              |> funpow 3 UNDISCH
              |> SPEC (th5 |> concl |> rator |> rand |> lhs |> rand)
       val th6 = MATCH_MP mp_lemma (CONJ th5 th)
               |> equation_intro_rule
-              |> C simplify_assum (inst_tmsig (SPEC_ALL good_context_def))
+              |> C simplify_assum (inst_sig (SPEC_ALL good_context_def))
     in
       simp_asms th6
     end
