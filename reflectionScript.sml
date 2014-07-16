@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs
-open miscLib basicReflectionLib pred_setTheory
+open HolKernel boolLib bossLib Parse lcsymtacs
+open miscTheory miscLib basicReflectionLib pred_setTheory
 open setSpecTheory holSyntaxTheory holSemanticsTheory holSemanticsExtraTheory
 
 val _ = temp_tight_equality()
@@ -339,5 +339,27 @@ val _ = save_thms
   [ good_context_is_in_in_bool , good_context_is_in_in_fun ,
     good_context_lookup_bool , good_context_lookup_fun ,
     good_context_extend_tmval , good_context_instance_equality ]
+
+val base_tyval_exists = prove(
+  ``∃τ. ∀mem. is_set_theory mem ⇒ is_type_valuation0 mem (τ mem)``,
+  rw[GSYM SKOLEM_THM,is_type_valuation_def] >>
+  qexists_tac`K (one mem)` >> rw[] >>
+  qexists_tac`empty mem` >>
+  metis_tac[mem_one])
+val base_tyval_prim_def = new_specification("base_tyval_prim_def",["base_tyval0"],base_tyval_exists)
+val _ = overload_on("base_tyval",``base_tyval0 ^mem``)
+val base_tyval_def = save_thm("base_tyval_def",base_tyval_prim_def |> ISPEC mem |> UNDISCH)
+
+val is_type_valuation_update_list = store_thm("is_type_valuation_update_list",
+  ``∀ls t. is_type_valuation t ∧ EVERY (inhabited o SND) ls ⇒ is_type_valuation (t =++ ls)``,
+  Induct >> simp[UPDATE_LIST_THM] >> rw[] >>
+  first_x_assum match_mp_tac >> rw[] >>
+  fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> metis_tac[])
+
+val inhabited_range = store_thm("inhabited_range",
+  ``∀inx. is_in inx ⇒ inhabited (range inx)``,
+  rw[] >> imp_res_tac is_in_range_thm >>
+  metis_tac[] )
 
 val _ = export_theory()
