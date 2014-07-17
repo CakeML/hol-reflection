@@ -3,15 +3,15 @@ VMLDIR = ../vml
 endif
 
 HOLHOL = $(VMLDIR)/hol-light
-INCLUDES = $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/stateful/syntax $(HOLHOL)/stateful/semantics
+INCLUDES = $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = $(HOLHOL)/stateful/semantics/heap
+PARENT_HOLHEAP = $(HOLHOL)/standard/semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = $(HOLHOL)/syntax-lib/holSyntaxLibTheory $(HOLHOL)/set-theory/setSpecTheory $(HOLHOL)/stateful/syntax/holAxiomsSyntaxTheory
+BARE_THYS = $(HOLHOL)/syntax-lib/holSyntaxLibTheory $(HOLHOL)/set-theory/setSpecTheory $(HOLHOL)/standard/syntax/holAxiomsSyntaxTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
