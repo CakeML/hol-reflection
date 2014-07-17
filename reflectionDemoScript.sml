@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs
+open HolKernel Parse boolLib bossLib lcsymtacs
 open reflectionLib
 val _ = new_theory"reflectionDemo"
 
@@ -11,9 +11,128 @@ val res2 = prop_to_loeb_hyp p
 val p = ``(∀y. (λx. F) z) ⇔ ¬z``
 val res3 = prop_to_loeb_hyp p
 
-open basicReflectionLib miscTheory listSimps stringSimps
+open miscLib basicReflectionLib miscTheory listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
-open holBoolTheory holBoolSyntaxTheory holSyntaxExtraTheory
+open holBoolTheory holBoolSyntaxTheory holSyntaxExtraTheory holConsistencyTheory
+
+val init_model_def = new_specification("init_model_def",["init_model0"],
+    SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] (GEN_ALL init_ctxt_has_model))
+val _ = overload_on("init_model",``init_model0 ^mem``)
+
+val bool_ctxt_no_new_axioms =
+  ``(∀p. MEM (NewAxiom p) (mk_bool_ctxt init_ctxt) ⇒
+         MEM (NewAxiom p) init_ctxt)``
+  |> (EVAL THENC (SIMP_CONV std_ss []))
+  |> EQT_ELIM
+
+val bool_model_exists =
+  extends_consistent
+  |> UNDISCH
+  |> Q.SPECL[`init_ctxt`,`mk_bool_ctxt init_ctxt`]
+  |> C MATCH_MP bool_extends_init
+  |> SPEC ``init_model``
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+  |> C MATCH_MP init_theory_ok
+  |> C MATCH_MP (UNDISCH (SPEC mem init_model_def))
+  |> C MATCH_MP bool_ctxt_no_new_axioms
+  |> DISCH_ALL |> GEN_ALL
+  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]
+
+val bool_model_def = new_specification("bool_model_def",["bool_model0"],
+  bool_model_exists)
+val _ = overload_on("bool_model",``bool_model0 ^mem``)
+val bool_model_models = UNDISCH (SPEC mem bool_model_def)
+
+val bool_theory_ok =
+extends_theory_ok
+|> Q.SPECL[`init_ctxt`,`mk_bool_ctxt init_ctxt`]
+|> SIMP_RULE std_ss [bool_extends_init,init_theory_ok]
+
+val bool_model_interpretation =
+bool_has_bool_interpretation
+|> UNDISCH
+|> Q.SPEC`init_ctxt`
+|> Q.SPEC`bool_model`
+|> SIMP_RULE std_ss [bool_model_models,bool_theory_ok]
+
+val not_thm = prove(
+  ``is_set_theory ^mem ⇒
+    (Abstract boolset boolset (λx. Boolean (¬finv in_bool x)) =
+     Abstract boolset boolset (λp. Boolean (p ≠ True)))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[boolean_in_boolset] >>
+  simp[mem_boolset,boolean_def] >>
+  imp_res_tac is_in_in_bool >>
+  qx_gen_tac`x` >>
+  `finv in_bool (in_bool (x = True)) = (x = True)` by
+    (match_mp_tac is_in_finv_left >> rw[]) >>
+  rw[] >> fs[] >> rfs[in_bool_def,boolean_def])
+
+val in_fun_not =
+``in_fun in_bool in_bool $~``
+  |> SIMP_CONV std_ss [Once in_bool_def,in_fun_def,UNDISCH range_in_bool,UNDISCH not_thm]
+
+val in_bool_false =
+  ``in_bool F``
+  |> SIMP_CONV std_ss [in_bool_def,boolean_def]
+
+val range_in_fun_ina_in_bool =
+range_in_fun |> GEN_ALL |> SPEC mem
+  |> Q.ISPECL[`in_bool`,`ina:'a -> 'U`]
+  |> SIMP_RULE std_ss [UNDISCH is_in_in_bool,GSYM AND_IMP_INTRO]
+  |> UNDISCH |> UNDISCH
+
+val forall_thm = prove(
+  ``is_set_theory ^mem ⇒ is_in ina ⇒
+    (Abstract (Funspace (range ina) boolset) boolset
+       (λP. Boolean (∀x. x <: range ina ⇒ Holds P x)) =
+     Abstract (Funspace (range ina) boolset) boolset
+       (λx. in_bool ($! (finv (in_fun ina in_bool) x))))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[boolean_in_boolset,in_bool_def] >>
+  simp[boolean_def,holds_def] >>
+  qx_gen_tac`x` >> strip_tac >>
+  qmatch_abbrev_tac`(if z1 then True else False) = if z2 then True else False` >>
+  qsuff_tac`z1 = z2`>-rw[]>>
+  unabbrev_all_tac >>
+  `∃f. (x = in_fun ina Boolean (λa. (f (ina a)) = True)) ∧
+       (∀a. f (ina a) <: boolset)` by (
+    simp[UNDISCH range_in_bool,in_fun_def,GSYM in_bool_def] >>
+    qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
+    discharge_hyps  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
+    qexists_tac`f` >> simp[in_bool_def] >>
+    reverse conj_tac >- metis_tac[is_in_range_thm] >>
+    match_mp_tac (UNDISCH abstract_eq) >>
+    simp[boolean_in_boolset] >> rw[] >>
+    simp[boolean_def] >> rw[] >>
+    imp_res_tac is_in_finv_right >>
+    metis_tac[mem_boolset] ) >>
+  Q.ISPEC_THEN`in_fun ina Boolean`mp_tac is_in_finv_left >>
+  discharge_hyps >- metis_tac[is_in_in_fun,is_in_in_bool,in_bool_def] >>
+  strip_tac >> simp[] >>
+  rw[EQ_IMP_THM] >- (
+    first_x_assum(qspec_then`ina a`mp_tac) >>
+    discharge_hyps >- metis_tac[is_in_range_thm] >>
+    simp[in_fun_def] >> strip_tac >>
+    pop_assum (SUBST1_TAC o SYM) >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac apply_abstract_matchable >>
+    simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
+    simp[in_bool_def,boolean_in_boolset] >>
+    Q.ISPEC_THEN`ina`mp_tac is_in_finv_left >> rw[] >>
+    rw[boolean_def] >>
+    metis_tac[mem_boolset] ) >>
+  rw[in_fun_def] >>
+  match_mp_tac apply_abstract_matchable >>
+  simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
+  simp[in_bool_def,boolean_in_boolset] >>
+  rw[boolean_def]) |> UNDISCH |> UNDISCH
+
+val in_fun_forall =
+  ``in_fun (in_fun ina in_bool) in_bool $!``
+  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_ina_in_bool,GSYM forall_thm]
 
 val base_tyval_tm = ``base_tyval``
 
@@ -52,8 +171,22 @@ fun mk_tyval th =
     SIMP_RULE std_ss [UPDATE_LIST_THM] th
   end
 
-val tyval_th = mk_tyval res2
-val r3 = res2 |> INST[tyval|->(rand(concl tyval_th))]
+val res = res3
+val tyval_th = mk_tyval res
+
+val bool_model_interpretations =
+is_bool_interpretation_def
+|> SPEC mem
+|> Q.SPEC`bool_model`
+|> SIMP_RULE (std_ss++LIST_ss)
+  [bool_model_interpretation,interprets_def,
+   SIMP_RULE std_ss [models_def] bool_model_models,
+   GSYM IMP_CONJ_THM, GSYM FORALL_AND_THM]
+|> SPEC (rand(concl tyval_th))
+|> C MATCH_MP tyval_th
+|> SIMP_RULE (std_ss++LIST_ss) [combinTheory.APPLY_UPDATE_THM]
+
+val r3 = res |> INST[tyval|->(rand(concl tyval_th))]
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss) [combinTheory.APPLY_UPDATE_THM])) (hyp r3)
 val phyps = map EQT_ELIM simpths
 val r4 = foldl (uncurry PROVE_HYP) r3 phyps
@@ -81,7 +214,19 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
 val r7 = foldl (uncurry (C simplify_assum)) r6 simpths |> PROVE_HYP TRUTH
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss) [is_valuation_def,tyval_th])) (hyp r7)
 val r8 = foldl (uncurry (C simplify_assum)) r7 simpths
+val r9 = Q.INST[`tyass`|->`tyaof bool_model`,`tmass`|->`tmaof bool_model`] r8
+val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss) [bool_model_models,SIMP_RULE std_ss [models_def] bool_model_models])) (hyp r9)
+val r10 = foldl (uncurry (C simplify_assum)) r9 simpths |> PROVE_HYP TRUTH
+val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [bool_model_interpretations,in_fun_not,in_bool_false,
+    Q.INST[`ina`|->`in_A`]in_fun_forall,
+    bool_model_interpretation
+    |> SIMP_RULE std_ss [is_bool_interpretation_def]
+    |> CONJUNCT1
+    |> SIMP_RULE std_ss [is_std_interpretation_def,is_std_type_assignment_def]
+    |> CONJUNCT1,
+    UNDISCH range_in_bool])) (hyp r10)
+val r11 = foldl (uncurry (C simplify_assum)) r10 simpths |> PROVE_HYP TRUTH
 
-val _ = save_thm("example",r8)
+val _ = save_thm("example",r11)
 
 val _ = export_theory()
