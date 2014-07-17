@@ -24,6 +24,7 @@ in
     repeat (C replace_assum good_context_is_in_in_fun) o
     repeat (C replace_assum good_context_instance_equality) o
     repeat (C replace_assum good_context_is_in_in_bool) o
+    repeat (C replace_assum good_context_tyass_bool) o
     repeat (C replace_assum good_context_lookup_bool) o
     repeat (C replace_assum good_context_lookup_fun) o
     repeat (C replace_assum tyass_eq_sym) o

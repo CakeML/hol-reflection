@@ -269,6 +269,10 @@ val good_context_is_in_in_bool = prove(mk_imp(good_context,rand(concl(is_in_in_b
 val good_context_is_in_in_fun = prove(mk_imp(good_context,rand(concl(is_in_in_fun))),
   rw[good_context_def,is_in_in_fun]) |> UNDISCH
 
+val good_context_tyass_bool = prove(
+  ``^good_context ==> (tyass "bool" [] = range in_bool)``,
+  rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_in_bool]) |> UNDISCH
+
 val good_context_lookup_bool = prove(
   ``^good_context ⇒ FLOOKUP ^tysig "bool" = SOME 0``,
   rw[good_context_def,is_std_sig_def]) |> UNDISCH
@@ -334,9 +338,11 @@ val good_context_instance_equality = prove(
 
 val _ = save_thms
   ["good_context_is_in_in_bool","good_context_is_in_in_fun",
+   "good_context_tyass_bool",
    "good_context_lookup_bool","good_context_lookup_fun",
    "good_context_extend_tmval","good_context_instance_equality"]
   [ good_context_is_in_in_bool , good_context_is_in_in_fun ,
+    good_context_tyass_bool,
     good_context_lookup_bool , good_context_lookup_fun ,
     good_context_extend_tmval , good_context_instance_equality ]
 
