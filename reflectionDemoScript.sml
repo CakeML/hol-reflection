@@ -10,6 +10,8 @@ val p = ``∀y. (λx. F) z``
 val res2 = prop_to_loeb_hyp p
 val p = ``(∀y. (λx. F) z) ⇔ ¬z``
 val res3 = prop_to_loeb_hyp p
+val p = ``(λx. ~x) p ⇒ F``
+val res4 = prop_to_loeb_hyp p
 
 open miscLib basicReflectionLib miscTheory listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
@@ -171,7 +173,10 @@ fun mk_tyval th =
     SIMP_RULE std_ss [UPDATE_LIST_THM] th
   end
 
+val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
+
 val res = res3
+
 val tyval_th = mk_tyval res
 
 val bool_model_interpretations =
@@ -184,7 +189,7 @@ is_bool_interpretation_def
    GSYM IMP_CONJ_THM, GSYM FORALL_AND_THM]
 |> SPEC (rand(concl tyval_th))
 |> C MATCH_MP tyval_th
-|> SIMP_RULE (std_ss++LIST_ss) [combinTheory.APPLY_UPDATE_THM]
+|> SIMP_RULE (std_ss++LIST_ss++STRING_ss) [combinTheory.APPLY_UPDATE_THM]
 
 val r3 = res |> INST[tyval|->(rand(concl tyval_th))]
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss) [combinTheory.APPLY_UPDATE_THM])) (hyp r3)
@@ -227,6 +232,70 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [bool_model_
     UNDISCH range_in_bool])) (hyp r10)
 val r11 = foldl (uncurry (C simplify_assum)) r10 simpths |> PROVE_HYP TRUTH
 
-val _ = save_thm("example",r11)
+val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
+  ``is_set_theory ^mem ⇒
+    ∀tyenv δ τ.  is_type_valuation τ ⇒ is_type_assignment tyenv δ ⇒
+    ∀constraints.
+    ALL_DISTINCT (MAP FST constraints) ∧
+    EVERY (λ(k,v). type_ok tyenv (SND k) ∧
+                   v <: typesem δ τ (SND k)) constraints
+    ⇒
+    ∃σ.
+      is_term_valuation tyenv δ τ σ ∧
+      EVERY (λ(k,v). σ k = v) constraints``,
+  strip_tac >> ntac 3 gen_tac >> ntac 2 strip_tac >> Induct >> simp[] >-
+    metis_tac[holSemanticsExtraTheory.term_valuation_exists,is_valuation_def,pairTheory.FST,pairTheory.SND] >>
+  qx_gen_tac`p` >>
+  `∃k v. p = (k,v)` by metis_tac[pairTheory.pair_CASES] >>
+  rw[] >> fs[] >>
+  qexists_tac`(k =+ v) σ` >>
+  simp[combinTheory.APPLY_UPDATE_THM] >>
+  conj_tac >- (
+    fs[is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> fs[] ) >>
+  fs[listTheory.EVERY_MEM] >>
+  Cases >> simp[] >>
+  fs[listTheory.MEM_MAP,Once pairTheory.FORALL_PROD] >>
+  rw[] >> metis_tac[])
+
+val is_term_valuation_asm = first (same_const ``is_term_valuation0`` o fst o strip_comb) (hyp r11)
+val t1 = is_term_valuation_asm |> rator |> rator |> rator |> rand
+val t2 = is_term_valuation_asm |> rator |> rator |> rand
+val t3 = is_term_valuation_asm |> rator |> rand
+
+val asms = tmval_asms r11
+val tmval_th1 =
+constrained_term_valuation_exists
+|> UNDISCH
+|> SPECL [t1,t2,t3]
+|> SIMP_RULE std_ss [tyval_th]
+|> C MATCH_MP (
+     bool_model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1
+     |> SIMP_RULE std_ss [is_interpretation_def] |> CONJUNCT1)
+|> SPEC (asms |> map (fn eq => mk_pair(rand(lhs eq),rhs eq))
+         |> C (curry mk_list) (mk_prod(mk_prod(string_ty,``:type``),U)))
+
+val goal = (hyp tmval_th1,fst(dest_imp(concl tmval_th1)))
+val tmval_th2 = TAC_PROOF(goal,
+  conj_tac >- EVAL_TAC >>
+  simp[holSyntaxTheory.type_ok_def,typesem_def,combinTheory.APPLY_UPDATE_THM] >>
+  rpt conj_tac >>
+  TRY (EVAL_TAC >> NO_TAC) >>
+  TRY (simp[
+    bool_model_interpretation
+    |> SIMP_RULE std_ss [is_bool_interpretation_def] |> CONJUNCT1
+    |> SIMP_RULE std_ss [is_std_interpretation_def] |> CONJUNCT1
+    |> SIMP_RULE std_ss [is_std_type_assignment_def]
+    |> CONJUNCT2] >>
+    metis_tac[is_in_in_bool,is_in_range_thm,range_in_bool]) >>
+  metis_tac[is_in_range_thm])
+val tmval_th3 = MP tmval_th1 tmval_th2
+  |> SIMP_RULE (std_ss++LIST_ss)[]
+
+val r12 =
+  foldl (uncurry PROVE_HYP) r11 (CONJUNCTS (ASSUME (mk_conj(is_term_valuation_asm,(list_mk_conj asms)))))
+val r13 = CHOOSE (tmval, tmval_th3) r12
+
+val _ = save_thm("example",r13)
 
 val _ = export_theory()
