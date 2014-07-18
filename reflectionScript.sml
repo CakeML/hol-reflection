@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib Parse lcsymtacs
+open HolKernel boolLib bossLib Parse lcsymtacs listSimps
 open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory
 open miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolSyntaxTheory holBoolTheory holConsistencyTheory
@@ -609,5 +609,21 @@ val constrained_term_valuation_exists = store_thm("constrained_term_valuation_ex
   Cases >> simp[] >>
   fs[MEM_MAP,Once FORALL_PROD] >>
   rw[] >> metis_tac[])
+
+val rwt = MATCH_MP (PROVE[]``P x ⇒ ((∀x. P x ⇒ Q) ⇔ Q)``) base_tyval_def
+val interprets_nil = save_thm("interprets_nil",
+  interprets_def |> SPEC_ALL |> Q.GEN`vs` |> Q.SPEC`[]`
+  |> SIMP_RULE (std_ss++LIST_ss) [rwt] |> GEN_ALL)
+
+val interprets_one = store_thm("interprets_one",
+  ``i interprets name on [v] as f ⇔
+    (∀x. inhabited x ⇒ (i name [x] = f [x]))``,
+  rw[interprets_def,EQ_IMP_THM] >>
+  TRY (
+    first_x_assum match_mp_tac >>
+    fs[is_type_valuation_def] ) >>
+  first_x_assum(qspec_then`K x`mp_tac) >>
+  simp[] >> disch_then match_mp_tac >>
+  rw[is_type_valuation_def] >> metis_tac[])
 
 val _ = export_theory()

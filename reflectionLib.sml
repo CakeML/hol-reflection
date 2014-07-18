@@ -202,14 +202,10 @@ in
       end
   end
 
-  fun bool_interpretations interp_th tyval_th =
+  fun bool_interpretations interp_th =
     is_bool_interpretation_def
     |> SPECL [mem, rand(concl interp_th)]
     |> SIMP_RULE std_ss [interp_th] |> CONJUNCT2
-    |> SIMP_RULE (std_ss++LIST_ss)
-      [interprets_def, GSYM IMP_CONJ_THM, GSYM FORALL_AND_THM]
-    |> SPEC (rand(concl tyval_th))
-    |> C MATCH_MP tyval_th
-    |> SIMP_RULE (std_ss++LIST_ss++STRING_ss) [APPLY_UPDATE_THM]
+    |> SIMP_RULE (std_ss++LIST_ss) [interprets_nil,interprets_one]
 
 end end

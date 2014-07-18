@@ -19,29 +19,48 @@ val res6 = prop_to_loeb_hyp p
 
 open miscLib basicReflectionLib listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
-open holBoolTheory holBoolSyntaxTheory holSyntaxExtraTheory
+open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory
 
 val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
 
 val bool_model_models = UNDISCH (SPEC mem bool_model_def)
 
+val bool_sig_quant_instances = prove(
+  ``is_bool_sig sig ⇒
+    (instance (tmsof sig) i "!" (Fun (Fun ty Bool) Bool) =
+       (λτ. tmaof i "!" [typesem (tyaof i) τ ty])) ∧
+    (instance (tmsof sig) i "?" (Fun (Fun ty Bool) Bool) =
+       (λτ. tmaof i "?" [typesem (tyaof i) τ ty]))``,
+  rw[is_bool_sig_def] >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`"!"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`"?"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  EVAL_TAC >> rw[])
+
 val bool_insts =
-  bool_sig_instances
+  DISCH_ALL(CONJ(UNDISCH bool_sig_instances)(UNDISCH bool_sig_quant_instances))
   |> Q.GEN`sig`
   |> Q.SPEC`sigof(mk_bool_ctxt init_ctxt)`
-  |> SIMP_RULE std_ss []
+  |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
 val is_bool_sig_goal:goal = ([],fst(dest_imp(concl bool_insts)))
 val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
 val bool_insts = MATCH_MP bool_insts is_bool_sig_th
-val in_fun_forall = in_fun_forall |> DISCH``is_in ina`` |> Q.GEN`ina`
-val in_fun_exists = in_fun_exists |> DISCH``is_in ina`` |> Q.GEN`ina`
+val in_fun_forall1 = in_fun_forall |> DISCH``is_in ina`` |> Q.GEN`ina`
+val in_fun_exists1 = in_fun_exists |> DISCH``is_in ina`` |> Q.GEN`ina`
+val is_instance_quant = prove(
+  ``is_instance (Fun (Fun (Tyvar A) Bool) Bool) z ⇔
+    ∃y. z = Fun (Fun y Bool) Bool``,
+  rw[EQ_IMP_THM] >>
+  qexists_tac`[(y,Tyvar A)]` >>
+  EVAL_TAC)
+val bool_model_interpretations = bool_interpretations bool_model_interpretation
 
 val res = res4
 
 val tyval_th = mk_tyval res
-val bool_model_interpretations = bool_interpretations bool_model_interpretation tyval_th
 val r3 = res |> INST[tyval|->(rand(concl tyval_th))]
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss) [combinTheory.APPLY_UPDATE_THM])) (hyp r3)
 val r4 = foldl (uncurry PROVE_HYP) r3 (map EQT_ELIM simpths)
@@ -54,11 +73,15 @@ val r6 = PROVE_HYP is_std_sig_th r5
 val bool_sig = is_bool_sig_def
   |> Q.SPEC`sigof(mk_bool_ctxt init_ctxt)`
   |> SIMP_RULE std_ss [is_bool_sig_th,is_std_sig_th]
+val std_sig = CONV_RULE (REWR_CONV is_std_sig_def)
+  (MATCH_MP is_bool_sig_std is_bool_sig_th)
+  |> SIMP_RULE std_ss []
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
-  [combinTheory.APPLY_UPDATE_THM,bool_insts,bool_sig,is_instance_refl])) (hyp r6)
+  [combinTheory.APPLY_UPDATE_THM,bool_insts,bool_sig,std_sig,is_instance_refl,is_instance_quant])) (hyp r6)
 val r7 = foldl (uncurry (C simplify_assum)) r6 simpths |> PROVE_HYP TRUTH
-val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss) [is_valuation_def,tyval_th])) (hyp r7)
-val r8 = foldl (uncurry (C simplify_assum)) r7 simpths
+val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
+  [is_valuation_def,tyval_th,type_11,typesem_def,combinTheory.APPLY_UPDATE_THM])) (hyp r7)
+val r8 = foldl (uncurry (C simplify_assum)) r7 simpths |> PROVE_HYP TRUTH
 val r9 = Q.INST[`tyass`|->`tyaof bool_model`,`tmass`|->`tmaof bool_model`] r8
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss) [bool_model_models,SIMP_RULE std_ss [models_def] bool_model_models])) (hyp r9)
 val r10 = foldl (uncurry (C simplify_assum)) r9 simpths |> PROVE_HYP TRUTH
@@ -68,13 +91,15 @@ val forall_insts = map (rand o rator o rand o rator o rator o rhs) forall_insts
 val exists_insts = map (rand o rator o rand o rator o rator o rhs) exists_insts
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [bool_model_interpretations,
     in_bool_true,in_bool_false,in_fun_not,in_fun_binop,
-    LIST_CONJ (map (fn ina => ISPEC ina in_fun_forall |> UNDISCH) forall_insts),
-    LIST_CONJ (map (fn ina => ISPEC ina in_fun_exists |> UNDISCH) exists_insts),
+    LIST_CONJ (map (fn ina => ISPEC ina in_fun_forall1 |> UNDISCH) forall_insts),
+    LIST_CONJ (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
     bool_model_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
     |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_interpretation_def,is_std_type_assignment_def]
     |> CONJUNCT1,
+    LIST_CONJ (map (UNDISCH o C ISPEC inhabited_range) forall_insts),
+    LIST_CONJ (map (UNDISCH o C ISPEC inhabited_range) exists_insts),
     UNDISCH range_in_bool])) (hyp r10)
 val r11 = foldl (uncurry (C simplify_assum)) r10 simpths |> PROVE_HYP TRUTH
 val is_term_valuation_asm = first (same_const ``is_term_valuation0`` o fst o strip_comb) (hyp r11)
