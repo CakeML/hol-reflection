@@ -419,4 +419,113 @@ val _ = map2 (curry save_thm)
   ["bool_theory_ok","bool_model_interpretation"]
   [ bool_theory_ok , bool_model_interpretation ]
 
+val not_thm = prove(
+  ``is_set_theory ^mem ⇒
+    (Abstract boolset boolset (λx. Boolean (¬finv in_bool x)) =
+     Abstract boolset boolset (λp. Boolean (p ≠ True)))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[boolean_in_boolset] >>
+  rw[boolean_def] >>
+  metis_tac[finv_in_bool_eq_true])
+
+val in_fun_not =
+``in_fun in_bool in_bool $~``
+  |> SIMP_CONV std_ss [Once in_bool_def,in_fun_def,UNDISCH range_in_bool,UNDISCH not_thm]
+
+val in_bool_false =
+  ``in_bool F``
+  |> SIMP_CONV std_ss [in_bool_def,boolean_def]
+
+val range_in_fun_ina_in_bool =
+range_in_fun |> GEN_ALL |> SPEC mem
+  |> Q.ISPECL[`in_bool`,`ina:'a -> 'U`]
+  |> SIMP_RULE std_ss [UNDISCH is_in_in_bool,GSYM AND_IMP_INTRO]
+  |> UNDISCH |> UNDISCH
+
+val forall_thm = prove(
+  ``is_set_theory ^mem ⇒ is_in ina ⇒
+    (Abstract (Funspace (range ina) boolset) boolset
+       (λP. Boolean (∀x. x <: range ina ⇒ Holds P x)) =
+     Abstract (Funspace (range ina) boolset) boolset
+       (λx. in_bool ($! (finv (in_fun ina in_bool) x))))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  rw[boolean_in_boolset,Once in_bool_def] >>
+  rw[Once in_bool_def] >> AP_TERM_TAC >>
+  `∃f. (x = in_fun ina Boolean (λa. (f (ina a)) = True)) ∧
+       (∀a. f (ina a) <: boolset)` by (
+    simp[UNDISCH range_in_bool,in_fun_def,GSYM in_bool_def] >>
+    qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
+    discharge_hyps  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
+    qexists_tac`f` >> simp[in_bool_def] >>
+    reverse conj_tac >- metis_tac[is_in_range_thm] >>
+    match_mp_tac (UNDISCH abstract_eq) >>
+    simp[boolean_in_boolset] >> rw[] >>
+    simp[boolean_def] >> rw[] >>
+    imp_res_tac is_in_finv_right >>
+    metis_tac[mem_boolset] ) >>
+  Q.ISPEC_THEN`in_fun ina Boolean`mp_tac is_in_finv_left >>
+  discharge_hyps >- metis_tac[is_in_in_fun,is_in_in_bool,in_bool_def] >>
+  simp[holds_def,GSYM in_bool_def] >>
+  disch_then kall_tac >>
+  rw[EQ_IMP_THM] >- (
+    first_x_assum(qspec_then`ina a`mp_tac) >>
+    discharge_hyps >- metis_tac[is_in_range_thm] >>
+    simp[in_fun_def] >>
+    disch_then (SUBST1_TAC o SYM) >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac apply_abstract_matchable >>
+    simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
+    simp[in_bool_def,boolean_in_boolset] >>
+    Q.ISPEC_THEN`ina`mp_tac is_in_finv_left >> rw[] >>
+    rw[boolean_def] >>
+    metis_tac[mem_boolset] ) >>
+  rw[in_fun_def] >>
+  match_mp_tac apply_abstract_matchable >>
+  simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
+  simp[in_bool_def,boolean_in_boolset] >>
+  rw[boolean_def]) |> UNDISCH |> UNDISCH
+
+val in_fun_forall =
+  ``in_fun (in_fun ina in_bool) in_bool $!``
+  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_ina_in_bool,GSYM forall_thm]
+
+val range_in_fun_in_bool_in_bool =
+range_in_fun |> GEN_ALL |> SPEC mem
+  |> Q.ISPECL[`in_bool`,`in_bool`]
+  |> SIMP_RULE std_ss [UNDISCH is_in_in_bool]
+  |> UNDISCH
+
+val implies_thm1 = prove(
+  ``is_set_theory ^mem ∧ p <: boolset ⇒
+    (Abstract boolset boolset (λx. in_bool (finv in_bool p ⇒ finv in_bool x)) =
+     Abstract boolset boolset (λq. Boolean ((p = True) ⇒ (q = True))))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  rw[boolean_in_boolset] >>
+  rw[Once in_bool_def,boolean_in_boolset] >>
+  rw[boolean_def] >>
+  metis_tac[finv_in_bool_eq_true])
+
+val implies_thm = prove(
+  ``is_set_theory ^mem ⇒
+    (Abstract boolset (Funspace boolset boolset)
+      (λy. Abstract boolset boolset (λx. in_bool (finv in_bool y ⇒ finv in_bool x))) =
+     Abstract boolset (Funspace boolset boolset)
+      (λp. Abstract boolset boolset (λq. Boolean ((p = True) ⇒ (q = True)))))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  rw[implies_thm1] >>
+  match_mp_tac (UNDISCH abstract_in_funspace) >>
+  rw[boolean_in_boolset])
+
+val in_fun_implies =
+  ``in_fun in_bool (in_fun in_bool in_bool) $==>``
+  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_in_bool_in_bool,UNDISCH implies_thm]
+
+val _ = map2 (curry save_thm)
+  ["in_fun_not","in_fun_forall","in_fun_implies","in_bool_false"]
+  [ in_fun_not , in_fun_forall , in_fun_implies , in_bool_false ]
+
 val _ = export_theory()
