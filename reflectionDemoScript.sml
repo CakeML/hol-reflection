@@ -10,7 +10,7 @@ val p = ``∀y. (λx. F) z``
 val res2 = prop_to_loeb_hyp p
 val p = ``(∀y. (λx. F) z) ⇔ (¬z ∨ T)``
 val res3 = prop_to_loeb_hyp p
-val p = ``(λx. ~x) p ⇒ F``
+val p = ``∀p. (λx. ~(x=x)) p ⇒ ∃x. F``
 val res4 = prop_to_loeb_hyp p
 val p = ``@x. x ∧ x``
 val res5 = prop_to_loeb_hyp p
@@ -30,8 +30,15 @@ val bool_insts =
   |> Q.GEN`sig`
   |> Q.SPEC`sigof(mk_bool_ctxt init_ctxt)`
   |> SIMP_RULE std_ss []
+val is_bool_sig_goal:goal = ([],fst(dest_imp(concl bool_insts)))
+val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
+  match_mp_tac bool_has_bool_sig >>
+  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
+val bool_insts = MATCH_MP bool_insts is_bool_sig_th
+val in_fun_forall = in_fun_forall |> DISCH``is_in ina`` |> Q.GEN`ina`
+val in_fun_exists = in_fun_exists |> DISCH``is_in ina`` |> Q.GEN`ina`
 
-val res = res3
+val res = res4
 
 val tyval_th = mk_tyval res
 val bool_model_interpretations = bool_interpretations bool_model_interpretation tyval_th
@@ -39,11 +46,6 @@ val r3 = res |> INST[tyval|->(rand(concl tyval_th))]
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss) [combinTheory.APPLY_UPDATE_THM])) (hyp r3)
 val r4 = foldl (uncurry PROVE_HYP) r3 (map EQT_ELIM simpths)
 val r5 = Q.INST[`ctxt`|->`mk_bool_ctxt init_ctxt`] r4
-val is_bool_sig_goal:goal = ([],fst(dest_imp(concl bool_insts)))
-val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
-  match_mp_tac bool_has_bool_sig >>
-  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
-val bool_insts = MATCH_MP bool_insts is_bool_sig_th
 val is_std_sig_goal:goal = ([],first (can (match_term ``is_std_sig x``)) (hyp r5))
 val is_std_sig_th = TAC_PROOF(is_std_sig_goal,
   match_mp_tac is_bool_sig_std >>
@@ -60,9 +62,14 @@ val r8 = foldl (uncurry (C simplify_assum)) r7 simpths
 val r9 = Q.INST[`tyass`|->`tyaof bool_model`,`tmass`|->`tmaof bool_model`] r8
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss) [bool_model_models,SIMP_RULE std_ss [models_def] bool_model_models])) (hyp r9)
 val r10 = foldl (uncurry (C simplify_assum)) r9 simpths |> PROVE_HYP TRUTH
+val forall_insts = filter (can (match_term ``X = in_fun Y in_bool $!``)) (hyp r10)
+val exists_insts = filter (can (match_term ``X = in_fun Y in_bool $?``)) (hyp r10)
+val forall_insts = map (rand o rator o rand o rator o rator o rhs) forall_insts
+val exists_insts = map (rand o rator o rand o rator o rator o rhs) exists_insts
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [bool_model_interpretations,
     in_bool_true,in_bool_false,in_fun_not,in_fun_binop,
-    Q.INST[`ina`|->`in_A`]in_fun_forall,
+    LIST_CONJ (map (fn ina => ISPEC ina in_fun_forall |> UNDISCH) forall_insts),
+    LIST_CONJ (map (fn ina => ISPEC ina in_fun_exists |> UNDISCH) exists_insts),
     bool_model_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
     |> CONJUNCT1

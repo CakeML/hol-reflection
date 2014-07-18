@@ -49,8 +49,7 @@ in
       Tyapp ("min","bool",[]) => good_context_is_in_in_bool
     | Tyapp ("min","fun",[ty1,ty2]) =>
          good_context_is_in_in_fun
-         |> ISPEC (mk_in ty1)
-         |> ISPEC (mk_in ty2)
+         |> ISPECL [mk_in ty1, mk_in ty2]
          |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
                              (mk_is_in_thm ty2))
     | _ => ASSUME ``is_in ^(mk_in ty)``
