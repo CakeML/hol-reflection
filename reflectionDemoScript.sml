@@ -1,5 +1,5 @@
-open HolKernel Parse boolLib bossLib lcsymtacs
-open reflectionLib
+open HolKernel Parse boolLib bossLib lcsymtacs reflectionLib
+
 val _ = new_theory"reflectionDemo"
 
 val () = show_assums := true
@@ -12,16 +12,16 @@ val p = ``(∀y. (λx. F) z) ⇔ (¬z ∨ T)``
 val res3 = prop_to_loeb_hyp p
 val p = ``∀p. (λx. ~(x=x)) p ⇒ ∃x. F``
 val res4 = prop_to_loeb_hyp p
-val p = ``@x. x ∧ x``
+val p = ``∀p. p ∨ ¬p``
 val res5 = prop_to_loeb_hyp p
-val p = ``∀(x:ind). F``
+val p = ``@x. x ∧ x``
 val res6 = prop_to_loeb_hyp p
+val p = ``∀(x:ind). F``
+val res7 = prop_to_loeb_hyp p
 
 open miscLib basicReflectionLib listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
 open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory
-
-val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
 
 val bool_model_models = UNDISCH (SPEC mem bool_model_def)
 
@@ -48,6 +48,7 @@ val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
 val bool_insts = MATCH_MP bool_insts is_bool_sig_th
+
 val in_fun_forall1 = in_fun_forall |> DISCH``is_in ina`` |> Q.GEN`ina`
 val in_fun_exists1 = in_fun_exists |> DISCH``is_in ina`` |> Q.GEN`ina`
 val is_instance_quant = prove(
@@ -56,9 +57,16 @@ val is_instance_quant = prove(
   rw[EQ_IMP_THM] >>
   qexists_tac`[(y,Tyvar A)]` >>
   EVAL_TAC)
+
+fun list_conj x = LIST_CONJ x handle HOL_ERR _ => TRUTH
+
 val bool_model_interpretations = bool_interpretations bool_model_interpretation
 
-val res = res4
+val inhabited_boolset = prove(
+  ``is_set_theory ^mem ⇒ inhabited boolset``,
+  metis_tac[mem_boolset])
+
+val res = res5
 
 val tyval_th = mk_tyval res
 val r3 = res |> INST[tyval|->(rand(concl tyval_th))]
@@ -91,16 +99,16 @@ val forall_insts = map (rand o rator o rand o rator o rator o rhs) forall_insts
 val exists_insts = map (rand o rator o rand o rator o rator o rhs) exists_insts
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [bool_model_interpretations,
     in_bool_true,in_bool_false,in_fun_not,in_fun_binop,
-    LIST_CONJ (map (fn ina => ISPEC ina in_fun_forall1 |> UNDISCH) forall_insts),
-    LIST_CONJ (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
+    list_conj (map (fn ina => ISPEC ina in_fun_forall1 |> UNDISCH) forall_insts),
+    list_conj (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
     bool_model_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
     |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_interpretation_def,is_std_type_assignment_def]
     |> CONJUNCT1,
-    LIST_CONJ (map (UNDISCH o C ISPEC inhabited_range) forall_insts),
-    LIST_CONJ (map (UNDISCH o C ISPEC inhabited_range) exists_insts),
-    UNDISCH range_in_bool])) (hyp r10)
+    list_conj (map (UNDISCH o C ISPEC inhabited_range) forall_insts),
+    list_conj (map (UNDISCH o C ISPEC inhabited_range) exists_insts),
+    UNDISCH inhabited_boolset, UNDISCH range_in_bool])) (hyp r10)
 val r11 = foldl (uncurry (C simplify_assum)) r10 simpths |> PROVE_HYP TRUTH
 val is_term_valuation_asm = first (same_const ``is_term_valuation0`` o fst o strip_comb) (hyp r11)
 val t1 = is_term_valuation_asm |> rator |> rator |> rator |> rand
@@ -136,6 +144,7 @@ val tmval_th3 = MP tmval_th1 tmval_th2
 val r12 =
   foldl (uncurry PROVE_HYP) r11 (CONJUNCTS (ASSUME (mk_conj(is_term_valuation_asm,(list_mk_conj asms)))))
 val r13 = CHOOSE (tmval, tmval_th3) r12
+  |> PROVE_HYP (UNDISCH is_in_in_bool)
 
 val _ = save_thm("example",r13)
 

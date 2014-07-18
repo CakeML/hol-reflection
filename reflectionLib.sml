@@ -208,4 +208,6 @@ in
     |> SIMP_RULE std_ss [interp_th] |> CONJUNCT2
     |> SIMP_RULE (std_ss++LIST_ss) [interprets_nil,interprets_one]
 
+  val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
+
 end end
