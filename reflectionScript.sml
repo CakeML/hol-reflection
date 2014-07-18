@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib Parse lcsymtacs listSimps
-open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory
+open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory finite_mapTheory alistTheory
 open miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
-open holBoolSyntaxTheory holBoolTheory holConsistencyTheory
+open holBoolSyntaxTheory holBoolTheory holConsistencyTheory holAxiomsSyntaxTheory holAxiomsTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
@@ -584,6 +584,65 @@ val _ = map2 (curry save_thm)
   ["in_fun_not","in_fun_forall","in_fun_exists","in_fun_binop","in_bool_false","in_bool_true"]
   [ in_fun_not , in_fun_forall , in_fun_exists , in_fun_binop , in_bool_false , in_bool_true ]
 
+val select_model_exists = prove(
+  ``∃f. ∀mem. is_set_theory mem ⇒
+      subinterpretation (mk_bool_ctxt init_ctxt) (bool_model0 mem) (f mem) ∧
+      f mem models thyof (mk_select_ctxt (mk_bool_ctxt init_ctxt))``,
+  rw[GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >>
+  qspec_then`mk_bool_ctxt init_ctxt`mp_tac(UNDISCH select_has_model) >>
+  discharge_hyps_keep >- (
+    simp[bool_theory_ok] >>
+    EVAL_TAC ) >>
+  disch_then match_mp_tac >>
+  conj_asm1_tac >- simp[bool_model_def] >>
+  assume_tac bool_model_interpretation >>
+  fs[is_bool_interpretation_def])
+
+val select_model_def = new_specification("select_model_def",["select_model0"],
+  select_model_exists)
+val _ = overload_on("select_model",``select_model0 ^mem``)
+val select_model_models = UNDISCH (SPEC mem select_model_def)
+
+val select_extends_bool = prove(
+  ``mk_select_ctxt (mk_bool_ctxt init_ctxt) extends mk_bool_ctxt init_ctxt``,
+  match_mp_tac select_extends >>
+  conj_tac >- (
+    match_mp_tac is_bool_sig_std >>
+    match_mp_tac bool_has_bool_sig >>
+    ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]) ) >>
+  EVAL_TAC )
+
+val select_theory_ok =
+extends_theory_ok
+|> Q.SPECL[`mk_bool_ctxt init_ctxt`,`mk_select_ctxt (mk_bool_ctxt init_ctxt)`]
+|> SIMP_RULE std_ss [bool_theory_ok,select_extends_bool]
+
+val select_bool_interpretation = prove(
+  ``is_set_theory ^mem ⇒
+    is_bool_interpretation select_model``,
+  rw[] >>
+  assume_tac select_model_models >>
+  assume_tac bool_model_interpretation >>
+  fs[subinterpretation_def,is_bool_interpretation_def] >>
+  conj_tac >- ( fs[models_def] ) >>
+  fs[term_ok_def] >>
+  rpt conj_tac >>
+  qmatch_abbrev_tac`tmaof select_model interprets name on args as val` >>
+  first_x_assum(qspec_then`name`mp_tac) >>
+  qunabbrev_tac`name` >>
+  CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV EVAL))) >>
+  simp[Abbr`args`,Abbr`val`,type_ok_def,FLOOKUP_UPDATE] >>
+  fs[interprets_def] >> rw[] >>
+  TRY( first_x_assum match_mp_tac >>
+       metis_tac[base_tyval_def] ) >>
+  fs[PULL_EXISTS,type_ok_def,FLOOKUP_UPDATE] >>
+  first_x_assum(qspec_then`[]`mp_tac)>>
+  (discharge_hyps >- EVAL_TAC) >> rw[]) |> UNDISCH
+
+val _ = map2 (curry save_thm)
+  ["select_theory_ok","select_extends_bool","select_bool_interpretation"]
+  [ select_theory_ok , select_extends_bool , select_bool_interpretation ]
+
 val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
   ``is_set_theory ^mem ⇒
     ∀tyenv δ τ.  is_type_valuation τ ⇒ is_type_assignment tyenv δ ⇒
@@ -625,5 +684,47 @@ val interprets_one = store_thm("interprets_one",
   first_x_assum(qspec_then`K x`mp_tac) >>
   simp[] >> disch_then match_mp_tac >>
   rw[is_type_valuation_def] >> metis_tac[])
+
+val is_std_sig_extends = store_thm("is_std_sig_extends",
+  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_std_sig (sigof ctxt1) ⇒ is_std_sig (sigof ctxt2)``,
+  ho_match_mp_tac extends_ind >>
+  REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac updates_ind >>
+  rw[is_std_sig_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+  TRY BasicProvers.CASE_TAC >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+  metis_tac[] )
+
+val is_bool_sig_extends = store_thm("is_bool_sig_extends",
+  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)``,
+  ho_match_mp_tac extends_ind >>
+  REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac updates_ind >>
+  conj_tac >- rw[is_bool_sig_def] >>
+  conj_tac >- (
+    rw[is_bool_sig_def,is_std_sig_def] >>
+    rw[FLOOKUP_UPDATE] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,FORALL_PROD] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[is_bool_sig_def,is_std_sig_def] >>
+    rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+    BasicProvers.CASE_TAC >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[is_bool_sig_def,is_std_sig_def] >>
+    rw[FLOOKUP_UPDATE] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,FORALL_PROD] >>
+    metis_tac[] ) >>
+  rw[is_bool_sig_def,is_std_sig_def] >>
+  rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,FORALL_PROD] >>
+  metis_tac[] )
 
 val _ = export_theory()

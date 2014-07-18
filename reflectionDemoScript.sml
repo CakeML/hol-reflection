@@ -21,9 +21,11 @@ val res7 = prop_to_loeb_hyp p
 
 open miscLib basicReflectionLib listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
-open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory
+open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
+open finite_mapTheory alistTheory listTheory pairTheory
 
 val bool_model_models = UNDISCH (SPEC mem bool_model_def)
+val select_model_models = UNDISCH (SPEC mem select_model_def)
 
 val bool_sig_quant_instances = prove(
   ``is_bool_sig sig ⇒
@@ -38,13 +40,33 @@ val bool_sig_quant_instances = prove(
   disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
   EVAL_TAC >> rw[])
 
+val res = res6
+val model_models = select_model_models
+val model_is_bool_interpretation = select_bool_interpretation
+(*
+val res = res4
+val model_models = bool_model_models
+val model_is_bool_interpretation = bool_model_interpretation
+*)
+
+val model = CONJUNCT2 model_models |> concl |> rator |> rand
+val ctxt = CONJUNCT2 model_models |> concl |> rand |> rand |> rand |> rand |> rand
+
 val bool_insts =
   DISCH_ALL(CONJ(UNDISCH bool_sig_instances)(UNDISCH bool_sig_quant_instances))
   |> Q.GEN`sig`
-  |> Q.SPEC`sigof(mk_bool_ctxt init_ctxt)`
+  |> Q.SPEC`sigof ^ctxt`
   |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
 val is_bool_sig_goal:goal = ([],fst(dest_imp(concl bool_insts)))
 val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
+  TRY(
+    match_mp_tac (MP_CANON is_bool_sig_extends) >>
+    qexists_tac`mk_bool_ctxt init_ctxt` >>
+    conj_asm2_tac >- (
+      match_mp_tac select_extends >>
+      conj_tac >- (match_mp_tac is_bool_sig_std >>
+                   pop_assum ACCEPT_TAC ) >>
+      EVAL_TAC )) >>
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
 val bool_insts = MATCH_MP bool_insts is_bool_sig_th
@@ -60,26 +82,31 @@ val is_instance_quant = prove(
 
 fun list_conj x = LIST_CONJ x handle HOL_ERR _ => TRUTH
 
-val bool_model_interpretations = bool_interpretations bool_model_interpretation
+val model_interpretations = bool_interpretations model_is_bool_interpretation
 
 val inhabited_boolset = prove(
   ``is_set_theory ^mem ⇒ inhabited boolset``,
   metis_tac[mem_boolset])
 
-val res = res5
-
 val tyval_th = mk_tyval res
 val r3 = res |> INST[tyval|->(rand(concl tyval_th))]
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss) [combinTheory.APPLY_UPDATE_THM])) (hyp r3)
 val r4 = foldl (uncurry PROVE_HYP) r3 (map EQT_ELIM simpths)
-val r5 = Q.INST[`ctxt`|->`mk_bool_ctxt init_ctxt`] r4
+val r5 = Q.INST[`ctxt`|->`^ctxt`] r4
 val is_std_sig_goal:goal = ([],first (can (match_term ``is_std_sig x``)) (hyp r5))
 val is_std_sig_th = TAC_PROOF(is_std_sig_goal,
+  TRY (
+    match_mp_tac (MP_CANON is_std_sig_extends) >>
+    match_exists_tac(concl select_extends_bool) >>
+    simp[select_extends_bool] >>
+    match_mp_tac is_bool_sig_std >>
+    match_mp_tac bool_has_bool_sig >>
+    ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss [])) >>
   match_mp_tac is_bool_sig_std >>
   ACCEPT_TAC is_bool_sig_th)
 val r6 = PROVE_HYP is_std_sig_th r5
 val bool_sig = is_bool_sig_def
-  |> Q.SPEC`sigof(mk_bool_ctxt init_ctxt)`
+  |> Q.SPEC`sigof(^ctxt)`
   |> SIMP_RULE std_ss [is_bool_sig_th,is_std_sig_th]
 val std_sig = CONV_RULE (REWR_CONV is_std_sig_def)
   (MATCH_MP is_bool_sig_std is_bool_sig_th)
@@ -90,18 +117,19 @@ val r7 = foldl (uncurry (C simplify_assum)) r6 simpths |> PROVE_HYP TRUTH
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
   [is_valuation_def,tyval_th,type_11,typesem_def,combinTheory.APPLY_UPDATE_THM])) (hyp r7)
 val r8 = foldl (uncurry (C simplify_assum)) r7 simpths |> PROVE_HYP TRUTH
-val r9 = Q.INST[`tyass`|->`tyaof bool_model`,`tmass`|->`tmaof bool_model`] r8
-val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss) [bool_model_models,SIMP_RULE std_ss [models_def] bool_model_models])) (hyp r9)
+val r9 = Q.INST[`tyass`|->`tyaof ^model`,`tmass`|->`tmaof ^model`] r8
+val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss)
+  [model_models,SIMP_RULE std_ss [models_def] model_models])) (hyp r9)
 val r10 = foldl (uncurry (C simplify_assum)) r9 simpths |> PROVE_HYP TRUTH
 val forall_insts = filter (can (match_term ``X = in_fun Y in_bool $!``)) (hyp r10)
 val exists_insts = filter (can (match_term ``X = in_fun Y in_bool $?``)) (hyp r10)
 val forall_insts = map (rand o rator o rand o rator o rator o rhs) forall_insts
 val exists_insts = map (rand o rator o rand o rator o rator o rhs) exists_insts
-val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [bool_model_interpretations,
+val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [model_interpretations,
     in_bool_true,in_bool_false,in_fun_not,in_fun_binop,
     list_conj (map (fn ina => ISPEC ina in_fun_forall1 |> UNDISCH) forall_insts),
     list_conj (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
-    bool_model_interpretation
+    model_is_bool_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
     |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_interpretation_def,is_std_type_assignment_def]
@@ -121,7 +149,7 @@ constrained_term_valuation_exists
 |> SPECL [t1,t2,t3]
 |> SIMP_RULE std_ss [tyval_th]
 |> C MATCH_MP (
-     bool_model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1
+     model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1
      |> SIMP_RULE std_ss [is_interpretation_def] |> CONJUNCT1)
 |> SPEC (asms |> map (fn eq => mk_pair(rand(lhs eq),rhs eq))
          |> C (curry mk_list) (mk_prod(mk_prod(string_ty,``:type``),U)))
@@ -132,7 +160,7 @@ val tmval_th2 = TAC_PROOF(goal,
   rpt conj_tac >>
   TRY (EVAL_TAC >> NO_TAC) >>
   TRY (simp[
-    bool_model_interpretation
+    model_is_bool_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def] |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_interpretation_def] |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_type_assignment_def]
