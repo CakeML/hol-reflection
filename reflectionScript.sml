@@ -1,6 +1,7 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
 open miscTheory miscLib basicReflectionLib pred_setTheory
-open setSpecTheory holSyntaxTheory holSemanticsTheory holSemanticsExtraTheory
+open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open holBoolSyntaxTheory holBoolTheory holConsistencyTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
@@ -165,13 +166,12 @@ val range_in_fun = store_thm("range_in_fun",
   match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
   metis_tac[is_in_finv_right,is_in_finv_left])
 
-val finv_in_bool_True = prove(
-  ``is_set_theory ^mem ⇒ finv in_bool True``,
-  rw[] >>
-  imp_res_tac is_in_in_bool >>
-  `True = (in_bool T)` by simp[in_bool_def,boolean_def] >>
-  pop_assum SUBST1_TAC >>
-  metis_tac[is_in_finv_left])
+val finv_in_bool_eq_true = store_thm("finv_in_bool_eq_true",
+  ``is_set_theory ^mem ⇒
+    ∀x.
+    ((x = True) ⇒ finv in_bool x) ∧
+    (x <: boolset ∧ finv in_bool x ⇒ (x = True))``,
+  metis_tac[is_in_finv_right,in_bool_def,boolean_def,range_in_bool,is_in_in_bool,is_in_finv_left])
 
 val provable_imp_eq_true = store_thm("provable_imp_eq_true",
   ``∀thy i v.
@@ -201,7 +201,7 @@ val good_context = good_context_def |> concl |> strip_forall |> snd |> lhs
 val finv_in_bool_True = prove(
 ``^good_context ⇒
   (finv in_bool x ⇒ y) ⇒ ((x = True) ⇒ y)``,
-  metis_tac[finv_in_bool_True,good_context_def]) |> UNDISCH
+  metis_tac[finv_in_bool_eq_true,good_context_def]) |> UNDISCH
 
 val _ = save_thm("finv_in_bool_True",finv_in_bool_True)
 
@@ -374,5 +374,49 @@ val inhabited_range = store_thm("inhabited_range",
   ``∀inx. is_in inx ⇒ inhabited (range inx)``,
   rw[] >> imp_res_tac is_in_range_thm >>
   metis_tac[] )
+
+val init_model_def = new_specification("init_model_def",["init_model0"],
+    SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] (GEN_ALL init_ctxt_has_model))
+val _ = overload_on("init_model",``init_model0 ^mem``)
+
+val bool_ctxt_no_new_axioms =
+  ``(∀p. MEM (NewAxiom p) (mk_bool_ctxt init_ctxt) ⇒
+         MEM (NewAxiom p) init_ctxt)``
+  |> (EVAL THENC (SIMP_CONV std_ss []))
+  |> EQT_ELIM
+
+val bool_model_exists =
+  extends_consistent
+  |> UNDISCH
+  |> Q.SPECL[`init_ctxt`,`mk_bool_ctxt init_ctxt`]
+  |> C MATCH_MP bool_extends_init
+  |> SPEC ``init_model``
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+  |> C MATCH_MP init_theory_ok
+  |> C MATCH_MP (UNDISCH (SPEC mem init_model_def))
+  |> C MATCH_MP bool_ctxt_no_new_axioms
+  |> DISCH_ALL |> GEN_ALL
+  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]
+
+val bool_model_def = new_specification("bool_model_def",["bool_model0"],
+  bool_model_exists)
+val _ = overload_on("bool_model",``bool_model0 ^mem``)
+val bool_model_models = UNDISCH (SPEC mem bool_model_def)
+
+val bool_theory_ok =
+extends_theory_ok
+|> Q.SPECL[`init_ctxt`,`mk_bool_ctxt init_ctxt`]
+|> SIMP_RULE std_ss [bool_extends_init,init_theory_ok]
+
+val bool_model_interpretation =
+bool_has_bool_interpretation
+|> UNDISCH
+|> Q.SPEC`init_ctxt`
+|> Q.SPEC`bool_model`
+|> SIMP_RULE std_ss [bool_model_models,bool_theory_ok]
+
+val _ = map2 (curry save_thm)
+  ["bool_theory_ok","bool_model_interpretation"]
+  [ bool_theory_ok , bool_model_interpretation ]
 
 val _ = export_theory()

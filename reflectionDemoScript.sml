@@ -15,47 +15,7 @@ val res4 = prop_to_loeb_hyp p
 
 open miscLib basicReflectionLib miscTheory listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
-open holBoolTheory holBoolSyntaxTheory holSyntaxExtraTheory holConsistencyTheory
-
-val init_model_def = new_specification("init_model_def",["init_model0"],
-    SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] (GEN_ALL init_ctxt_has_model))
-val _ = overload_on("init_model",``init_model0 ^mem``)
-
-val bool_ctxt_no_new_axioms =
-  ``(∀p. MEM (NewAxiom p) (mk_bool_ctxt init_ctxt) ⇒
-         MEM (NewAxiom p) init_ctxt)``
-  |> (EVAL THENC (SIMP_CONV std_ss []))
-  |> EQT_ELIM
-
-val bool_model_exists =
-  extends_consistent
-  |> UNDISCH
-  |> Q.SPECL[`init_ctxt`,`mk_bool_ctxt init_ctxt`]
-  |> C MATCH_MP bool_extends_init
-  |> SPEC ``init_model``
-  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-  |> C MATCH_MP init_theory_ok
-  |> C MATCH_MP (UNDISCH (SPEC mem init_model_def))
-  |> C MATCH_MP bool_ctxt_no_new_axioms
-  |> DISCH_ALL |> GEN_ALL
-  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]
-
-val bool_model_def = new_specification("bool_model_def",["bool_model0"],
-  bool_model_exists)
-val _ = overload_on("bool_model",``bool_model0 ^mem``)
-val bool_model_models = UNDISCH (SPEC mem bool_model_def)
-
-val bool_theory_ok =
-extends_theory_ok
-|> Q.SPECL[`init_ctxt`,`mk_bool_ctxt init_ctxt`]
-|> SIMP_RULE std_ss [bool_extends_init,init_theory_ok]
-
-val bool_model_interpretation =
-bool_has_bool_interpretation
-|> UNDISCH
-|> Q.SPEC`init_ctxt`
-|> Q.SPEC`bool_model`
-|> SIMP_RULE std_ss [bool_model_models,bool_theory_ok]
+open holBoolTheory holBoolSyntaxTheory holSyntaxExtraTheory
 
 val not_thm = prove(
   ``is_set_theory ^mem ⇒
@@ -136,6 +96,39 @@ val in_fun_forall =
   ``in_fun (in_fun ina in_bool) in_bool $!``
   |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_ina_in_bool,GSYM forall_thm]
 
+val range_in_fun_in_bool_in_bool =
+range_in_fun |> GEN_ALL |> SPEC mem
+  |> Q.ISPECL[`in_bool`,`in_bool`]
+  |> SIMP_RULE std_ss [UNDISCH is_in_in_bool]
+  |> UNDISCH
+
+val implies_thm1 = prove(
+  ``is_set_theory ^mem ∧ p <: boolset ⇒
+    (Abstract boolset boolset (λx. in_bool (finv in_bool p ⇒ finv in_bool x)) =
+     Abstract boolset boolset (λq. Boolean ((p = True) ⇒ (q = True))))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  rw[boolean_in_boolset] >>
+  rw[Once in_bool_def,boolean_in_boolset] >>
+  rw[boolean_def] >>
+  metis_tac[finv_in_bool_eq_true])
+
+val implies_thm = prove(
+  ``is_set_theory ^mem ⇒
+    (Abstract boolset (Funspace boolset boolset)
+      (λy. Abstract boolset boolset (λx. in_bool (finv in_bool y ⇒ finv in_bool x))) =
+     Abstract boolset (Funspace boolset boolset)
+      (λp. Abstract boolset boolset (λq. Boolean ((p = True) ⇒ (q = True)))))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  rw[implies_thm1] >>
+  match_mp_tac (UNDISCH abstract_in_funspace) >>
+  rw[boolean_in_boolset])
+
+val in_fun_implies =
+  ``in_fun in_bool (in_fun in_bool in_bool) $==>``
+  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_in_bool_in_bool,UNDISCH implies_thm]
+
 val base_tyval_tm = ``base_tyval``
 
 val (update_list_tm,mk_update_list,dest_update_list,is_update_list)
@@ -175,7 +168,9 @@ fun mk_tyval th =
 
 val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
 
-val res = res3
+val bool_model_models = UNDISCH (SPEC mem bool_model_def)
+
+val res = res4
 
 val tyval_th = mk_tyval res
 
@@ -223,6 +218,7 @@ val r9 = Q.INST[`tyass`|->`tyaof bool_model`,`tmass`|->`tmaof bool_model`] r8
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss) [bool_model_models,SIMP_RULE std_ss [models_def] bool_model_models])) (hyp r9)
 val r10 = foldl (uncurry (C simplify_assum)) r9 simpths |> PROVE_HYP TRUTH
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [bool_model_interpretations,in_fun_not,in_bool_false,
+    in_fun_implies,
     Q.INST[`ina`|->`in_A`]in_fun_forall,
     bool_model_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
