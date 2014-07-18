@@ -1,9 +1,10 @@
 structure reflectionLib = struct
 local
   open HolKernel boolLib bossLib lcsymtacs listSimps stringSimps
-  open miscLib miscTheory pairSyntax stringSyntax listSyntax holSyntaxSyntax
-  open reflectionTheory pred_setTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
-  open basicReflectionLib
+  open miscLib miscTheory combinTheory pred_setTheory pairSyntax stringSyntax listSyntax holSyntaxSyntax
+  open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+  open holBoolTheory
+  open reflectionTheory basicReflectionLib
 
   val MID_EXISTS_AND_THM = prove(
     ``(?x. P x /\ Q /\ R x) <=> (Q /\ ?x. P x /\ R x)``,
@@ -201,5 +202,15 @@ in
         SIMP_RULE std_ss [UPDATE_LIST_THM] th
       end
   end
+
+  fun bool_interpretations interp_th tyval_th =
+    is_bool_interpretation_def
+    |> SPECL [mem, rand(concl interp_th)]
+    |> SIMP_RULE std_ss [interp_th] |> CONJUNCT2
+    |> SIMP_RULE (std_ss++LIST_ss)
+      [interprets_def, GSYM IMP_CONJ_THM, GSYM FORALL_AND_THM]
+    |> SPEC (rand(concl tyval_th))
+    |> C MATCH_MP tyval_th
+    |> SIMP_RULE (std_ss++LIST_ss++STRING_ss) [APPLY_UPDATE_THM]
 
 end end

@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open miscTheory miscLib basicReflectionLib pred_setTheory
-open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory
+open miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolSyntaxTheory holBoolTheory holConsistencyTheory
 
 val _ = temp_tight_equality()
@@ -437,6 +437,10 @@ val in_bool_false =
   ``in_bool F``
   |> SIMP_CONV std_ss [in_bool_def,boolean_def]
 
+val in_bool_true =
+  ``in_bool T``
+  |> SIMP_CONV std_ss [in_bool_def,boolean_def]
+
 val range_in_fun_ina_in_bool =
 range_in_fun |> GEN_ALL |> SPEC mem
   |> Q.ISPECL[`in_bool`,`ina:'a -> 'U`]
@@ -497,35 +501,62 @@ range_in_fun |> GEN_ALL |> SPEC mem
   |> SIMP_RULE std_ss [UNDISCH is_in_in_bool]
   |> UNDISCH
 
-val implies_thm1 = prove(
+val binop_thm1 = prove(
   ``is_set_theory ^mem ∧ p <: boolset ⇒
-    (Abstract boolset boolset (λx. in_bool (finv in_bool p ⇒ finv in_bool x)) =
-     Abstract boolset boolset (λq. Boolean ((p = True) ⇒ (q = True))))``,
+    (Abstract boolset boolset (λx. in_bool (op (finv in_bool p) (finv in_bool x))) =
+     Abstract boolset boolset (λq. Boolean (op (p = True) (q = True))))``,
   rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   rw[boolean_in_boolset] >>
   rw[Once in_bool_def,boolean_in_boolset] >>
-  rw[boolean_def] >>
-  metis_tac[finv_in_bool_eq_true])
+  `EVERY (λz. z = True ⇔ finv in_bool z) [p;x]` by (
+    simp[] >> metis_tac[finv_in_bool_eq_true]) >>
+  fs[boolean_def])
 
-val implies_thm = prove(
+val binop_thm = prove(
   ``is_set_theory ^mem ⇒
     (Abstract boolset (Funspace boolset boolset)
-      (λy. Abstract boolset boolset (λx. in_bool (finv in_bool y ⇒ finv in_bool x))) =
+      (λy. Abstract boolset boolset (λx. in_bool (op (finv in_bool y) (finv in_bool x)))) =
      Abstract boolset (Funspace boolset boolset)
-      (λp. Abstract boolset boolset (λq. Boolean ((p = True) ⇒ (q = True)))))``,
+      (λp. Abstract boolset boolset (λq. Boolean (op (p = True) (q = True)))))``,
   rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  rw[implies_thm1] >>
+  rw[binop_thm1] >>
   match_mp_tac (UNDISCH abstract_in_funspace) >>
   rw[boolean_in_boolset])
 
-val in_fun_implies =
-  ``in_fun in_bool (in_fun in_bool in_bool) $==>``
-  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_in_bool_in_bool,UNDISCH implies_thm]
+val in_fun_binop =
+  ``in_fun in_bool (in_fun in_bool in_bool) op``
+  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_in_bool_in_bool,UNDISCH binop_thm]
 
 val _ = map2 (curry save_thm)
-  ["in_fun_not","in_fun_forall","in_fun_implies","in_bool_false"]
-  [ in_fun_not , in_fun_forall , in_fun_implies , in_bool_false ]
+  ["in_fun_not","in_fun_forall","in_fun_binop","in_bool_false","in_bool_true"]
+  [ in_fun_not , in_fun_forall , in_fun_binop , in_bool_false , in_bool_true ]
+
+val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
+  ``is_set_theory ^mem ⇒
+    ∀tyenv δ τ.  is_type_valuation τ ⇒ is_type_assignment tyenv δ ⇒
+    ∀constraints.
+    ALL_DISTINCT (MAP FST constraints) ∧
+    EVERY (λ(k,v). type_ok tyenv (SND k) ∧
+                   v <: typesem δ τ (SND k)) constraints
+    ⇒
+    ∃σ.
+      is_term_valuation tyenv δ τ σ ∧
+      EVERY (λ(k,v). σ k = v) constraints``,
+  strip_tac >> ntac 3 gen_tac >> ntac 2 strip_tac >> Induct >> simp[] >-
+    metis_tac[term_valuation_exists,is_valuation_def,FST,SND] >>
+  qx_gen_tac`p` >>
+  `∃k v. p = (k,v)` by metis_tac[pair_CASES] >>
+  rw[] >> fs[] >>
+  qexists_tac`(k =+ v) σ` >>
+  simp[APPLY_UPDATE_THM] >>
+  conj_tac >- (
+    fs[is_term_valuation_def,APPLY_UPDATE_THM] >>
+    rw[] >> fs[] ) >>
+  fs[EVERY_MEM] >>
+  Cases >> simp[] >>
+  fs[MEM_MAP,Once FORALL_PROD] >>
+  rw[] >> metis_tac[])
 
 val _ = export_theory()
