@@ -21,11 +21,12 @@ val res7 = prop_to_loeb_hyp p
 
 open miscLib basicReflectionLib listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
-open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
+open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsTheory holAxiomsSyntaxTheory
 open finite_mapTheory alistTheory listTheory pairTheory
 
-val bool_model_models = UNDISCH (SPEC mem bool_model_def)
-val select_model_models = UNDISCH (SPEC mem select_model_def)
+val in_ind_def = Define`
+  (in_ind0 ^mem):ind -> 'U = @f. is_in0 mem f`
+val _ = overload_on("in_ind",``in_ind0 ^mem``)
 
 val bool_sig_quant_instances = prove(
   ``is_bool_sig sig ⇒
@@ -40,24 +41,91 @@ val bool_sig_quant_instances = prove(
   disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
   EVAL_TAC >> rw[])
 
+val select_bool_def = xDefine"select_bool"`
+  select_bool0 ^mem =
+    (boolset =+ λp. in_bool (@x. p (in_bool x)))
+    base_select`
+val _ = overload_on("select_bool",``select_bool0 ^mem``)
+
+val good_select_select_bool = store_thm("good_select_select_bool",
+  ``is_set_theory ^mem ⇒
+    good_select select_bool``,
+  rw[] >>
+  assume_tac (UNDISCH good_select_base_select) >>
+  fs[good_select_def,select_bool_def,combinTheory.APPLY_UPDATE_THM] >>
+  rw[in_bool_def] >> rw[boolean_in_boolset] >- (
+    SELECT_ELIM_TAC >>
+    fs[boolean_def] >>
+    rfs[mem_boolset] >>
+    metis_tac[] ) >>
+  metis_tac[])
+
+val select_bool_boolset =
+  ``select_bool boolset`` |> SIMP_CONV (std_ss++LIST_ss)
+    [select_bool_def,combinTheory.APPLY_UPDATE_THM]
+
+val in_fun_select = prove(
+  ``is_set_theory ^mem ⇒ is_in ina ⇒
+    (in_fun (in_fun ina in_bool) ina $@ =
+     Abstract (range (in_fun ina in_bool)) (range ina)
+       (λp. ina (@x. Holds p (ina x))))``,
+  rw[in_fun_def] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[in_bool_def,boolean_in_boolset] >>
+  simp[is_in_range_thm] >>
+  simp[GSYM in_bool_def] >>
+  Q.ISPEC_THEN`in_bool`mp_tac(Q.GEN`inb`range_in_fun) >>
+  discharge_hyps >- metis_tac[is_in_in_bool] >> rw[] >>
+  AP_TERM_TAC >> AP_TERM_TAC >>
+  qmatch_abbrev_tac`l = r` >>
+  qsuff_tac`in_fun ina in_bool l = in_fun ina in_bool r` >- (
+    `is_in (in_fun ina in_bool)` by metis_tac[is_in_in_fun,is_in_in_bool] >>
+    fs[is_in_def,BIJ_DEF,INJ_DEF] ) >>
+  Q.ISPEC_THEN`in_fun ina in_bool`mp_tac is_in_finv_right >>
+  discharge_hyps >- metis_tac[is_in_in_fun,is_in_in_bool] >>
+  simp[range_in_fun] >> disch_then(qspec_then`x`mp_tac) >>
+  discharge_hyps >- simp[] >>
+  simp[Abbr`l`] >> disch_then kall_tac >>
+  simp[Abbr`r`] >>
+  Q.ISPECL_THEN[`x`,`range ina`,`range in_bool`]mp_tac(UNDISCH in_funspace_abstract) >>
+  discharge_hyps >- ( metis_tac[inhabited_range,is_in_in_bool] ) >>
+  rw[] >>
+  simp[in_fun_def] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[range_in_bool] >>
+  simp[in_bool_def,boolean_in_boolset] >>
+  rw[holds_def] >>
+  qmatch_abbrev_tac`f x = Boolean (b = True)` >>
+  `b = f x` by (
+    simp[Abbr`b`] >>
+    match_mp_tac apply_abstract_matchable >>
+    metis_tac[is_in_finv_right,range_in_bool] ) >>
+  rw[boolean_def] >>
+  metis_tac[range_in_bool,mem_boolset]) |> UNDISCH
+
 val res = res6
-val model_models = select_model_models
-val model_is_bool_interpretation = select_bool_interpretation
+val model_models = Q.SPEC `select_bool` select_model_models |> C MP (UNDISCH good_select_select_bool)
+val model_is_bool_interpretation =
+  select_bool_interpretation |> DISCH_ALL |> Q.GEN`select` |> SPEC ``select_bool``
+  |> C MP (UNDISCH good_select_select_bool) |> UNDISCH
+val model_is_interpretation =
+     model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1 |> CONJUNCT1
+
 (*
-val res = res4
+val res = res5
 val model_models = bool_model_models
 val model_is_bool_interpretation = bool_model_interpretation
 *)
 
-val model = CONJUNCT2 model_models |> concl |> rator |> rand
-val ctxt = CONJUNCT2 model_models |> concl |> rand |> rand |> rand |> rand |> rand
+val model = model_models |> concl |> find_term (can (match_term ``X models Y``)) |> rator |> rand
+val ctxt = model_models |> concl |> find_term (can (match_term ``thyof ctxt``)) |> funpow 4 rand
 
-val bool_insts =
+val bool_insts0 =
   DISCH_ALL(CONJ(UNDISCH bool_sig_instances)(UNDISCH bool_sig_quant_instances))
   |> Q.GEN`sig`
   |> Q.SPEC`sigof ^ctxt`
   |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
-val is_bool_sig_goal:goal = ([],fst(dest_imp(concl bool_insts)))
+val is_bool_sig_goal:goal = ([],fst(dest_imp(concl bool_insts0)))
 val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
   TRY(
     match_mp_tac (MP_CANON is_bool_sig_extends) >>
@@ -69,10 +137,20 @@ val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
       EVAL_TAC )) >>
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
-val bool_insts = MATCH_MP bool_insts is_bool_sig_th
+val bool_insts = MP bool_insts0 is_bool_sig_th
+
+val select_insts0 = Q.SPEC`sigof ^ctxt`(Q.GEN`sig`select_sig_instances)
+  |> SIMP_RULE std_ss []
+val is_select_sig_goal:goal = ([],fst(dest_imp(concl select_insts0)))
+val is_select_sig_th = TAC_PROOF(is_select_sig_goal,
+  match_mp_tac select_has_select_sig >>
+  match_mp_tac bool_has_bool_sig >>
+  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
+val select_insts = MP select_insts0 is_select_sig_th
 
 val in_fun_forall1 = in_fun_forall |> DISCH``is_in ina`` |> Q.GEN`ina`
 val in_fun_exists1 = in_fun_exists |> DISCH``is_in ina`` |> Q.GEN`ina`
+val in_fun_select1 = in_fun_select |> Q.GEN`ina`
 val is_instance_quant = prove(
   ``is_instance (Fun (Fun (Tyvar A) Bool) Bool) z ⇔
     ∃y. z = Fun (Fun y Bool) Bool``,
@@ -112,7 +190,7 @@ val std_sig = CONV_RULE (REWR_CONV is_std_sig_def)
   (MATCH_MP is_bool_sig_std is_bool_sig_th)
   |> SIMP_RULE std_ss []
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
-  [combinTheory.APPLY_UPDATE_THM,bool_insts,bool_sig,std_sig,is_instance_refl,is_instance_quant])) (hyp r6)
+  [combinTheory.APPLY_UPDATE_THM,bool_insts,select_insts,bool_sig,std_sig,is_instance_refl,is_instance_quant])) (hyp r6)
 val r7 = foldl (uncurry (C simplify_assum)) r6 simpths |> PROVE_HYP TRUTH
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
   [is_valuation_def,tyval_th,type_11,typesem_def,combinTheory.APPLY_UPDATE_THM])) (hyp r7)
@@ -123,12 +201,16 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss)
 val r10 = foldl (uncurry (C simplify_assum)) r9 simpths |> PROVE_HYP TRUTH
 val forall_insts = filter (can (match_term ``X = in_fun Y in_bool $!``)) (hyp r10)
 val exists_insts = filter (can (match_term ``X = in_fun Y in_bool $?``)) (hyp r10)
+val select_insts = filter (can (match_term ``X = in_fun Y Z $@``)) (hyp r10)
 val forall_insts = map (rand o rator o rand o rator o rator o rhs) forall_insts
 val exists_insts = map (rand o rator o rand o rator o rator o rhs) exists_insts
+val select_insts = map (rand o rator o rand o rator o rator o rhs) select_insts
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [model_interpretations,
     in_bool_true,in_bool_false,in_fun_not,in_fun_binop,
     list_conj (map (fn ina => ISPEC ina in_fun_forall1 |> UNDISCH) forall_insts),
     list_conj (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
+    list_conj (map (fn ina => ISPEC ina in_fun_select1 |> UNDISCH) select_insts),
+    select_bool_boolset,
     model_is_bool_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
     |> CONJUNCT1
@@ -136,6 +218,8 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [model_inter
     |> CONJUNCT1,
     list_conj (map (UNDISCH o C ISPEC inhabited_range) forall_insts),
     list_conj (map (UNDISCH o C ISPEC inhabited_range) exists_insts),
+    (* TODO make more generic: *)
+    (SIMP_RULE std_ss [GSYM AND_IMP_INTRO](Q.ISPECL[`in_bool`,`in_bool`](SPEC mem (GEN_ALL range_in_fun)))) |> funpow 2 UNDISCH,
     UNDISCH inhabited_boolset, UNDISCH range_in_bool])) (hyp r10)
 val r11 = foldl (uncurry (C simplify_assum)) r10 simpths |> PROVE_HYP TRUTH
 val is_term_valuation_asm = first (same_const ``is_term_valuation0`` o fst o strip_comb) (hyp r11)
@@ -144,15 +228,15 @@ val t2 = is_term_valuation_asm |> rator |> rator |> rand
 val t3 = is_term_valuation_asm |> rator |> rand
 val asms = tmval_asms r11
 val tmval_th1 =
-constrained_term_valuation_exists
-|> UNDISCH
-|> SPECL [t1,t2,t3]
-|> SIMP_RULE std_ss [tyval_th]
-|> C MATCH_MP (
-     model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1
-     |> SIMP_RULE std_ss [is_interpretation_def] |> CONJUNCT1)
-|> SPEC (asms |> map (fn eq => mk_pair(rand(lhs eq),rhs eq))
-         |> C (curry mk_list) (mk_prod(mk_prod(string_ty,``:type``),U)))
+  constrained_term_valuation_exists
+  |> UNDISCH
+  |> SPECL [t1,t2,t3]
+  |> SIMP_RULE std_ss [tyval_th]
+  |> C MATCH_MP (
+       model_is_interpretation
+       |> SIMP_RULE std_ss [is_interpretation_def] |> CONJUNCT1)
+  |> SPEC (asms |> map (fn eq => mk_pair(rand(lhs eq),rhs eq))
+           |> C (curry mk_list) (mk_prod(mk_prod(string_ty,``:type``),U)))
 val goal = (hyp tmval_th1,fst(dest_imp(concl tmval_th1)))
 val tmval_th2 = TAC_PROOF(goal,
   conj_tac >- EVAL_TAC >>
