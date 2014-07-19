@@ -782,6 +782,8 @@ val is_universe_def = xDefine"is_universe"`
     (∀x y. x <: u ∧ y <: u ⇒ x + y <: u)`
 val _ = overload_on("is_universe",``is_universe0 ^mem``)
 
+open setModelTheory
+
 val is_set_theory_pred_universe = store_thm("is_set_theory_pred_universe",
   ``is_set_theory ^mem ⇒
       ∀u. is_universe u ⇒

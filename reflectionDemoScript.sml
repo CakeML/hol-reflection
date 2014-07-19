@@ -16,8 +16,12 @@ val p = ``∀p. p ∨ ¬p``
 val res5 = prop_to_loeb_hyp p
 val p = ``(@x. x = x):bool``
 val res6 = prop_to_loeb_hyp p
-val p = ``∀(x:ind). F``
+val p = ``@z. z ⇔ (a = @x. F)``
 val res7 = prop_to_loeb_hyp p
+val p = ``if x then x else F``
+val res8 = prop_to_loeb_hyp p
+val p = ``∀(x:ind). F``
+val res9 = prop_to_loeb_hyp p
 
 open miscLib basicReflectionLib listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
@@ -60,7 +64,96 @@ val select_bool_boolset =
   ``select_bool boolset`` |> SIMP_CONV (std_ss++LIST_ss)
     [select_bool_def,combinTheory.APPLY_UPDATE_THM]
 
-val res = res6
+val empty_tyset = HOLset.empty Type.compare
+val sing_tyset = HOLset.singleton Type.compare
+fun select_types tm =
+  case dest_term tm of
+    VAR _ => empty_tyset
+  | CONST{Name="@",Thy="min",Ty} => sing_tyset (snd(dom_rng Ty))
+  | CONST _ => empty_tyset
+  | COMB(t1,t2) =>
+    HOLset.union (select_types t1,select_types t2)
+  | LAMB(_,b) => select_types b
+
+fun mk_range tm = ``range ^tm``
+
+val res = res7
+
+fun mk_select_pair ty =
+  let
+    val inty = mk_in ty
+    val p = mk_var("p",U --> bool)
+    val x = mk_var("x",ty)
+    val inty_x = mk_comb(inty,x)
+  in
+    (mk_range inty, mk_abs(p, mk_comb(inty,(mk_select(x,mk_comb(p,inty_x))))))
+  end
+
+val seltys = HOLset.listItems (select_types (rand (concl res)))
+
+val good_select_extend_base_select = store_thm("good_select_extend_base_select",
+  ``∀ina. is_in ina ⇒
+      ∀s. good_select s ⇒
+      good_select ((range ina =+ (λp. ina (@x. p (ina x)))) s)``,
+  rw[good_select_def,APPLY_UPDATE_THM] >> rw[] >>
+  TRY (
+    SELECT_ELIM_TAC >> simp[] >>
+    qexists_tac`finv ina x` >>
+    metis_tac[is_in_finv_right] ) >>
+  metis_tac[is_in_range_thm])
+
+val select_instance_thm = prove(
+  ``is_set_theory ^mem ⇒ is_in inty ⇒
+    good_select select_fun ⇒
+    (select_fun (range inty) = λp. inty (@x. p (inty x))) ∧
+    (typesem (tyaof (select_model select_fun)) τ ty = range inty) ∧
+    (FLOOKUP tmsig "@" = SOME (Fun (Fun (Tyvar "A") Bool) (Tyvar "A")))
+    ⇒
+    (instance tmsig (select_model select_fun)  "@" (Fun (Fun ty Bool) ty) τ =
+     in_fun (in_fun inty in_bool) inty $@)``,
+  rw[] >>
+  qspecl_then[`tmsig`,`select_model select_fun`,`"@"`]mp_tac instance_def >>
+  simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
+  simp[] >> disch_then kall_tac >>
+  CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
+  first_assum(assume_tac o MATCH_MP select_model_models) >>
+  simp[] >> pop_assum kall_tac >>
+  first_assum(mp_tac o MATCH_MP in_fun_select) >>
+  simp[] >> disch_then kall_tac >>
+  (range_in_fun |> Q.GEN`inb` |> Q.ISPEC`in_bool` |> Q.GEN`ina` |> Q.SPEC_THEN`inty`mp_tac) >>
+  simp[is_in_in_bool] >> disch_then kall_tac >>
+  simp[range_in_bool] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[] >> rw[])
+
+val select_ths =
+  let
+    val pairs = map mk_select_pair seltys
+    fun f ((p,q),th) =
+      let
+        val inty = rand p
+        val good = ISPEC inty good_select_extend_base_select |> UNDISCH
+      in
+        MATCH_MP good th
+      end
+    val good_th = foldl f (UNDISCH good_select_base_select) pairs
+    fun f (inty,ths) =
+      let
+        val th = ISPEC inty (Q.GEN `ina` in_fun_select) |> UNDISCH
+
+  val instances_ths =
+  in_fun_select
+  CONV_RULE(RESORT_FORALL_CONV(sort_vars["tmsig","name"])) instance_def |>
+  ``instance ^tmsig ^interpretation "@" (Fun (Fun ^ty Bool) ^ty) =
+    in_fun (in_fun ^inty in_bool) ^inty $@``
+  type_of``instance``
+
+  in
+    (good_th,instances_ths)
+  end
+
 val model_models = Q.SPEC `select_bool` select_model_models |> C MP (UNDISCH good_select_select_bool)
 val model_is_bool_interpretation =
   select_bool_interpretation |> DISCH_ALL |> Q.GEN`select` |> SPEC ``select_bool``
