@@ -3,6 +3,8 @@ local
   open HolKernel boolLib bossLib holSyntaxSyntax listSyntax pairSyntax stringSyntax
 in
 
+(* (n_imp_and_intro n) converts terms of the form ``P1 /\ ... /\ Pn ==> Q``
+   to terms of the form ``P1 ==> ... ==> Pn ==> Q``. *)
 fun n_imp_and_intro 0 = ALL_CONV
   | n_imp_and_intro n = REWR_CONV (GSYM AND_IMP_INTRO) THENC
                        (RAND_CONV (n_imp_and_intro (n-1)))
@@ -78,7 +80,13 @@ val EVAL_STRING_SORT =
                         then EVAL tm else raise UNCHANGED))
 
 (* given [...,A,...] |- P and H |- A <=> B1 /\ ... /\ Bn
-   produce [...,B1,...,Bn,...] ∪ H |- P *)
+   produce [...,B1,...,Bn,...] ∪ H |- P
+
+   This will not work if any of the Bi's are
+   conjunctions. It will raise a HOL_ERR if Bi for i<n
+   is a conjunction; conjunction is right-associative,
+   so if Bn is a conjunction, the result will be
+   different than shown above. *)
 fun simplify_assum th simpth =
   let
     val A = lhs(concl simpth)
@@ -91,7 +99,13 @@ fun simplify_assum th simpth =
   end
 
 (* given [...,A',...] |- P and H |- !x1..xn. B1 /\ ... /\ Bn ==> A
-   produce [...,B1',...,Bn',...] ∪ H |- P *)
+   produce [...,B1',...,Bn',...] ∪ H |- P
+
+   This will not work if any of the Bi's are
+   conjunctions. It will raise a HOL_ERR if Bi for i<n
+   is a conjunction; conjunction is right-associative,
+   so if Bn is a conjunction, the result will be
+   different than shown above. *)
 fun replace_assum th simpth =
   let
     val c = simpth |> concl
@@ -100,6 +114,8 @@ fun replace_assum th simpth =
     val A' = first (can (match_term A)) (hyp th)
     val th1 = DISCH A' th
     val (s,_) = match_term A A'
+      (* [Benja:] I'm surprised by the fst's below -- why don't we compare
+         the variables' types as well? *)
     val th2 = ISPECL (map (fn x => #residue(first (equal (fst(dest_var x)) o fst o dest_var o #redex) s)) xs) simpth
     val n = B |> strip_conj |> length
     val th3 = CONV_RULE (n_imp_and_intro (n-1)) th2
