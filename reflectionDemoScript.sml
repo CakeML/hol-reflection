@@ -64,45 +64,6 @@ val select_bool_boolset =
   ``select_bool boolset`` |> SIMP_CONV (std_ss++LIST_ss)
     [select_bool_def,combinTheory.APPLY_UPDATE_THM]
 
-val in_fun_select = prove(
-  ``is_set_theory ^mem ⇒ is_in ina ⇒
-    (in_fun (in_fun ina in_bool) ina $@ =
-     Abstract (range (in_fun ina in_bool)) (range ina)
-       (λp. ina (@x. Holds p (ina x))))``,
-  rw[in_fun_def] >>
-  match_mp_tac (UNDISCH abstract_eq) >>
-  simp[in_bool_def,boolean_in_boolset] >>
-  simp[is_in_range_thm] >>
-  simp[GSYM in_bool_def] >>
-  Q.ISPEC_THEN`in_bool`mp_tac(Q.GEN`inb`range_in_fun) >>
-  discharge_hyps >- metis_tac[is_in_in_bool] >> rw[] >>
-  AP_TERM_TAC >> AP_TERM_TAC >>
-  qmatch_abbrev_tac`l = r` >>
-  qsuff_tac`in_fun ina in_bool l = in_fun ina in_bool r` >- (
-    `is_in (in_fun ina in_bool)` by metis_tac[is_in_in_fun,is_in_in_bool] >>
-    fs[is_in_def,BIJ_DEF,INJ_DEF] ) >>
-  Q.ISPEC_THEN`in_fun ina in_bool`mp_tac is_in_finv_right >>
-  discharge_hyps >- metis_tac[is_in_in_fun,is_in_in_bool] >>
-  simp[range_in_fun] >> disch_then(qspec_then`x`mp_tac) >>
-  discharge_hyps >- simp[] >>
-  simp[Abbr`l`] >> disch_then kall_tac >>
-  simp[Abbr`r`] >>
-  Q.ISPECL_THEN[`x`,`range ina`,`range in_bool`]mp_tac(UNDISCH in_funspace_abstract) >>
-  discharge_hyps >- ( metis_tac[inhabited_range,is_in_in_bool] ) >>
-  rw[] >>
-  simp[in_fun_def] >>
-  match_mp_tac (UNDISCH abstract_eq) >>
-  simp[range_in_bool] >>
-  simp[in_bool_def,boolean_in_boolset] >>
-  rw[holds_def] >>
-  qmatch_abbrev_tac`f x = Boolean (b = True)` >>
-  `b = f x` by (
-    simp[Abbr`b`] >>
-    match_mp_tac apply_abstract_matchable >>
-    metis_tac[is_in_finv_right,range_in_bool] ) >>
-  rw[boolean_def] >>
-  metis_tac[range_in_bool,mem_boolset]) |> UNDISCH
-
 val res = res6
 val model_models = Q.SPEC `select_bool` select_model_models |> C MP (UNDISCH good_select_select_bool)
 val model_is_bool_interpretation =
