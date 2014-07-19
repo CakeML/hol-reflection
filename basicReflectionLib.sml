@@ -58,8 +58,8 @@ local
   fun genv x = (* genvar (type_of x) *)
     variant [] x
 in
-  val tysig = genv ``tysig:tyenv``
-  val tmsig = genv ``tmsig:tmenv``
+  val tysig = genv ``tysig:tysig``
+  val tmsig = genv ``tmsig:tmsig``
   val tyass = genv ``tyass:'U tyass``
   val tmass = genv ``tmass:'U tmass``
   val tyval = genv ``tyval:'U tyval``
