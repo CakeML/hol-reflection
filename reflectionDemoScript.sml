@@ -14,7 +14,7 @@ val p = ``∀p. (λx. ~(x=x)) p ⇒ ∃x. F``
 val res4 = prop_to_loeb_hyp p
 val p = ``∀p. p ∨ ¬p``
 val res5 = prop_to_loeb_hyp p
-val p = ``@x. x ∧ x``
+val p = ``(@x. x = x):bool``
 val res6 = prop_to_loeb_hyp p
 val p = ``∀(x:ind). F``
 val res7 = prop_to_loeb_hyp p
@@ -23,10 +23,6 @@ open miscLib basicReflectionLib listSimps stringSimps
 open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax stringSyntax
 open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsTheory holAxiomsSyntaxTheory
 open finite_mapTheory alistTheory listTheory pairTheory
-
-val in_ind_def = Define`
-  (in_ind0 ^mem):ind -> 'U = @f. is_in0 mem f`
-val _ = overload_on("in_ind",``in_ind0 ^mem``)
 
 val bool_sig_quant_instances = prove(
   ``is_bool_sig sig ⇒

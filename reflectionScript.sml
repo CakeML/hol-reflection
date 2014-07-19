@@ -751,6 +751,73 @@ val interprets_one = store_thm("interprets_one",
 
 (* TODO: move *)
 
+val in_ind_def = xDefine "in_ind"`
+  (in_ind0 ^mem):ind -> 'U = @f. is_in0 mem f`
+val _ = overload_on("in_ind",``in_ind0 ^mem``)
+
+(*
+val LCA_def = Define`
+  LCA l f ⇔
+    ∀m. m < l ⇒
+      ∀n. POW (f m n) ≼ f m (n+1) ∧
+          f m n ≼ f (m+1) 0`
+
+          is_set_theory_V
+          type_of``V_mem``
+          IN_POW
+          type_of``POW``
+          SUBSET_DEF
+*)
+
+val transitive_set_def = xDefine"transitive_set"`
+  transitive_set0 ^mem x = ∀y. y <: x ⇒ (∀z. z <: y ⇒ z <: x)`
+val _ = overload_on("transitive_set",``transitive_set0 ^mem``)
+
+val is_universe_def = xDefine"is_universe"`
+  is_universe0 ^mem u ⇔
+    inhabited u ∧
+    transitive_set u ∧
+    (∀x. x <: u ⇒ Pow x <: u) ∧
+    (∀x. x <: u ⇒ union mem x <: u) ∧
+    (∀x y. x <: u ∧ y <: u ⇒ x + y <: u)`
+val _ = overload_on("is_universe",``is_universe0 ^mem``)
+
+val is_set_theory_pred_universe = store_thm("is_set_theory_pred_universe",
+  ``is_set_theory ^mem ⇒
+      ∀u. is_universe u ⇒
+        is_set_theory_pred (combin$C mem u) ^mem``,
+  rw[] >>
+  simp[is_set_theory_pred_def] >>
+  conj_tac >- metis_tac[is_universe_def] >>
+  conj_tac >- (
+    imp_res_tac is_extensional >>
+    fs[extensional_def,is_universe_def,transitive_set_def] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    assume_tac(UNDISCH mem_power) >> rw[] >>
+    qexists_tac`x suchthat P` >>
+    metis_tac[mem_sub,is_universe_def,transitive_set_def]) >>
+  conj_tac >- (
+    rw[] >>
+    qexists_tac`Pow x` >>
+    metis_tac[mem_power,is_universe_def,transitive_set_def] ) >>
+  conj_tac >- (
+    rw[] >>
+    qexists_tac`union mem x` >>
+    metis_tac[mem_union,is_universe_def,transitive_set_def]) >>
+  conj_tac >- (
+    rw[] >>
+    qexists_tac`x + y` >>
+    metis_tac[mem_upair,is_universe_def,transitive_set_def]) >>
+  metis_tac[])
+
+val n_universes_def = xDefine"n_universes"`
+  n_universes0 ^mem n ⇔
+    ∃f. (f 0 = range in_ind) ∧
+        ∀k. k < n ⇒ is_universe (f (k+1)) ∧
+                    f k <: f (k+1)`
+val _ = overload_on("n_universes",``n_universes0 ^mem``)
+
 val boolean_of_eq_true = store_thm("boolean_of_eq_true",
   ``is_set_theory ^mem ⇒
     ∀b. b <: boolset ⇒ (Boolean (b = True) = b)``,
