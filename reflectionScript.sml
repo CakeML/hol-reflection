@@ -719,10 +719,10 @@ val select_instance_thm = prove(
     (FLOOKUP tmsig "@" = SOME (Fun (Fun (Tyvar "A") Bool) (Tyvar "A"))) ⇒
     good_select select_fun ⇒
     (select_fun (range inty) = λp. inty (@x. p (inty x))) ⇒
-    (typesem (tyaof (select_model select_fun)) τ ty = range inty) ⇒
+    (typesem (tyaof (select_model select_fun)) ^tyval ty = range inty) ⇒
     is_in inty
     ⇒
-    (instance tmsig (select_model select_fun)  "@" (Fun (Fun ty Bool) ty) τ =
+    (instance ^tmsig (select_model select_fun)  "@" (Fun (Fun ty Bool) ty) ^tyval =
      in_fun (in_fun inty in_bool) inty $@)``,
   rw[] >>
   qspecl_then[`tmsig`,`select_model select_fun`,`"@"`]mp_tac instance_def >>
