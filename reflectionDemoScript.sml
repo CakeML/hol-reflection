@@ -77,7 +77,7 @@ fun select_types tm =
 
 fun mk_range tm = ``range ^tm``
 
-val res = res7
+val res = res4
 
 fun mk_select_pair ty =
   let
@@ -165,6 +165,9 @@ val model_is_interpretation =
 val res = res5
 val model_models = bool_model_models
 val model_is_bool_interpretation = bool_model_interpretation
+val select_insts = TRUTH
+val model_is_interpretation =
+     model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1
 *)
 
 val model = model_models |> concl |> find_term (can (match_term ``X models Y``)) |> rator |> rand

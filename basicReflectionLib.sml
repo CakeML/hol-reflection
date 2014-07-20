@@ -114,9 +114,7 @@ fun replace_assum th simpth =
     val A' = first (can (match_term A)) (hyp th)
     val th1 = DISCH A' th
     val (s,_) = match_term A A'
-      (* [Benja:] I'm surprised by the fst's below -- why don't we compare
-         the variables' types as well? *)
-    val th2 = ISPECL (map (fn x => #residue(first (equal (fst(dest_var x)) o fst o dest_var o #redex) s)) xs) simpth
+    val th2 = ISPECL (map (fn x => #residue(first (equal (dest_var x) o dest_var o #redex) s)) xs) simpth
     val n = B |> strip_conj |> length
     val th3 = CONV_RULE (n_imp_and_intro (n-1)) th2
     val th4 = funpow n UNDISCH th3 handle HOL_ERR _ => th3
