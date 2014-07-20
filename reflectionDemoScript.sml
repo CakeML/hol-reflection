@@ -28,36 +28,14 @@ open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax str
 open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsTheory holAxiomsSyntaxTheory
 open finite_mapTheory alistTheory listTheory pairTheory
 
-val res = res7
-
-val seltys = HOLset.listItems (select_types (rand (concl res)))
-
-(*
-fun fresh_string s =
-  let
-    fun f n =
-      let
-        val v = Int.toString n
-      in
-        if HOLset.member (s,v) then
-          f (n+1)
-        else v
-      end
-  in
-    f 0
-  end
-(*
-val fresh_tyvar =
-  pairs |> map (map dest_vartype o type_vars o type_of o rand o fst) |> flatten
-  |> HOLset.fromList String.compare |> fresh_string |> mk_vartype
-  *)
-(*val selinstth = MATCH_MP ((*INST_TYPE[alpha|->fresh_tyvar]*)select_instance_thm) good_th *)
-*)
+val inhabited_boolset = prove(
+  ``is_set_theory ^mem ⇒ inhabited boolset``,
+  metis_tac[mem_boolset])
 
 val inty_var = select_instance_thm |> concl |> funpow 2 rand |> rator |> funpow 3 rand
 val ty_var = select_instance_thm |> concl |> funpow 4 rand
              |> lhs |> rator |> funpow 3 rand |>  rator |> rand
-val select_fun_tm = select_instance_thm |> concl |> rator |> funpow 2 rand
+val select_fun_var = select_instance_thm |> concl |> rator |> funpow 2 rand
 fun mk_range tm = ``range ^tm``
 fun mk_select_pair ty =
   let
@@ -69,7 +47,11 @@ fun mk_select_pair ty =
     (mk_range inty, mk_abs(p, mk_comb(inty,(mk_select(x,mk_comb(p,inty_x))))))
   end
 
-val (good_th,inst_ths) =
+val res = res7
+
+val seltys = HOLset.listItems (select_types (rand (concl res)))
+
+val (good_select_th,select_instance_ths) =
   let
     val pairs = map mk_select_pair seltys
     fun f ((p,q),th) =
@@ -83,12 +65,12 @@ val (good_th,inst_ths) =
     val all_distinct_asm =
       ASSUME(mk_all_distinct(mk_list(map fst pairs,U)))
       |> SIMP_RULE (std_ss++LIST_ss) [listTheory.ALL_DISTINCT]
-    val select_fun = rand(concl good_th)
+    val select_fun_tm = rand(concl good_th)
     fun f range_inty =
       let
         val inty = rand range_inty
         val th =
-          mk_comb(select_fun,range_inty)
+          mk_comb(select_fun_tm,range_inty)
           |> SIMP_CONV std_ss [combinTheory.APPLY_UPDATE_THM,all_distinct_asm]
       in
         th
@@ -98,25 +80,42 @@ val (good_th,inst_ths) =
       let
         val tm = th |> concl |> lhs |> rand |> rand
         val insth = IINST1 inty_var tm select_instance_thm
-        val insth = IINST1 ty_var (type_to_deep (fst(dom_rng(type_of tm)))) insth
-        val insth = IINST1 select_fun_tm (rand(concl good_th)) insth
+                 |> IINST1 ty_var (type_to_deep (fst(dom_rng(type_of tm))))
+                 |> IINST1 select_fun_var (rand(concl good_th))
+        val th2 = MP (MP insth good_th) th
+               |> CONV_RULE (LAND_CONV (SIMP_CONV (std_ss++LIST_ss) [typesem_def]))
       in
-        MP (MP insth good_th) th
-        |> SIMP_RULE (std_ss++LIST_ss) [typesem_def]
-        |> funpow 2 UNDISCH
+        th2 |> funpow 2 UNDISCH
       end
     val inst_ths = map f select_fun_applied
   in
     (good_th,inst_ths)
   end
 
-val select_fun_tm = rand(concl good_th)
-val model_models = SPEC select_fun_tm select_model_models |> C MP good_th
+val select_fun_tm = rand(concl good_select_th)
+val model_models = SPEC select_fun_tm select_model_models |> C MP good_select_th
 val model_is_bool_interpretation =
   select_bool_interpretation |> DISCH_ALL |> Q.GEN`select` |> SPEC select_fun_tm
   |> C MP good_th |> UNDISCH
 val model_is_interpretation =
      model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1 |> CONJUNCT1
+val model_is_std =
+  model_models |> CONJUNCT2 |> CONJUNCT1 |> SIMP_RULE std_ss [models_def]
+  |> CONJUNCT2 |> CONJUNCT1
+val model_bool_ty =
+  model_is_std |> SIMP_RULE std_ss [is_std_interpretation_def]
+               |> CONJUNCT1
+               |> SIMP_RULE std_ss [is_std_type_assignment_def]
+fun clean_asms th =
+  let
+    val simpths = mapfilter
+      (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss)
+        [model_bool_ty,UNDISCH range_in_bool,UNDISCH is_in_in_bool]))
+      (hyp th)
+  in
+    foldl (uncurry (C simplify_assum)) th simpths |> PROVE_HYP TRUTH
+  end
+val select_instance_ths0 = map clean_asms select_instance_ths
 
 (*
 val res = res5
@@ -129,6 +128,9 @@ val model_is_interpretation =
 
 val model = model_models |> concl |> find_term (can (match_term ``X models Y``)) |> rator |> rand
 val ctxt = model_models |> concl |> find_term (can (match_term ``thyof ctxt``)) |> funpow 4 rand
+
+val select_instance_ths1 =
+  map (IINST1 tmsig ``tmsof ^ctxt``) select_instance_ths0
 
 val bool_insts0 =
   DISCH_ALL(CONJ(UNDISCH bool_sig_instances)(UNDISCH bool_sig_quant_instances))
@@ -172,12 +174,10 @@ fun list_conj x = LIST_CONJ x handle HOL_ERR _ => TRUTH
 
 val model_interpretations = bool_interpretations model_is_bool_interpretation
 
-val inhabited_boolset = prove(
-  ``is_set_theory ^mem ⇒ inhabited boolset``,
-  metis_tac[mem_boolset])
-
 val tyval_th = mk_tyval res
 val r3 = res |> INST[tyval|->(rand(concl tyval_th))]
+val select_instance_ths2 =
+  map (INST[tyval|->rand(concl tyval_th)]) select_instance_ths1
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss) [combinTheory.APPLY_UPDATE_THM])) (hyp r3)
 val r4 = foldl (uncurry PROVE_HYP) r3 (map EQT_ELIM simpths)
 val r5 = Q.INST[`ctxt`|->`^ctxt`] r4
@@ -220,6 +220,7 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [model_inter
     list_conj (map (fn ina => ISPEC ina in_fun_forall1 |> UNDISCH) forall_insts),
     list_conj (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
     list_conj (map (fn ina => ISPEC ina in_fun_select1 |> UNDISCH) select_insts),
+    list_conj select_instance_ths2,
     model_is_bool_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
     |> CONJUNCT1
