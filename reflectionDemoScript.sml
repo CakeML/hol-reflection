@@ -129,6 +129,9 @@ val model_is_interpretation =
 val model = model_models |> concl |> find_term (can (match_term ``X models Y``)) |> rator |> rand
 val ctxt = model_models |> concl |> find_term (can (match_term ``thyof ctxt``)) |> funpow 4 rand
 
+val _ = overload_on("the_model",model)
+val _ = overload_on("the_ctxt",ctxt)
+
 val select_instance_ths1 =
   map (IINST1 tmsig ``tmsof ^ctxt``) select_instance_ths0
 
@@ -151,6 +154,14 @@ val is_bool_sig_th = TAC_PROOF(is_bool_sig_goal,
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
 val bool_insts = MP bool_insts0 is_bool_sig_th
 
+val std_insts0 = Q.SPEC`sigof ^ctxt`(Q.GEN`sig`std_sig_instances)
+  |> SIMP_RULE std_ss []
+val is_std_sig_goal:goal = ([],fst(dest_imp(concl std_insts0)))
+val is_std_sig_th = TAC_PROOF(is_std_sig_goal,
+  match_mp_tac is_bool_sig_std >>
+  ACCEPT_TAC is_bool_sig_th)
+val std_insts = MP std_insts0 is_std_sig_th
+
 val select_insts0 = Q.SPEC`sigof ^ctxt`(Q.GEN`sig`select_sig_instances)
   |> SIMP_RULE std_ss []
 val is_select_sig_goal:goal = ([],fst(dest_imp(concl select_insts0)))
@@ -158,7 +169,7 @@ val is_select_sig_th = TAC_PROOF(is_select_sig_goal,
   match_mp_tac select_has_select_sig >>
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
-val select_insts = MP select_insts0 is_select_sig_th
+val select_insts1 = MP select_insts0 is_select_sig_th
 
 val in_fun_forall1 = in_fun_forall |> DISCH``is_in ina`` |> Q.GEN`ina`
 val in_fun_exists1 = in_fun_exists |> DISCH``is_in ina`` |> Q.GEN`ina`
@@ -166,6 +177,12 @@ val in_fun_select1 = in_fun_select |> Q.GEN`ina`
 val is_instance_quant = prove(
   ``is_instance (Fun (Fun (Tyvar A) Bool) Bool) z ⇔
     ∃y. z = Fun (Fun y Bool) Bool``,
+  rw[EQ_IMP_THM] >>
+  qexists_tac`[(y,Tyvar A)]` >>
+  EVAL_TAC)
+val is_instance_equality = prove(
+  ``is_instance (Fun (Tyvar A) (Fun (Tyvar A) Bool)) z ⇔
+    ∃y. z = Fun y (Fun y Bool)``,
   rw[EQ_IMP_THM] >>
   qexists_tac`[(y,Tyvar A)]` >>
   EVAL_TAC)
@@ -199,8 +216,13 @@ val bool_sig = is_bool_sig_def
 val std_sig = CONV_RULE (REWR_CONV is_std_sig_def)
   (MATCH_MP is_bool_sig_std is_bool_sig_th)
   |> SIMP_RULE std_ss []
+val select_sig = is_select_sig_def
+  |> Q.SPEC`sigof(^ctxt)`
+  |> SIMP_RULE std_ss [is_bool_sig_th,is_select_sig_th]
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
-  [combinTheory.APPLY_UPDATE_THM,bool_insts,select_insts,bool_sig,std_sig,is_instance_refl,is_instance_quant])) (hyp r6)
+  [combinTheory.APPLY_UPDATE_THM,bool_insts,select_insts1,
+   select_sig,bool_sig,std_insts,std_sig,is_instance_refl,
+   is_instance_quant,is_instance_equality])) (hyp r6)
 val r7 = foldl (uncurry (C simplify_assum)) r6 simpths |> PROVE_HYP TRUTH
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss++STRING_ss)
   [is_valuation_def,tyval_th,type_11,typesem_def,combinTheory.APPLY_UPDATE_THM])) (hyp r7)
@@ -221,16 +243,15 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [model_inter
     list_conj (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
     list_conj (map (fn ina => ISPEC ina in_fun_select1 |> UNDISCH) select_insts),
     list_conj select_instance_ths2,
-    model_is_bool_interpretation
-    |> SIMP_RULE std_ss [is_bool_interpretation_def]
-    |> CONJUNCT1
+    model_is_std
     |> SIMP_RULE std_ss [is_std_interpretation_def,is_std_type_assignment_def]
     |> CONJUNCT1,
     list_conj (map (UNDISCH o C ISPEC inhabited_range) forall_insts),
     list_conj (map (UNDISCH o C ISPEC inhabited_range) exists_insts),
-    (* TODO make more generic: *)
-    (SIMP_RULE std_ss [GSYM AND_IMP_INTRO](Q.ISPECL[`in_bool`,`in_bool`](SPEC mem (GEN_ALL range_in_fun)))) |> funpow 2 UNDISCH,
-    UNDISCH inhabited_boolset, UNDISCH range_in_bool])) (hyp r10)
+    (* TODO 
+     UNDISCH range_in_bool
+    (SIMP_RULE std_ss [GSYM AND_IMP_INTRO](Q.ISPECL[`in_bool`,`in_bool`](SPEC mem (GEN_ALL range_in_fun)))) |> funpow 2 UNDISCH, *)
+    UNDISCH inhabited_boolset])) (hyp r10)
 val r11 = foldl (uncurry (C simplify_assum)) r10 simpths |> PROVE_HYP TRUTH
 val is_term_valuation_asm = first (same_const ``is_term_valuation0`` o fst o strip_comb) (hyp r11)
 val t1 = is_term_valuation_asm |> rator |> rator |> rator |> rand
@@ -244,7 +265,7 @@ val tmval_th1 =
   |> SIMP_RULE std_ss [tyval_th]
   |> C MP (
        model_is_interpretation
-       |> SIMP_RULE std_ss [is_interpretation_def,UNDISCH range_in_bool] |> CONJUNCT1)
+       |> SIMP_RULE std_ss [is_interpretation_def] |> CONJUNCT1)
   |> SPEC (asms |> map (fn eq => mk_pair(rand(lhs eq),rhs eq))
            |> C (curry mk_list) (mk_prod(mk_prod(string_ty,``:type``),U)))
 val goal = (hyp tmval_th1,fst(dest_imp(concl tmval_th1)))
@@ -258,7 +279,6 @@ val tmval_th2 = TAC_PROOF(goal,
     |> SIMP_RULE std_ss [is_bool_interpretation_def] |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_interpretation_def] |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_type_assignment_def]
-    |> SIMP_RULE std_ss [UNDISCH range_in_bool]
     |> CONJUNCT2] >>
     metis_tac[is_in_in_bool,is_in_range_thm,range_in_bool]) >>
   metis_tac[is_in_range_thm])
@@ -268,6 +288,8 @@ val r12 =
   foldl (uncurry PROVE_HYP) r11 (CONJUNCTS (ASSUME (mk_conj(is_term_valuation_asm,(list_mk_conj asms)))))
 val r13 = CHOOSE (tmval, tmval_th3) r12
   |> PROVE_HYP (UNDISCH is_in_in_bool)
+
+val simpths = mapfilter (QCHANGED_CONV EVAL) (hyp r13)
 
 val _ = save_thm("example",r13)
 

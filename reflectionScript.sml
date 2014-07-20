@@ -623,6 +623,15 @@ val _ = map2 (curry save_thm)
   ["in_fun_not","in_fun_forall","in_fun_exists","in_fun_binop","in_bool_false","in_bool_true","in_fun_select"]
   [ in_fun_not , in_fun_forall , in_fun_exists , in_fun_binop , in_bool_false , in_bool_true , in_fun_select ]
 
+val std_sig_instances = store_thm("std_sig_instances",
+  ``is_std_sig sig ⇒
+    (instance (tmsof sig) i "=" (Fun ty (Fun ty Bool)) =
+       (λτ. tmaof i "=" [typesem (tyaof i) τ ty]))``,
+  rw[is_std_sig_def] >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`"="`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  EVAL_TAC >> simp[])
+
 val is_select_sig_def = Define`
   is_select_sig sig ⇔
   is_bool_sig sig ∧

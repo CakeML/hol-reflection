@@ -205,7 +205,8 @@ in
   fun bool_interpretations interp_th =
     is_bool_interpretation_def
     |> SPECL [mem, rand(concl interp_th)]
-    |> SIMP_RULE std_ss [interp_th] |> CONJUNCT2
+    |> SIMP_RULE std_ss [interp_th,is_std_interpretation_def,GSYM CONJ_ASSOC]
+    |> CONJUNCT2
     |> SIMP_RULE (std_ss++LIST_ss) [interprets_nil,interprets_one]
 
   val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
