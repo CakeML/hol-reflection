@@ -55,11 +55,7 @@ in
     | Tyapp ("min","fun",[ty1,ty2]) =>
          good_context_is_in_in_fun
          |> ISPECL [mk_in ty1, mk_in ty2]
-            (* [Benja:] I think the MATCH_MP below can just be MP --
-             * I think we should be at this point instantiated to
-	     * exactly the type we need.
-             *)
-         |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
+         |> C MP (CONJ (mk_is_in_thm ty1)
                              (mk_is_in_thm ty2))
     | _ => ASSUME ``is_in ^(mk_in ty)``
 
