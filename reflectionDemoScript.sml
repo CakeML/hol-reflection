@@ -28,29 +28,6 @@ open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax str
 open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsTheory holAxiomsSyntaxTheory
 open finite_mapTheory alistTheory listTheory pairTheory
 
-val select_bool_def = xDefine"select_bool"`
-  select_bool0 ^mem =
-    (boolset =+ λp. in_bool (@x. p (in_bool x)))
-    base_select`
-val _ = overload_on("select_bool",``select_bool0 ^mem``)
-
-val good_select_select_bool = store_thm("good_select_select_bool",
-  ``is_set_theory ^mem ⇒
-    good_select select_bool``,
-  rw[] >>
-  assume_tac (UNDISCH good_select_base_select) >>
-  fs[good_select_def,select_bool_def,combinTheory.APPLY_UPDATE_THM] >>
-  rw[in_bool_def] >> rw[boolean_in_boolset] >- (
-    SELECT_ELIM_TAC >>
-    fs[boolean_def] >>
-    rfs[mem_boolset] >>
-    metis_tac[] ) >>
-  metis_tac[])
-
-val select_bool_boolset =
-  ``select_bool boolset`` |> SIMP_CONV (std_ss++LIST_ss)
-    [select_bool_def,combinTheory.APPLY_UPDATE_THM]
-
 val empty_tyset = HOLset.empty Type.compare
 val sing_tyset = HOLset.singleton Type.compare
 fun select_types tm =
@@ -263,7 +240,6 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [model_inter
     list_conj (map (fn ina => ISPEC ina in_fun_forall1 |> UNDISCH) forall_insts),
     list_conj (map (fn ina => ISPEC ina in_fun_exists1 |> UNDISCH) exists_insts),
     list_conj (map (fn ina => ISPEC ina in_fun_select1 |> UNDISCH) select_insts),
-    select_bool_boolset,
     model_is_bool_interpretation
     |> SIMP_RULE std_ss [is_bool_interpretation_def]
     |> CONJUNCT1
