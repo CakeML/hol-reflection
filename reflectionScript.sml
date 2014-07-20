@@ -689,6 +689,11 @@ extends_theory_ok
 |> Q.SPECL[`mk_bool_ctxt init_ctxt`,`mk_select_ctxt (mk_bool_ctxt init_ctxt)`]
 |> SIMP_RULE std_ss [bool_theory_ok,select_extends_bool]
 
+(* XXX: This should be more general: we should have a theorem
+    is_set_theory ^mem ==>
+    subinterpretation (mk_bool_ctxt init_ctxt) bool_model model ==>
+    is_bool_interpretation model
+ *)
 val select_bool_interpretation = prove(
   ``is_set_theory ^mem ⇒
     good_select select ⇒
@@ -723,6 +728,8 @@ val good_select_extend_base_select = store_thm("good_select_extend_base_select",
     metis_tac[is_in_finv_right] ) >>
   metis_tac[is_in_range_thm])
 
+(* XXX: Should the second assumption (FLOOKUP) be replaced by
+ * a use of "is_select_sig"? *)
 val select_instance_thm = prove(
   ``is_set_theory ^mem ⇒
     (FLOOKUP tmsig "@" = SOME (Fun (Fun (Tyvar "A") Bool) (Tyvar "A"))) ⇒
