@@ -33,23 +33,15 @@ val is_infinity_sig_hol_ctxt = prove(
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
 
+val interpretations1 = bool_interpretations hol_bool_interpretation
+
 val initial_context_state = {
   theory_ok_thm = theory_ok_hol_ctxt,
   is_infinity_sig_thm = is_infinity_sig_hol_ctxt,
   models_thm = CONJ (CONJUNCT1 hol_model_models)
                     (Q.ISPECL[`hol_ctxt`,`hol_model select in_ind`]subinterpretation_refl),
-  signature_lookups =
-
-  [],
-  interpretation_lookups = []}
-
-FLOOKUP (tmsof (sigof current_ctxt)) "blah" = SOME xxx
-tmaof current_interpretation "name" = ...
-print_find"select_model"
-select_bool_interpretation
-bool_interpretations
-show_assums := true
-
+  signature_lookups = [],
+  interpretation_lookups = interpretations1}
 
 val the_context_state = ref initial_context_state
 
