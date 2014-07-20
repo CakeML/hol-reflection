@@ -1,10 +1,66 @@
-open holSyntaxSyntax
+open HolKernel lcsymtacs
+open miscLib reflectionLib holSyntaxSyntax 
+open holSyntaxExtraTheory holBoolSyntaxTheory holBoolTheory
+     holAxiomsSyntaxTheory holAxiomsTheory
+     reflectionTheory
+
+structure Map = Redblackmap
+
+type context_state = {
+  theory_ok_thm : thm,
+  is_infinity_sig_thm : thm,
+  models_thm : thm,
+  signature_lookups : thm list,
+  interpretation_lookups : thm list
+  }
 
 val theory_ok_hol_ctxt = prove(
   ``theory_ok (thyof hol_ctxt)``,
   match_mp_tac (MP_CANON extends_theory_ok) >>
   match_exists_tac (concl hol_extends_bool) >>
   simp[hol_extends_bool,bool_theory_ok])
+
+val is_infinity_sig_hol_ctxt = prove(
+  ``is_infinity_sig (sigof hol_ctxt)``,
+  simp[hol_ctxt_def] >>
+  match_mp_tac infinity_has_infinity_sig >>
+  match_mp_tac select_has_select_sig >>
+  match_mp_tac (MP_CANON is_bool_sig_extends) >>
+  qexists_tac`mk_bool_ctxt init_ctxt` >>
+  conj_asm2_tac >- (
+    match_mp_tac eta_extends >>
+    fs[is_bool_sig_def] ) >>
+  match_mp_tac bool_has_bool_sig >>
+  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
+
+val initial_context_state = {
+  theory_ok_thm = theory_ok_hol_ctxt,
+  is_infinity_sig_thm = is_infinity_sig_hol_ctxt,
+  models_thm = CONJ (CONJUNCT1 hol_model_models)
+                    (Q.ISPECL[`hol_ctxt`,`hol_model select in_ind`]subinterpretation_refl),
+  signature_lookups =
+
+  [],
+  interpretation_lookups = []}
+
+FLOOKUP (tmsof (sigof current_ctxt)) "blah" = SOME xxx
+tmaof current_interpretation "name" = ...
+print_find"select_model"
+select_bool_interpretation
+bool_interpretations
+show_assums := true
+
+
+val the_context_state = ref initial_context_state
+
+want a database with:
+  theory_ok (thyof current_ctxt)
+  is_std_sig (sigof current_ctxt)
+  current_interpretation models (thyof current_ctxt)
+  for each constant in current_ctxt:
+    lookup constant (sigof current_ctxt) = ...
+    lookup constant current_interpretation = ... (connect to outer) ...
+  the current_interpretation will include select_fun as a variable
 
 val exists_equal_thm = prove(
   ``$? ($= x) ⇔ T``,
@@ -39,15 +95,6 @@ val tm = term_to_deep(rhs(concl IND_SUC_def))
 val theory_ok_th = theory_ok_hol_ctxt
 
 val tm_def = IND_SUC_def
-
-want a database with:
-  theory_ok (thyof current_ctxt)
-  is_std_sig (sigof current_ctxt)
-  current_interpretation models (thyof current_ctxt)
-  for each constant in current_ctxt:
-    lookup constant (sigof current_ctxt) = ...
-    lookup constant current_interpretation = ... (connect to outer) ...
-  the current_interpretation will include select_fun as a variable
 
 (term_to_cert``ARB``)
 hol_ctxt_def

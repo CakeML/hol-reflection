@@ -653,20 +653,37 @@ val select_has_select_sig = store_thm("select_has_select_sig",
     fs[is_std_sig_def,FLOOKUP_UPDATE] ) >>
   EVAL_TAC)
 
+val eta_theory_ok = prove(
+  ``theory_ok (thyof (mk_eta_ctxt (mk_bool_ctxt init_ctxt)))``,
+  match_mp_tac (MP_CANON extends_theory_ok) >>
+  REWRITE_TAC[Once CONJ_COMM] >>
+  match_exists_tac (concl bool_theory_ok) >>
+  conj_tac >- ACCEPT_TAC bool_theory_ok >>
+  match_mp_tac eta_extends >>
+  match_mp_tac is_bool_sig_std >>
+  match_mp_tac bool_has_bool_sig >>
+  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]) )
+
 val select_model_exists = prove(
   ``∃f. ∀mem select. is_set_theory mem ⇒ good_select select ⇒
-      subinterpretation (mk_bool_ctxt init_ctxt) (bool_model0 mem) (f mem select) ∧
-      f mem select models thyof (mk_select_ctxt (mk_bool_ctxt init_ctxt)) ∧
+      subinterpretation (mk_eta_ctxt (mk_bool_ctxt init_ctxt)) (bool_model0 mem) (f mem select) ∧
+      f mem select models thyof (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))) ∧
       (tmaof (f mem select) "@" = λls.
         Abstract (Funspace (HD ls) boolset) (HD ls)
           (λp. select (HD ls) (Holds p)))``,
   rw[GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >>
-  qspec_then`mk_bool_ctxt init_ctxt`mp_tac(UNDISCH select_has_model_gen) >>
+  qspec_then`mk_eta_ctxt (mk_bool_ctxt init_ctxt)`mp_tac(UNDISCH select_has_model_gen) >>
   discharge_hyps_keep >- (
-    simp[bool_theory_ok] >>
+    simp[eta_theory_ok] >>
     EVAL_TAC ) >>
   disch_then match_mp_tac >>
-  conj_asm1_tac >- simp[bool_model_def] >>
+  conj_asm1_tac >- (
+    match_mp_tac (MP_CANON (UNDISCH eta_has_model)) >>
+    conj_tac >- (
+      match_mp_tac is_bool_sig_std >>
+      match_mp_tac bool_has_bool_sig >>
+      ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]) ) >>
+    simp[bool_model_def] ) >>
   assume_tac bool_model_interpretation >>
   fs[is_bool_interpretation_def])
 
@@ -684,28 +701,30 @@ val select_extends_bool = prove(
     ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]) ) >>
   EVAL_TAC )
 
+val select_extends_eta = prove(
+  ``mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt)) extends mk_eta_ctxt (mk_bool_ctxt init_ctxt)``,
+  match_mp_tac select_extends >>
+  conj_tac >- (
+    ACCEPT_TAC (MATCH_MP theory_ok_sig eta_theory_ok |> SIMP_RULE std_ss[])) >>
+  EVAL_TAC )
+
 val select_theory_ok =
 extends_theory_ok
-|> Q.SPECL[`mk_bool_ctxt init_ctxt`,`mk_select_ctxt (mk_bool_ctxt init_ctxt)`]
-|> SIMP_RULE std_ss [bool_theory_ok,select_extends_bool]
+|> Q.SPECL[`mk_eta_ctxt (mk_bool_ctxt init_ctxt)`,`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`]
+|> SIMP_RULE std_ss [eta_theory_ok,select_extends_eta]
 
-(* XXX: This should be more general: we should have a theorem
-    is_set_theory ^mem ==>
-    subinterpretation (mk_bool_ctxt init_ctxt) bool_model model ==>
-    is_bool_interpretation model
- *)
-val select_bool_interpretation = prove(
+val extends_bool_interpretation = prove(
   ``is_set_theory ^mem ⇒
-    good_select select ⇒
-    is_bool_interpretation (select_model select)``,
+    ∀model.
+    is_std_interpretation model ∧
+    subinterpretation (mk_bool_ctxt init_ctxt) bool_model model ⇒
+    is_bool_interpretation model``,
   rw[] >>
-  first_assum(strip_assume_tac o MATCH_MP select_model_models) >>
   assume_tac bool_model_interpretation >>
   fs[subinterpretation_def,is_bool_interpretation_def] >>
-  conj_tac >- ( fs[models_def] ) >>
   fs[term_ok_def] >>
   rpt conj_tac >>
-  qmatch_abbrev_tac`tmaof (select_model select) interprets name on args as val` >>
+  qmatch_abbrev_tac`tmaof model interprets name on args as val` >>
   first_x_assum(qspec_then`name`mp_tac) >>
   qunabbrev_tac`name` >>
   CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV EVAL))) >>
@@ -715,7 +734,21 @@ val select_bool_interpretation = prove(
        metis_tac[base_tyval_def] ) >>
   fs[PULL_EXISTS,type_ok_def,FLOOKUP_UPDATE] >>
   first_x_assum(qspec_then`[]`mp_tac)>>
-  (discharge_hyps >- EVAL_TAC) >> rw[]) |> UNDISCH |> UNDISCH
+  (discharge_hyps >- EVAL_TAC) >> rw[]) |> UNDISCH
+
+val select_bool_interpretation = prove(
+  ``is_set_theory ^mem ⇒
+    good_select select ⇒
+    is_bool_interpretation (select_model select)``,
+  rw[] >>
+  match_mp_tac (MP_CANON extends_bool_interpretation) >>
+  first_assum(strip_assume_tac o MATCH_MP select_model_models) >>
+  conj_tac >- fs[models_def] >>
+  match_mp_tac subinterpretation_reduce >>
+  fs[mk_eta_ctxt_def] >>
+  full_simp_tac bool_ss [Once rich_listTheory.CONS_APPEND] >>
+  first_assum (match_exists_tac o concl) >>
+  simp[]) |> UNDISCH |> UNDISCH
 
 val good_select_extend_base_select = store_thm("good_select_extend_base_select",
   ``∀ina. is_in ina ⇒
@@ -758,8 +791,63 @@ val select_instance_thm = prove(
   simp[] >> rw[]) |> funpow 2 UNDISCH
 
 val _ = map2 (curry save_thm)
-  ["select_theory_ok","select_extends_bool","select_bool_interpretation","select_model_models","select_instance_thm"]
-  [ select_theory_ok , select_extends_bool , select_bool_interpretation , select_model_models , select_instance_thm ]
+  ["select_theory_ok","select_extends_bool","select_bool_interpretation","select_model_models","select_instance_thm","extends_bool_interpretation"]
+  [ select_theory_ok , select_extends_bool , select_bool_interpretation , select_model_models , select_instance_thm , extends_bool_interpretation ]
+
+val is_infinity_sig_def = Define`
+  is_infinity_sig sig ⇔
+  is_select_sig sig ∧
+  (FLOOKUP (tysof sig) "ind" = SOME 0) ∧
+  (FLOOKUP (tmsof sig) "ONTO" = SOME (Fun (Fun (Tyvar "A") (Tyvar "B")) Bool)) ∧
+  (FLOOKUP (tmsof sig) "ONE_ONE" = SOME (Fun (Fun (Tyvar "A") (Tyvar "B")) Bool))`
+
+val infinity_has_infinity_sig = store_thm("infinity_has_infinity_sig",
+  ``is_select_sig (sigof ctxt) ⇒ is_infinity_sig (sigof (mk_infinity_ctxt ctxt))``,
+  rw[is_infinity_sig_def] >- (
+    fs[is_select_sig_def,mk_infinity_ctxt_def,FLOOKUP_UPDATE] >>
+    fs[is_bool_sig_def,is_std_sig_def,FLOOKUP_UPDATE]) >>
+  EVAL_TAC)
+
+val is_in_in_ind_implies_infinite = store_thm("is_in_in_ind_implies_infinite",
+  ``is_in (in_ind:ind->'U) ⇒ (∃inf. is_infinite ^mem inf)``,
+  rw[is_in_def,is_infinite_def] >>
+  qexists_tac`x` >>
+  `{a | a <: x} = IMAGE in_ind UNIV` by (
+    fs[EXTENSION,BIJ_DEF,INJ_DEF,SURJ_DEF] >>
+    metis_tac[] ) >>
+  pop_assum SUBST1_TAC >>
+  match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
+  conj_tac >- ( fs[BIJ_DEF,INJ_DEF] ) >>
+  match_mp_tac (snd(EQ_IMP_RULE INFINITE_UNIV)) >>
+  metis_tac[INFINITY_AX,ONE_ONE_DEF,ONTO_DEF])
+
+val hol_model_exists = prove(
+  ``∃i. ∀^mem select in_ind.
+        is_set_theory ^mem ∧ good_select select ∧ is_in (in_ind:ind->'U) ⇒
+        i mem select in_ind models (thyof hol_ctxt) ∧
+        subinterpretation (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt)))
+          (select_model select) (i mem select in_ind)``,
+  simp[GSYM SKOLEM_THM] >>
+  simp[RIGHT_EXISTS_IMP_THM] >> rpt strip_tac >>
+  mp_tac (
+    MATCH_MP infinity_has_model
+    (CONJ (ASSUME``is_set_theory ^mem``) (UNDISCH is_in_in_ind_implies_infinite))) >>
+  disch_then(qspec_then`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- ACCEPT_TAC select_theory_ok >>
+    EVAL_TAC ) >>
+  disch_then(qspec_then`select_model select`mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- (
+      Q.SPEC_THEN`select`(ACCEPT_TAC o CONJUNCT1 o CONJUNCT2 o UNDISCH)
+      select_model_models ) >>
+    assume_tac select_bool_interpretation >>
+    fs[is_bool_interpretation_def] ) >>
+  metis_tac[hol_ctxt_def])
+val hol_model_def = new_specification("hol_model_def",["hol_model0"],hol_model_exists)
+val _ = overload_on("hol_model",``hol_model0 ^mem``)
+val hol_model_models = SPEC mem hol_model_def |> SPEC_ALL |>
+  SIMP_RULE bool_ss [GSYM AND_IMP_INTRO] |> funpow 3 UNDISCH
 
 val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
   ``is_set_theory ^mem ⇒

@@ -32,7 +32,7 @@ val inhabited_boolset = prove(
   ``is_set_theory ^mem ⇒ inhabited boolset``,
   metis_tac[mem_boolset])
 
-val equality_thm = prove(
+val equality_bool_thm = prove(
   ``is_set_theory ^mem ⇒
     (Abstract (range in_bool) (Funspace (range in_bool) (range in_bool))
        (λx. Abstract (range in_bool) (range in_bool)
@@ -83,7 +83,8 @@ fun mk_select_pair ty =
     (mk_range inty, mk_abs(p, mk_comb(inty,(mk_select(x,mk_comb(p,inty_x))))))
   end
 
-val res = res7
+(*
+val res = res4
 
 val seltys = HOLset.listItems (select_types (rand (concl res)))
 
@@ -152,15 +153,19 @@ fun clean_asms th =
     foldl (uncurry (C simplify_assum)) th simpths |> PROVE_HYP TRUTH
   end
 val select_instance_ths0 = map clean_asms select_instance_ths
+*)
 
-(*
-val res = res5
+val res = res4
 val model_models = bool_model_models
 val model_is_bool_interpretation = bool_model_interpretation
 val select_insts = TRUTH
 val model_is_interpretation =
      model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1
-*)
+val select_instance_ths0 = []
+val select_fun_applied = []
+val model_is_std =
+  model_models |> CONJUNCT2 |> SIMP_RULE std_ss [models_def]
+  |> CONJUNCT2 |> CONJUNCT1
 
 val model = model_models |> concl |> find_term (can (match_term ``X models Y``)) |> rator |> rand
 val ctxt = model_models |> concl |> find_term (can (match_term ``thyof ctxt``)) |> funpow 4 rand
@@ -198,6 +203,7 @@ val is_std_sig_th = TAC_PROOF(is_std_sig_goal,
   ACCEPT_TAC is_bool_sig_th)
 val std_insts = MP std_insts0 is_std_sig_th
 
+(*
 val select_insts0 = Q.SPEC`sigof ^ctxt`(Q.GEN`sig`select_sig_instances)
   |> SIMP_RULE std_ss []
 val is_select_sig_goal:goal = ([],fst(dest_imp(concl select_insts0)))
@@ -206,6 +212,9 @@ val is_select_sig_th = TAC_PROOF(is_select_sig_goal,
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss []))
 val select_insts1 = MP select_insts0 is_select_sig_th
+*)
+val select_insts1 = TRUTH
+val is_select_sig_th = TRUTH
 
 val in_fun_forall1 = in_fun_forall |> DISCH``is_in ina`` |> Q.GEN`ina`
 val in_fun_exists1 = in_fun_exists |> DISCH``is_in ina`` |> Q.GEN`ina`
@@ -329,7 +338,7 @@ val simpths = mapfilter (QCHANGED_CONV
    SIMP_CONV std_ss [UNDISCH range_in_bool,type_11])) (hyp r14)
 val r15 = foldl (uncurry (C simplify_assum)) r14 simpths |> PROVE_HYP TRUTH
 val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV std_ss
-  [GSYM(UNDISCH range_in_bool), UNDISCH is_in_in_bool, equality_thm])) (hyp r15)
+  [GSYM(UNDISCH range_in_bool), UNDISCH is_in_in_bool, equality_bool_thm])) (hyp r15)
 val r16 = foldl (uncurry (C simplify_assum)) r15 simpths |> PROVE_HYP TRUTH
 
 val _ = save_thm("example",r16)
