@@ -45,11 +45,20 @@ in
     | Tyapp(thy, "fun",  [ty1,ty2]) => mk_binop in_fun_tm (mk_in ty1, mk_in ty2)
     | _                             => mk_in_var ty
 
+  (* Take a HOL type {ty} and return a theorem of the form
+   * [^good_context, is_in in_ty1, ..., is_in in_tyn] |- is_in ^(mk_in ty),
+   * where ty1,...,tyn are types in ty other than
+   * bool and function types.
+   *)
   fun mk_is_in_thm ty = case type_view ty of
       Tyapp ("min","bool",[]) => good_context_is_in_in_bool
     | Tyapp ("min","fun",[ty1,ty2]) =>
          good_context_is_in_in_fun
          |> ISPECL [mk_in ty1, mk_in ty2]
+            (* [Benja:] I think the MATCH_MP below can just be MP --
+             * I think we should be at this point instantiated to
+	     * exactly the type we need.
+             *)
          |> C MATCH_MP (CONJ (mk_is_in_thm ty1)
                              (mk_is_in_thm ty2))
     | _ => ASSUME ``is_in ^(mk_in ty)``
