@@ -22,9 +22,9 @@ in
   val get_simpths = mapfilter (QCHANGED_CONV eval) o hyp
   fun simp_asms th = foldl (uncurry (C simplify_assum)) th (get_simpths th)
   val replace_asms =
-    repeat (C replace_assum good_context_is_in_in_fun) o
     repeat (C replace_assum good_context_instance_equality) o
     repeat (C replace_assum good_context_is_in_in_bool) o
+    repeat (C replace_assum good_context_is_in_in_fun) o
     repeat (C replace_assum good_context_tyass_bool) o
     repeat (C replace_assum good_context_tyass_fun) o
     repeat (C replace_assum good_context_lookup_bool) o
