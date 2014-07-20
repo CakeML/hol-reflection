@@ -818,10 +818,6 @@ val bool_sig_quant_instances = store_thm("bool_sig_quant_instances",
   disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
   EVAL_TAC >> rw[])
 
-val in_ind_def = xDefine "in_ind"`
-  (in_ind0 ^mem):ind -> 'U = @f. is_in0 mem f`
-val _ = overload_on("in_ind",``in_ind0 ^mem``)
-
 (*
 val LCA_def = Define`
   LCA l f ⇔
@@ -880,9 +876,13 @@ val is_set_theory_pred_universe = store_thm("is_set_theory_pred_universe",
     metis_tac[mem_upair,is_universe_def,transitive_set_def]) >>
   metis_tac[])
 
+(* {n_universes x n} says that there is a tower of n universes
+ * such that the lowest universe contains the set x
+ * (in our application, we use {x = range in_ind})
+ *)
 val n_universes_def = xDefine"n_universes"`
-  n_universes0 ^mem n ⇔
-    ∃f. (f 0 = range in_ind) ∧
+  n_universes0 ^mem x n ⇔
+    ∃f. (f 0 = x) ∧
         ∀k. k < n ⇒ is_universe (f (k+1)) ∧
                     f k <: f (k+1)`
 val _ = overload_on("n_universes",``n_universes0 ^mem``)
