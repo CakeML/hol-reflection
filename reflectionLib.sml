@@ -210,4 +210,21 @@ in
 
   val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
 
+  local
+    val empty_tyset = HOLset.empty Type.compare
+    val sing_tyset = HOLset.singleton Type.compare
+  in
+    fun select_types tm =
+      case dest_term tm of
+        VAR _ => empty_tyset
+      | CONST{Name="@",Thy="min",Ty} => sing_tyset (snd(dom_rng Ty))
+      | CONST _ => empty_tyset
+      | COMB(t1,t2) =>
+        HOLset.union (select_types t1,select_types t2)
+      | LAMB(_,b) => select_types b
+  end
+
+  fun IINST1 var tm th =
+    INST_TY_TERM (match_term var tm) th
+
 end end

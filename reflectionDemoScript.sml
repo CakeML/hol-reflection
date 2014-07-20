@@ -28,30 +28,7 @@ open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax str
 open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsTheory holAxiomsSyntaxTheory
 open finite_mapTheory alistTheory listTheory pairTheory
 
-val empty_tyset = HOLset.empty Type.compare
-val sing_tyset = HOLset.singleton Type.compare
-fun select_types tm =
-  case dest_term tm of
-    VAR _ => empty_tyset
-  | CONST{Name="@",Thy="min",Ty} => sing_tyset (snd(dom_rng Ty))
-  | CONST _ => empty_tyset
-  | COMB(t1,t2) =>
-    HOLset.union (select_types t1,select_types t2)
-  | LAMB(_,b) => select_types b
-
-fun mk_range tm = ``range ^tm``
-
 val res = res7
-
-fun mk_select_pair ty =
-  let
-    val inty = mk_in ty
-    val p = mk_var("p",U --> bool)
-    val x = mk_var("x",ty)
-    val inty_x = mk_comb(inty,x)
-  in
-    (mk_range inty, mk_abs(p, mk_comb(inty,(mk_select(x,mk_comb(p,inty_x))))))
-  end
 
 val seltys = HOLset.listItems (select_types (rand (concl res)))
 
@@ -77,17 +54,20 @@ val fresh_tyvar =
 (*val selinstth = MATCH_MP ((*INST_TYPE[alpha|->fresh_tyvar]*)select_instance_thm) good_th *)
 *)
 
-fun IINST1 var tm th =
-  let
-    val s = match_term var tm
-  in
-    INST_TY_TERM s th
-  end
-
 val inty_var = select_instance_thm |> concl |> funpow 2 rand |> rator |> funpow 3 rand
 val ty_var = select_instance_thm |> concl |> funpow 4 rand
              |> lhs |> rator |> funpow 3 rand |>  rator |> rand
 val select_fun_tm = select_instance_thm |> concl |> rator |> funpow 2 rand
+fun mk_range tm = ``range ^tm``
+fun mk_select_pair ty =
+  let
+    val inty = mk_in ty
+    val p = mk_var("p",U --> bool)
+    val x = mk_var("x",ty)
+    val inty_x = mk_comb(inty,x)
+  in
+    (mk_range inty, mk_abs(p, mk_comb(inty,(mk_select(x,mk_comb(p,inty_x))))))
+  end
 
 val (good_th,inst_ths) =
   let
