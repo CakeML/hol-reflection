@@ -96,7 +96,7 @@ val select_fun_tm = rand(concl good_select_th)
 val model_models = SPEC select_fun_tm select_model_models |> C MP good_select_th
 val model_is_bool_interpretation =
   select_bool_interpretation |> DISCH_ALL |> Q.GEN`select` |> SPEC select_fun_tm
-  |> C MP good_th |> UNDISCH
+  |> C MP good_select_th |> UNDISCH
 val model_is_interpretation =
      model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1 |> CONJUNCT1
 val model_is_std =
