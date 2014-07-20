@@ -715,11 +715,12 @@ val good_select_extend_base_select = store_thm("good_select_extend_base_select",
   metis_tac[is_in_range_thm])
 
 val select_instance_thm = prove(
-  ``is_set_theory ^mem ⇒ is_in inty ⇒
-    (typesem (tyaof (select_model select_fun)) τ ty = range inty) ⇒
+  ``is_set_theory ^mem ⇒
     (FLOOKUP tmsig "@" = SOME (Fun (Fun (Tyvar "A") Bool) (Tyvar "A"))) ⇒
     good_select select_fun ⇒
-    (select_fun (range inty) = λp. inty (@x. p (inty x)))
+    (select_fun (range inty) = λp. inty (@x. p (inty x))) ⇒
+    (typesem (tyaof (select_model select_fun)) τ ty = range inty) ⇒
+    is_in inty
     ⇒
     (instance tmsig (select_model select_fun)  "@" (Fun (Fun ty Bool) ty) τ =
      in_fun (in_fun inty in_bool) inty $@)``,
@@ -738,7 +739,7 @@ val select_instance_thm = prove(
   simp[is_in_in_bool] >> disch_then kall_tac >>
   simp[range_in_bool] >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  simp[] >> rw[]) |> funpow 4 UNDISCH
+  simp[] >> rw[]) |> funpow 2 UNDISCH
 
 val _ = map2 (curry save_thm)
   ["select_theory_ok","select_extends_bool","select_bool_interpretation","select_model_models","select_instance_thm"]
@@ -787,6 +788,19 @@ val interprets_one = store_thm("interprets_one",
   rw[is_type_valuation_def] >> metis_tac[])
 
 (* TODO: move *)
+
+val bool_sig_quant_instances = store_thm("bool_sig_quant_instances",
+  ``is_bool_sig sig ⇒
+    (instance (tmsof sig) i "!" (Fun (Fun ty Bool) Bool) =
+       (λτ. tmaof i "!" [typesem (tyaof i) τ ty])) ∧
+    (instance (tmsof sig) i "?" (Fun (Fun ty Bool) Bool) =
+       (λτ. tmaof i "?" [typesem (tyaof i) τ ty]))``,
+  rw[is_bool_sig_def] >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`"!"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`"?"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  EVAL_TAC >> rw[])
 
 val in_ind_def = xDefine "in_ind"`
   (in_ind0 ^mem):ind -> 'U = @f. is_in0 mem f`

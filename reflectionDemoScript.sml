@@ -28,19 +28,6 @@ open setSpecTheory holSemanticsTheory reflectionTheory pairSyntax listSyntax str
 open holBoolTheory holBoolSyntaxTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsTheory holAxiomsSyntaxTheory
 open finite_mapTheory alistTheory listTheory pairTheory
 
-val bool_sig_quant_instances = prove(
-  ``is_bool_sig sig ⇒
-    (instance (tmsof sig) i "!" (Fun (Fun ty Bool) Bool) =
-       (λτ. tmaof i "!" [typesem (tyaof i) τ ty])) ∧
-    (instance (tmsof sig) i "?" (Fun (Fun ty Bool) Bool) =
-       (λτ. tmaof i "?" [typesem (tyaof i) τ ty]))``,
-  rw[is_bool_sig_def] >>
-  Q.ISPECL_THEN[`tmsof sig`,`i`,`"!"`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
-  Q.ISPECL_THEN[`tmsof sig`,`i`,`"?"`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
-  EVAL_TAC >> rw[])
-
 val select_bool_def = xDefine"select_bool"`
   select_bool0 ^mem =
     (boolset =+ λp. in_bool (@x. p (in_bool x)))
@@ -77,7 +64,7 @@ fun select_types tm =
 
 fun mk_range tm = ``range ^tm``
 
-val res = res4
+val res = res7
 
 fun mk_select_pair ty =
   let
@@ -91,7 +78,41 @@ fun mk_select_pair ty =
 
 val seltys = HOLset.listItems (select_types (rand (concl res)))
 
-val select_ths =
+(*
+fun fresh_string s =
+  let
+    fun f n =
+      let
+        val v = Int.toString n
+      in
+        if HOLset.member (s,v) then
+          f (n+1)
+        else v
+      end
+  in
+    f 0
+  end
+(*
+val fresh_tyvar =
+  pairs |> map (map dest_vartype o type_vars o type_of o rand o fst) |> flatten
+  |> HOLset.fromList String.compare |> fresh_string |> mk_vartype
+  *)
+(*val selinstth = MATCH_MP ((*INST_TYPE[alpha|->fresh_tyvar]*)select_instance_thm) good_th *)
+*)
+
+fun IINST1 var tm th =
+  let
+    val s = match_term var tm
+  in
+    INST_TY_TERM s th
+  end
+
+val inty_var = select_instance_thm |> concl |> funpow 2 rand |> rator |> funpow 3 rand
+val ty_var = select_instance_thm |> concl |> funpow 4 rand
+             |> lhs |> rator |> funpow 3 rand |>  rator |> rand
+val select_fun_tm = select_instance_thm |> concl |> rator |> funpow 2 rand
+
+val (good_th,inst_ths) =
   let
     val pairs = map mk_select_pair seltys
     fun f ((p,q),th) =
@@ -102,25 +123,41 @@ val select_ths =
         MATCH_MP good th
       end
     val good_th = foldl f (UNDISCH good_select_base_select) pairs
-    fun f (inty,ths) =
+    val all_distinct_asm =
+      ASSUME(mk_all_distinct(mk_list(map fst pairs,U)))
+      |> SIMP_RULE (std_ss++LIST_ss) [listTheory.ALL_DISTINCT]
+    val select_fun = rand(concl good_th)
+    fun f range_inty =
       let
-        val th = ISPEC inty (Q.GEN `ina` in_fun_select) |> UNDISCH
-
-  val instances_ths =
-  in_fun_select
-  CONV_RULE(RESORT_FORALL_CONV(sort_vars["tmsig","name"])) instance_def |>
-  ``instance ^tmsig ^interpretation "@" (Fun (Fun ^ty Bool) ^ty) =
-    in_fun (in_fun ^inty in_bool) ^inty $@``
-  type_of``instance``
-
+        val inty = rand range_inty
+        val th =
+          mk_comb(select_fun,range_inty)
+          |> SIMP_CONV std_ss [combinTheory.APPLY_UPDATE_THM,all_distinct_asm]
+      in
+        th
+      end
+    val select_fun_applied = map (f o fst) pairs
+    fun f th =
+      let
+        val tm = th |> concl |> lhs |> rand |> rand
+        val insth = IINST1 inty_var tm select_instance_thm
+        val insth = IINST1 ty_var (type_to_deep (fst(dom_rng(type_of tm)))) insth
+        val insth = IINST1 select_fun_tm (rand(concl good_th)) insth
+      in
+        MP (MP insth good_th) th
+        |> SIMP_RULE (std_ss++LIST_ss) [typesem_def]
+        |> funpow 2 UNDISCH
+      end
+    val inst_ths = map f select_fun_applied
   in
-    (good_th,instances_ths)
+    (good_th,inst_ths)
   end
 
-val model_models = Q.SPEC `select_bool` select_model_models |> C MP (UNDISCH good_select_select_bool)
+val select_fun_tm = rand(concl good_th)
+val model_models = SPEC select_fun_tm select_model_models |> C MP good_th
 val model_is_bool_interpretation =
-  select_bool_interpretation |> DISCH_ALL |> Q.GEN`select` |> SPEC ``select_bool``
-  |> C MP (UNDISCH good_select_select_bool) |> UNDISCH
+  select_bool_interpretation |> DISCH_ALL |> Q.GEN`select` |> SPEC select_fun_tm
+  |> C MP good_th |> UNDISCH
 val model_is_interpretation =
      model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT2 |> CONJUNCT1 |> CONJUNCT1
 
@@ -248,9 +285,9 @@ val tmval_th1 =
   |> UNDISCH
   |> SPECL [t1,t2,t3]
   |> SIMP_RULE std_ss [tyval_th]
-  |> C MATCH_MP (
+  |> C MP (
        model_is_interpretation
-       |> SIMP_RULE std_ss [is_interpretation_def] |> CONJUNCT1)
+       |> SIMP_RULE std_ss [is_interpretation_def,UNDISCH range_in_bool] |> CONJUNCT1)
   |> SPEC (asms |> map (fn eq => mk_pair(rand(lhs eq),rhs eq))
            |> C (curry mk_list) (mk_prod(mk_prod(string_ty,``:type``),U)))
 val goal = (hyp tmval_th1,fst(dest_imp(concl tmval_th1)))
@@ -264,6 +301,7 @@ val tmval_th2 = TAC_PROOF(goal,
     |> SIMP_RULE std_ss [is_bool_interpretation_def] |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_interpretation_def] |> CONJUNCT1
     |> SIMP_RULE std_ss [is_std_type_assignment_def]
+    |> SIMP_RULE std_ss [UNDISCH range_in_bool]
     |> CONJUNCT2] >>
     metis_tac[is_in_in_bool,is_in_range_thm,range_in_bool]) >>
   metis_tac[is_in_range_thm])
