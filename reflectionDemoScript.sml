@@ -32,6 +32,42 @@ val inhabited_boolset = prove(
   ``is_set_theory ^mem ⇒ inhabited boolset``,
   metis_tac[mem_boolset])
 
+val equality_thm = prove(
+  ``is_set_theory ^mem ⇒
+    (Abstract (range in_bool) (Funspace (range in_bool) (range in_bool))
+       (λx. Abstract (range in_bool) (range in_bool)
+         (λy. Boolean (x = y))) =
+     Abstract (range in_bool) (Funspace (range in_bool) (range in_bool))
+       (λx. Abstract (range in_bool) (range in_bool)
+         (λy. Boolean ((x = True) ⇔ (y = True)))))``,
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[UNDISCH range_in_bool] >> rw[] >>
+  TRY (
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[boolean_in_boolset] ) >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[boolean_in_boolset] >>
+  rw[boolean_def] >>
+  metis_tac[mem_boolset]) |> UNDISCH
+
+local
+  val dest_in_fun = dest_triop ``in_fun0`` (mk_HOL_ERR"""dest_in_fun""")
+  val range_in_fun0 =
+    range_in_fun
+    |> Q.GENL[`inb`,`ina`,`mem`]
+    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+in
+  fun range_in_fun_conv tm =
+    let
+      val in_fun_ina_inb = rand tm
+      val (mem,ina,inb) = dest_in_fun in_fun_ina_inb
+      val th = ISPECL[mem,ina,inb] range_in_fun0 |> funpow 3 UNDISCH
+    in
+      REWR_CONV th tm
+    end
+end
+
 val inty_var = select_instance_thm |> concl |> funpow 2 rand |> rator |> funpow 3 rand
 val ty_var = select_instance_thm |> concl |> funpow 4 rand
              |> lhs |> rator |> funpow 3 rand |>  rator |> rand
@@ -51,7 +87,7 @@ val res = res7
 
 val seltys = HOLset.listItems (select_types (rand (concl res)))
 
-val (good_select_th,select_instance_ths) =
+val (good_select_th,select_instance_ths,select_fun_applied) =
   let
     val pairs = map mk_select_pair seltys
     fun f ((p,q),th) =
@@ -89,7 +125,7 @@ val (good_select_th,select_instance_ths) =
       end
     val inst_ths = map f select_fun_applied
   in
-    (good_th,inst_ths)
+    (good_th,inst_ths,select_fun_applied)
   end
 
 val select_fun_tm = rand(concl good_select_th)
@@ -244,14 +280,12 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV (std_ss++LIST_ss) [model_inter
     list_conj (map (fn ina => ISPEC ina in_fun_select1 |> UNDISCH) select_insts),
     list_conj select_instance_ths2,
     model_is_std
-    |> SIMP_RULE std_ss [is_std_interpretation_def,is_std_type_assignment_def]
+    |> SIMP_RULE std_ss [is_std_interpretation_def,is_std_type_assignment_def,GSYM (UNDISCH range_in_bool)]
     |> CONJUNCT1,
     list_conj (map (UNDISCH o C ISPEC inhabited_range) forall_insts),
     list_conj (map (UNDISCH o C ISPEC inhabited_range) exists_insts),
-    (* TODO 
-     UNDISCH range_in_bool
-    (SIMP_RULE std_ss [GSYM AND_IMP_INTRO](Q.ISPECL[`in_bool`,`in_bool`](SPEC mem (GEN_ALL range_in_fun)))) |> funpow 2 UNDISCH, *)
-    UNDISCH inhabited_boolset])) (hyp r10)
+    UNDISCH inhabited_boolset |>
+    SIMP_RULE std_ss [GSYM (UNDISCH range_in_bool)]])) (hyp r10)
 val r11 = foldl (uncurry (C simplify_assum)) r10 simpths |> PROVE_HYP TRUTH
 val is_term_valuation_asm = first (same_const ``is_term_valuation0`` o fst o strip_comb) (hyp r11)
 val t1 = is_term_valuation_asm |> rator |> rator |> rator |> rand
@@ -288,9 +322,16 @@ val r12 =
   foldl (uncurry PROVE_HYP) r11 (CONJUNCTS (ASSUME (mk_conj(is_term_valuation_asm,(list_mk_conj asms)))))
 val r13 = CHOOSE (tmval, tmval_th3) r12
   |> PROVE_HYP (UNDISCH is_in_in_bool)
+val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV std_ss select_fun_applied)) (hyp r13)
+val r14 = foldl (uncurry (C simplify_assum)) r13 simpths
+val simpths = mapfilter (QCHANGED_CONV
+  (ONCE_DEPTH_CONV range_in_fun_conv THENC
+   SIMP_CONV std_ss [UNDISCH range_in_bool,type_11])) (hyp r14)
+val r15 = foldl (uncurry (C simplify_assum)) r14 simpths |> PROVE_HYP TRUTH
+val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV std_ss
+  [GSYM(UNDISCH range_in_bool), UNDISCH is_in_in_bool, equality_thm])) (hyp r15)
+val r16 = foldl (uncurry (C simplify_assum)) r15 simpths |> PROVE_HYP TRUTH
 
-val simpths = mapfilter (QCHANGED_CONV EVAL) (hyp r13)
-
-val _ = save_thm("example",r13)
+val _ = save_thm("example",r16)
 
 val _ = export_theory()
