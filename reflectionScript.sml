@@ -750,6 +750,24 @@ val select_bool_interpretation = prove(
   first_assum (match_exists_tac o concl) >>
   simp[]) |> UNDISCH |> UNDISCH
 
+(* probably not true
+val is_bool_interpretation_subinterpretation = store_thm("is_bool_interpretation_subinterpretation",
+  ``is_set_theory ^mem ⇒
+    (is_bool_interpretation model ⇔
+     subinterpretation (mk_bool_ctxt init_ctxt) bool_model model)``,
+  strip_tac >> EQ_TAC >> strip_tac >- (
+    simp[subinterpretation_def] >>
+    assume_tac bool_model_interpretation >>
+    simp[term_ok_def,type_ok_def] >>
+    conj_tac >> rpt gen_tac >>
+    CONV_TAC(LAND_CONV EVAL) >>
+    rw[] >>
+    fs[is_bool_interpretation_def,is_std_interpretation_def,is_std_type_assignment_def] >>
+    fs[interprets_nil,type_ok_def,FLOOKUP_UPDATE] >>
+    fs[]
+    )
+*)
+
 val good_select_extend_base_select = store_thm("good_select_extend_base_select",
   ``∀ina. is_in ina ⇒
       ∀s. good_select s ⇒
@@ -848,6 +866,41 @@ val hol_model_def = new_specification("hol_model_def",["hol_model0"],hol_model_e
 val _ = overload_on("hol_model",``hol_model0 ^mem``)
 val hol_model_models = SPEC mem hol_model_def |> SPEC_ALL |>
   SIMP_RULE bool_ss [GSYM AND_IMP_INTRO] |> funpow 3 UNDISCH
+val _ = save_thm("hol_model_models",hol_model_models)
+
+val hol_bool_interpretation = prove(
+  ``is_set_theory ^mem ⇒
+    good_select select ⇒
+    is_in in_ind ⇒
+    is_bool_interpretation (hol_model select in_ind)``,
+  rw[] >>
+  strip_assume_tac hol_model_models >>
+  match_mp_tac (MP_CANON extends_bool_interpretation) >>
+  conj_tac >- fs[models_def] >>
+  qspec_then`select`(mp_tac o CONJUNCT1 o UNDISCH)select_model_models >>
+  strip_tac >>
+  fs[subinterpretation_def,type_ok_def,term_ok_def] >>
+  conj_tac  >- (
+    rpt gen_tac >>
+    rpt(first_x_assum(qspecl_then[`name`,`args`]mp_tac)) >>
+    CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV EVAL))) >> strip_tac >>
+    CONV_TAC(LAND_CONV(LAND_CONV EVAL)) >> strip_tac >>
+    CONV_TAC(LAND_CONV EVAL) >>
+    rw[] >> fs[] >> rfs[] >>
+    fs[LENGTH_NIL_SYM] >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac EQ_TRANS >>
+    first_assum(match_exists_tac o concl o SYM) >> simp[] >>
+    first_x_assum (match_mp_tac o GSYM) >>
+    EVAL_TAC >> fs[] ) >>
+  rpt gen_tac >>
+  rpt(first_x_assum(qspecl_then[`name`,`ty`]mp_tac)) >>
+  CONV_TAC(LAND_CONV(LAND_CONV(EVAL))) >> strip_tac >>
+  CONV_TAC(LAND_CONV(EVAL)) >> strip_tac >>
+  CONV_TAC(LAND_CONV EVAL) >>
+  rw[] >> fs[] >> rfs[] >> fs[LENGTH_NIL_SYM] >>
+  metis_tac[]) |> funpow 3 UNDISCH
+val _ = save_thm("hol_bool_interpretation",hol_bool_interpretation)
 
 val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
   ``is_set_theory ^mem ⇒
