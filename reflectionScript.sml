@@ -703,9 +703,46 @@ val select_bool_interpretation = prove(
   first_x_assum(qspec_then`[]`mp_tac)>>
   (discharge_hyps >- EVAL_TAC) >> rw[]) |> UNDISCH |> UNDISCH
 
+val good_select_extend_base_select = store_thm("good_select_extend_base_select",
+  ``∀ina. is_in ina ⇒
+      ∀s. good_select s ⇒
+      good_select ((range ina =+ (λp. ina (@x. p (ina x)))) s)``,
+  rw[good_select_def,APPLY_UPDATE_THM] >> rw[] >>
+  TRY (
+    SELECT_ELIM_TAC >> simp[] >>
+    qexists_tac`finv ina x` >>
+    metis_tac[is_in_finv_right] ) >>
+  metis_tac[is_in_range_thm])
+
+val select_instance_thm = prove(
+  ``is_set_theory ^mem ⇒ is_in inty ⇒
+    (typesem (tyaof (select_model select_fun)) τ ty = range inty) ⇒
+    (FLOOKUP tmsig "@" = SOME (Fun (Fun (Tyvar "A") Bool) (Tyvar "A"))) ⇒
+    good_select select_fun ⇒
+    (select_fun (range inty) = λp. inty (@x. p (inty x)))
+    ⇒
+    (instance tmsig (select_model select_fun)  "@" (Fun (Fun ty Bool) ty) τ =
+     in_fun (in_fun inty in_bool) inty $@)``,
+  rw[] >>
+  qspecl_then[`tmsig`,`select_model select_fun`,`"@"`]mp_tac instance_def >>
+  simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
+  simp[] >> disch_then kall_tac >>
+  CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
+  first_assum(assume_tac o MATCH_MP select_model_models) >>
+  simp[] >> pop_assum kall_tac >>
+  first_assum(mp_tac o MATCH_MP in_fun_select) >>
+  simp[] >> disch_then kall_tac >>
+  (range_in_fun |> Q.GEN`inb` |> Q.ISPEC`in_bool` |> Q.GEN`ina` |> Q.SPEC_THEN`inty`mp_tac) >>
+  simp[is_in_in_bool] >> disch_then kall_tac >>
+  simp[range_in_bool] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[] >> rw[]) |> funpow 4 UNDISCH
+
 val _ = map2 (curry save_thm)
-  ["select_theory_ok","select_extends_bool","select_bool_interpretation","select_model_models"]
-  [ select_theory_ok , select_extends_bool , select_bool_interpretation , select_model_models ]
+  ["select_theory_ok","select_extends_bool","select_bool_interpretation","select_model_models","select_instance_thm"]
+  [ select_theory_ok , select_extends_bool , select_bool_interpretation , select_model_models , select_instance_thm ]
 
 val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
   ``is_set_theory ^mem ⇒
@@ -825,47 +862,5 @@ val boolean_of_eq_true = store_thm("boolean_of_eq_true",
     ∀b. b <: boolset ⇒ (Boolean (b = True) = b)``,
   rw[boolean_def] >> rw[] >>
   metis_tac[mem_boolset])
-
-val is_std_sig_extends = store_thm("is_std_sig_extends",
-  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_std_sig (sigof ctxt1) ⇒ is_std_sig (sigof ctxt2)``,
-  ho_match_mp_tac extends_ind >>
-  REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-  ho_match_mp_tac updates_ind >>
-  rw[is_std_sig_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-  TRY BasicProvers.CASE_TAC >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-  metis_tac[] )
-
-val is_bool_sig_extends = store_thm("is_bool_sig_extends",
-  ``∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)``,
-  ho_match_mp_tac extends_ind >>
-  REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-  ho_match_mp_tac updates_ind >>
-  conj_tac >- rw[is_bool_sig_def] >>
-  conj_tac >- (
-    rw[is_bool_sig_def,is_std_sig_def] >>
-    rw[FLOOKUP_UPDATE] >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,FORALL_PROD] >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    rw[is_bool_sig_def,is_std_sig_def] >>
-    rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-    BasicProvers.CASE_TAC >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    rw[is_bool_sig_def,is_std_sig_def] >>
-    rw[FLOOKUP_UPDATE] >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,FORALL_PROD] >>
-    metis_tac[] ) >>
-  rw[is_bool_sig_def,is_std_sig_def] >>
-  rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs[MEM_MAP,FORALL_PROD] >>
-  metis_tac[] )
 
 val _ = export_theory()
