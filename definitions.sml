@@ -1,10 +1,9 @@
-open HolKernel lcsymtacs
+open HolKernel lcsymtacs listSimps miscTheory finite_mapTheory listTheory
 open miscLib reflectionLib holSyntaxSyntax 
 open holSyntaxExtraTheory holBoolSyntaxTheory holBoolTheory
-     holAxiomsSyntaxTheory holAxiomsTheory
+     holSemanticsTheory
+     holAxiomsSyntaxTheory holAxiomsTheory holConsistencyTheory
      reflectionTheory
-
-structure Map = Redblackmap
 
 type context_state = {
   theory_ok_thm : thm,
@@ -34,14 +33,134 @@ val is_infinity_sig_hol_ctxt = prove(
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
 
 val interpretations1 = bool_interpretations hol_bool_interpretation
+val equality_thm0 = CONJUNCT1 (funpow 0 CONJUNCT2 interpretations1)
+val truth_thm0    = CONJUNCT1 (funpow 1 CONJUNCT2 interpretations1)
+val and_thm0      = CONJUNCT1 (funpow 2 CONJUNCT2 interpretations1)
+val implies_thm0  = CONJUNCT1 (funpow 3 CONJUNCT2 interpretations1)
+val forall_thm0   = CONJUNCT1 (funpow 4 CONJUNCT2 interpretations1)
+val exists_thm0   = CONJUNCT1 (funpow 5 CONJUNCT2 interpretations1)
+val or_thm0       = CONJUNCT1 (funpow 6 CONJUNCT2 interpretations1)
+val falsity_thm0  = CONJUNCT1 (funpow 7 CONJUNCT2 interpretations1)
+val not_thm0      =           (funpow 8 CONJUNCT2 interpretations1)
+
+val equality_thm =
+  equality_thm0 |> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_equals)))
+val truth_thm =
+  truth_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_true)))
+val and_thm =
+  and_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
+val implies_thm =
+  implies_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
+val forall_thm =
+  forall_thm0|> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_forall)))
+val exists_thm =
+  exists_thm0|> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_exists)))
+val or_thm =
+  or_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
+val falsity_thm =
+  falsity_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_false)))
+val not_thm =
+  not_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_not)))
+
+(* can't do this in general?
+val select_thm = prove(
+  ``is_set_theory ^mem ⇒ is_in in_ind ⇒ is_in ina ⇒ good_select select ⇒
+    (tmaof (hol_model select in_ind) "@" [range ina] =
+     in_fun (in_fun ina in_bool) ina $@)``,
+  rw[] >>
+  rw[UNDISCH in_fun_select] >>
+  qspec_then`select`(assume_tac o funpow 2 CONJUNCT2 o UNDISCH)select_model_models >>
+  mp_tac (CONJUNCT2 hol_model_models) >>
+  simp[subinterpretation_def] >>
+  disch_then(qspec_then`"@"`mp_tac o CONJUNCT2) >>
+  CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV EVAL))) >>
+  simp[PULL_EXISTS,type_ok_def,FLOOKUP_UPDATE] >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  simp[REV_ASSOCD,type_ok_def] >> disch_then kall_tac >>
+  fs[good_select_def] >>
+  assume_tac (UNDISCH is_in_in_bool) >>
+  CONV_TAC(DEPTH_CONV range_in_fun_conv) >>
+  simp[range_in_bool] >>
+  match_mp_tac(UNDISCH abstract_eq) >>
+  rw[] >- metis_tac[is_in_range_thm]
+       >- metis_tac[is_in_range_thm] >>
+  first_x_assum(qspecl_then[`range ina`,`Holds x`]mp_tac) >>
+
+  MATCH_MP select_sig_instances
+  (is_infinity_sig_hol_ctxt |> SIMP_RULE std_ss [is_infinity_sig_def] |> CONJUNCT1)
+  print_find"hol_mod"
+  is_select_int
+*)
+
+val hol_model_is_interpretation =
+  hol_model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT1 |> CONJUNCT1
+val hol_model_is_std = hol_model_models |> SIMP_RULE std_ss [models_def]
+  |> CONJUNCT1 |> CONJUNCT2 |> CONJUNCT1
+val fun_thm =
+  hol_model_is_std |> SIMP_RULE std_ss [is_std_interpretation_def]
+  |> CONJUNCT1 |> SIMP_RULE std_ss [is_std_type_assignment_def]
+  |> CONJUNCT1 |> SIMP_RULE std_ss [FUN_EQ_THM]
+  |> Q.SPEC`[range ina; range inb]`
+  |> SIMP_RULE (std_ss++LIST_ss) []
+  |> CONV_RULE(RAND_CONV(REWR_CONV(
+                           range_in_fun |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+                           |> funpow 3 UNDISCH |> SYM)))
+val bool_thm =
+  hol_model_is_std |> SIMP_RULE std_ss [is_std_interpretation_def]
+  |> CONJUNCT1 |> SIMP_RULE std_ss [is_std_type_assignment_def]
+  |> CONJUNCT2 |> SIMP_RULE std_ss [FUN_EQ_THM]
+  |> Q.SPEC`[]`
+  |> SIMP_RULE (std_ss++LIST_ss) [SYM(UNDISCH range_in_bool)]
+
+val ind_thm =
+  hol_model_is_interpretation |> SIMP_RULE std_ss [is_interpretation_def]
+  |> CONJUNCT1 |> SIMP_RULE std_ss [is_type_assignment_def]
+  |> CONV_RULE (RAND_CONV EVAL)
+  |> SIMP_RULE std_ss [FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE]
+  |> Q.SPEC`"ind"` |> SIMP_RULE (std_ss++LIST_ss) [LENGTH_NIL]
 
 val initial_context_state = {
   theory_ok_thm = theory_ok_hol_ctxt,
   is_infinity_sig_thm = is_infinity_sig_hol_ctxt,
   models_thm = CONJ (CONJUNCT1 hol_model_models)
                     (Q.ISPECL[`hol_ctxt`,`hol_model select in_ind`]subinterpretation_refl),
-  signature_lookups = [],
-  interpretation_lookups = interpretations1}
+  signature_lookups =
+  [``FLOOKUP (tysof hol_ctxt) "fun"``     |> EVAL
+  ,``FLOOKUP (tysof hol_ctxt) "bool"``    |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "="``       |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "T"``       |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "/\\"``     |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "==>"``     |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "!"``       |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "?"``       |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "\\/"``     |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "F"``       |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "~"``       |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "@"``       |> EVAL
+  ,``FLOOKUP (tysof hol_ctxt) "ind"``     |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "ONE_ONE"`` |> EVAL
+  ,``FLOOKUP (tmsof hol_ctxt) "ONTO"``    |> EVAL
+  ],
+  interpretation_lookups =
+  [fun_thm
+  ,bool_thm
+  ,equality_thm
+  ,truth_thm
+  ,and_thm
+  ,implies_thm
+  ,forall_thm
+  ,exists_thm
+  ,or_thm
+  ,falsity_thm
+  ,not_thm
+  ,ind_thm
+  ]}
 
 val the_context_state = ref initial_context_state
 

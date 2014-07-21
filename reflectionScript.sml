@@ -787,6 +787,20 @@ val select_bool_interpretation = prove(
   first_assum (match_exists_tac o concl) >>
   simp[]) |> UNDISCH |> UNDISCH
 
+val infinity_extends_select = prove(
+  ``mk_infinity_ctxt (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))) extends
+    (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt)))``,
+  match_mp_tac infinity_extends >>
+  conj_tac >- (
+    ACCEPT_TAC select_theory_ok ) >>
+  EVAL_TAC)
+
+val hol_theory_ok =
+extends_theory_ok
+|> Q.SPECL[`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`,`mk_infinity_ctxt (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt)))`]
+|> SIMP_RULE std_ss [select_theory_ok,infinity_extends_select]
+|> SIMP_RULE std_ss [GSYM hol_ctxt_def]
+
 (* probably not true
 val is_bool_interpretation_subinterpretation = store_thm("is_bool_interpretation_subinterpretation",
   ``is_set_theory ^mem ⇒
@@ -864,41 +878,71 @@ val infinity_has_infinity_sig = store_thm("infinity_has_infinity_sig",
   EVAL_TAC)
 
 val is_in_in_ind_implies_infinite = store_thm("is_in_in_ind_implies_infinite",
-  ``is_in (in_ind:ind->'U) ⇒ (∃inf. is_infinite ^mem inf)``,
-  rw[is_in_def,is_infinite_def] >>
-  qexists_tac`x` >>
-  `{a | a <: x} = IMAGE in_ind UNIV` by (
-    fs[EXTENSION,BIJ_DEF,INJ_DEF,SURJ_DEF] >>
-    metis_tac[] ) >>
-  pop_assum SUBST1_TAC >>
+  ``is_in (in_ind:ind->'U) ⇒ is_infinite ^mem (range in_ind)``,
+  rw[] >>
+  imp_res_tac is_in_bij_thm >>
+  rw[is_infinite_def] >>
+  `ext (range in_ind) = IMAGE in_ind UNIV` by (
+    fs[EXTENSION,BIJ_DEF,INJ_DEF,SURJ_DEF,ext_def] >>
+    metis_tac[is_in_range_thm]) >>
+  fs[ext_def] >>
   match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
   conj_tac >- ( fs[BIJ_DEF,INJ_DEF] ) >>
   match_mp_tac (snd(EQ_IMP_RULE INFINITE_UNIV)) >>
   metis_tac[INFINITY_AX,ONE_ONE_DEF,ONTO_DEF])
+
+val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
+  ``is_set_theory ^mem ⇒
+    ∀tysig δ τ.  is_type_valuation τ ⇒ is_type_assignment tysig δ ⇒
+    ∀constraints.
+    ALL_DISTINCT (MAP FST constraints) ∧
+    EVERY (λ(k,v). type_ok tysig (SND k) ∧
+                   v <: typesem δ τ (SND k)) constraints
+    ⇒
+    ∃σ.
+      is_term_valuation tysig δ τ σ ∧
+      EVERY (λ(k,v). σ k = v) constraints``,
+  strip_tac >> ntac 3 gen_tac >> ntac 2 strip_tac >> Induct >> simp[] >-
+    metis_tac[term_valuation_exists,is_valuation_def,FST,SND] >>
+  qx_gen_tac`p` >>
+  `∃k v. p = (k,v)` by metis_tac[pair_CASES] >>
+  rw[] >> fs[] >>
+  qexists_tac`(k =+ v) σ` >>
+  simp[APPLY_UPDATE_THM] >>
+  conj_tac >- (
+    fs[is_term_valuation_def,APPLY_UPDATE_THM] >>
+    rw[] >> fs[] ) >>
+  fs[EVERY_MEM] >>
+  Cases >> simp[] >>
+  fs[MEM_MAP,Once FORALL_PROD] >>
+  rw[] >> metis_tac[])
 
 val hol_model_exists = prove(
   ``∃i. ∀^mem select in_ind.
         is_set_theory ^mem ∧ good_select select ∧ is_in (in_ind:ind->'U) ⇒
         i mem select in_ind models (thyof hol_ctxt) ∧
         subinterpretation (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt)))
-          (select_model select) (i mem select in_ind)``,
+          (select_model select) (i mem select in_ind) ∧
+        (tyaof (i mem select in_ind) "ind" [] = range in_ind)``,
   simp[GSYM SKOLEM_THM] >>
   simp[RIGHT_EXISTS_IMP_THM] >> rpt strip_tac >>
-  mp_tac (
-    MATCH_MP infinity_has_model
-    (CONJ (ASSUME``is_set_theory ^mem``) (UNDISCH is_in_in_ind_implies_infinite))) >>
+  mp_tac (UNDISCH infinity_has_model_gen) >>
   disch_then(qspec_then`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`mp_tac) >>
   discharge_hyps >- (
     conj_tac >- ACCEPT_TAC select_theory_ok >>
     EVAL_TAC ) >>
-  disch_then(qspec_then`select_model select`mp_tac) >>
+  disch_then(qspecl_then[`select_model select`,`range in_ind`]mp_tac) >>
   discharge_hyps >- (
     conj_tac >- (
       Q.SPEC_THEN`select`(ACCEPT_TAC o CONJUNCT1 o CONJUNCT2 o UNDISCH)
       select_model_models ) >>
+    simp[UNDISCH is_in_in_ind_implies_infinite] >>
     assume_tac select_bool_interpretation >>
     fs[is_bool_interpretation_def] ) >>
-  metis_tac[hol_ctxt_def])
+  disch_then(qx_choose_then`i`strip_assume_tac) >>
+  fs[GSYM hol_ctxt_def] >>
+  qexists_tac`i` >> simp[])
+
 val hol_model_def = new_specification("hol_model_def",["hol_model0"],hol_model_exists)
 val _ = overload_on("hol_model",``hol_model0 ^mem``)
 val hol_model_models = SPEC mem hol_model_def |> SPEC_ALL |>
@@ -939,31 +983,149 @@ val hol_bool_interpretation = prove(
   metis_tac[]) |> funpow 3 UNDISCH
 val _ = save_thm("hol_bool_interpretation",hol_bool_interpretation)
 
-val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
-  ``is_set_theory ^mem ⇒
-    ∀tysig δ τ.  is_type_valuation τ ⇒ is_type_assignment tysig δ ⇒
-    ∀constraints.
-    ALL_DISTINCT (MAP FST constraints) ∧
-    EVERY (λ(k,v). type_ok tysig (SND k) ∧
-                   v <: typesem δ τ (SND k)) constraints
-    ⇒
-    ∃σ.
-      is_term_valuation tysig δ τ σ ∧
-      EVERY (λ(k,v). σ k = v) constraints``,
-  strip_tac >> ntac 3 gen_tac >> ntac 2 strip_tac >> Induct >> simp[] >-
-    metis_tac[term_valuation_exists,is_valuation_def,FST,SND] >>
-  qx_gen_tac`p` >>
-  `∃k v. p = (k,v)` by metis_tac[pair_CASES] >>
-  rw[] >> fs[] >>
-  qexists_tac`(k =+ v) σ` >>
-  simp[APPLY_UPDATE_THM] >>
-  conj_tac >- (
-    fs[is_term_valuation_def,APPLY_UPDATE_THM] >>
-    rw[] >> fs[] ) >>
-  fs[EVERY_MEM] >>
-  Cases >> simp[] >>
-  fs[MEM_MAP,Once FORALL_PROD] >>
-  rw[] >> metis_tac[])
+(* TODO: move *)
+val bool_sig_quant_instances = store_thm("bool_sig_quant_instances",
+  ``is_bool_sig sig ⇒
+    (instance (tmsof sig) i "!" (Fun (Fun ty Bool) Bool) =
+       (λτ. tmaof i "!" [typesem (tyaof i) τ ty])) ∧
+    (instance (tmsof sig) i "?" (Fun (Fun ty Bool) Bool) =
+       (λτ. tmaof i "?" [typesem (tyaof i) τ ty]))``,
+  rw[is_bool_sig_def] >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`"!"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`"?"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  EVAL_TAC >> rw[])
+
+val hol_is_bool_sig = prove(
+  ``is_bool_sig (sigof hol_ctxt)``,
+  match_mp_tac (MP_CANON is_bool_sig_extends) >>
+  match_exists_tac(concl hol_extends_bool) >>
+  simp[hol_extends_bool] >>
+  match_mp_tac bool_has_bool_sig >>
+  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
+
+val onto_rhs =
+  mk_infinity_ctxt_def |> SPEC_ALL |> concl |> rhs
+  |> rand |> rand |> rator |> funpow 3 rand
+val one_one_rhs =
+  mk_infinity_ctxt_def |> SPEC_ALL |> concl |> rhs
+  |> funpow 2 rand |> rand |> rator |> funpow 3 rand
+
+(*
+val hol_interprets_one_one = prove(``
+  is_set_theory ^mem ⇒
+  good_select select ⇒
+  is_in in_ind ⇒
+  ∀ina inb. is_in ina ∧ is_in inb ⇒
+   tmaof (hol_model select in_ind) "ONE_ONE" [range ina; range inb] =
+   Abstract (range (in_fun ina inb)) (range in_bool)
+        (λf. in_bool (ONE_ONE (finv (in_fun ina inb) f)))``,
+  rw[] >>
+  assume_tac (CONJUNCT1 hol_model_models) >>
+  fs[models_def] >>
+  assume_tac hol_theory_ok >>
+  first_x_assum(qspec_then`Const "ONE_ONE" (typeof ^one_one_rhs) === ^one_one_rhs`mp_tac) >>
+  discharge_hyps_keep >- EVAL_TAC >>
+  simp[satisfies_def] >>
+  `is_type_valuation (base_tyval =++ [("A",range ina);("B",range inb)])` by (
+    match_mp_tac is_type_valuation_update_list >>
+    simp[base_tyval_def] >>
+    metis_tac[inhabited_range] ) >>
+  first_assum (fn th =>
+    (constrained_term_valuation_exists
+     |> UNDISCH
+     |> C MATCH_MP th
+     |> mp_tac)) >>
+  fs[is_interpretation_def] >>
+  first_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  discharge_hyps >- EVAL_TAC >> strip_tac >>
+  qmatch_assum_abbrev_tac`is_type_valuation τ` >>
+  disch_then(qspec_then`(τ,σ)`mp_tac) >>
+  discharge_hyps_keep >- simp[is_valuation_def] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`termsem tmsig i v (s === t) = True` >>
+  qspecl_then[`sigof hol_ctxt`,`i`,`v`,`s`,`t`]mp_tac (UNDISCH termsem_equation) >>
+  simp[Abbr`tmsig`] >>
+  discharge_hyps >- (
+    simp[is_structure_def,is_interpretation_def,Abbr`v`] >>
+    conj_asm1_tac >- (
+      ACCEPT_TAC (MATCH_MP theory_ok_sig hol_theory_ok |> SIMP_RULE std_ss[])) >>
+    fs[theory_ok_def] ) >>
+  disch_then(mp_tac o SYM) >>
+  simp[boolean_eq_true,Abbr`s`] >>
+  simp[termsem_def] >>
+  strip_tac >> fs[Abbr`v`] >>
+  qmatch_assum_abbrev_tac`instance tmsig i name ty τ = z` >>
+  `FLOOKUP tmsig name = SOME ty` by (
+    unabbrev_all_tac >> EVAL_TAC ) >>
+  qspecl_then[`tmsig`,`i`,`name`]mp_tac instance_def >>
+  simp[] >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  rator_x_assum`instance`mp_tac >>
+  match_mp_tac SWAP_IMP >>
+  simp[] >> disch_then kall_tac >>
+  simp[Abbr`ty`] >> EVAL_STRING_SORT >>
+  simp[typesem_def] >>
+  `is_std_type_assignment (tyaof i)` by fs[is_std_interpretation_def] >>
+  `(τ "A" = range ina) ∧ (τ "B" = range inb)` by (
+    simp[Abbr`τ`,UPDATE_LIST_THM,APPLY_UPDATE_THM] )>>
+  simp[] >> disch_then kall_tac >>
+  imp_res_tac typesem_Bool >>
+  imp_res_tac typesem_Fun >>
+  simp[Abbr`t`,Once termsem_def] >>
+  simp[range_in_fun,range_in_bool,typesem_def] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[in_bool_def,boolean_in_boolset] >>
+  qx_gen_tac`f` >> strip_tac >>
+  conj_asm2_tac >- ( simp[boolean_in_boolset] ) >>
+  simp[Once termsem_def] >>
+  simp[Once termsem_def] >>
+  Q.ISPEC_THEN`i`
+    assume_tac(Q.GENL[`ty`,`i`] (MATCH_MP bool_sig_quant_instances hol_is_bool_sig)) >>
+  rfs[] >>
+  simp[typesem_def] >>
+  mp_tac hol_bool_interpretation >>
+
+  simp[is_bool_interpretation_def]
+
+    first_assum(qspec_then`Tyvar "A"`mp_tac) >>
+    disch_then(SUBST1_TAC o CONJUNCT1) >>
+    p
+    simp[]
+    simp_tac (srw_ss()) []
+    print_find"termsem_forall"
+
+    simp[] >> strip_tac >> fs[Abbr`ty`]
+    qmatch_abbrev_tac
+    simp[(UNDISCH boolean_eq_true)]
+      first_assum(match_mp_tac o snd o EQ_IMP_RULE o MATCH_MP term_ok_equation) >>
+      simp[Abbr`s`,Abbr`t`] >>
+      EVAL_TAC
+
+      select_theory_ok
+      hol_ctxt_def
+      conj_asm1_tac >- (
+        match_mp_tac is_type_valuation_update_list >>
+        simp[base_tyval_def] >>
+        metis_tac[inhabited_range] ) >>
+      is_term_valuation_def
+      print_apropos``is_term_valuation a  b x``
+      print_find"is_term_val"
+      base_tm
+
+    print_apropos``i satisfies (x,y,z)``
+
+
+  mk_infinity_ctxt_def
+  metis_tac[hol_ctxt_def])
+
+        (∀ina inb. is_in ina ∧ is_in inb ⇒
+         tmaof (i mem select in_ind) "ONTO" [range ina; range inb] =
+         Abstract (range (in_fun ina inb)) (range in_bool)
+              (λf. in_bool (ONTO (finv (in_fun ina inb) f))))``,
+*)
 
 val rwt = MATCH_MP (PROVE[]``P x ⇒ ((∀x. P x ⇒ Q) ⇔ Q)``) base_tyval_def
 val interprets_nil = save_thm("interprets_nil",
@@ -982,19 +1144,6 @@ val interprets_one = store_thm("interprets_one",
   rw[is_type_valuation_def] >> metis_tac[])
 
 (* TODO: move *)
-
-val bool_sig_quant_instances = store_thm("bool_sig_quant_instances",
-  ``is_bool_sig sig ⇒
-    (instance (tmsof sig) i "!" (Fun (Fun ty Bool) Bool) =
-       (λτ. tmaof i "!" [typesem (tyaof i) τ ty])) ∧
-    (instance (tmsof sig) i "?" (Fun (Fun ty Bool) Bool) =
-       (λτ. tmaof i "?" [typesem (tyaof i) τ ty]))``,
-  rw[is_bool_sig_def] >>
-  Q.ISPECL_THEN[`tmsof sig`,`i`,`"!"`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
-  Q.ISPECL_THEN[`tmsof sig`,`i`,`"?"`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
-  EVAL_TAC >> rw[])
 
 (*
 val LCA_def = Define`
