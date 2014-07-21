@@ -619,9 +619,46 @@ val in_fun_select = prove(
   rw[boolean_def] >>
   metis_tac[range_in_bool,mem_boolset]) |> UNDISCH
 
+local
+  val dest_in_fun = dest_triop ``in_fun0`` (mk_HOL_ERR"""dest_in_fun""")
+  val range_in_fun0 =
+    range_in_fun
+    |> Q.GENL[`inb`,`ina`,`mem`]
+    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+in
+  fun range_in_fun_conv tm =
+    let
+      val in_fun_ina_inb = rand tm
+      val (mem,ina,inb) = dest_in_fun in_fun_ina_inb
+      val th = ISPECL[mem,ina,inb] range_in_fun0 |> funpow 3 UNDISCH
+    in
+      REWR_CONV th tm
+    end
+end
+
+val in_fun_equals = prove(
+  ``is_set_theory ^mem ⇒ is_in ina ⇒
+    (in_fun ina (in_fun ina in_bool) $= =
+     Abstract (range ina) (Funspace (range ina) boolset)
+       (λx. Abstract (range ina) boolset (λy. Boolean (x = y))))``,
+  rw[] >>
+  rw[in_fun_def] >>
+  assume_tac (UNDISCH is_in_in_bool) >>
+  CONV_TAC(DEPTH_CONV range_in_fun_conv) >>
+  simp[range_in_bool] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[] >> rw[] >>
+  TRY (
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[in_bool_def,boolean_in_boolset] ) >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[in_bool_def,boolean_in_boolset] >>
+  rw[boolean_def] >>
+  metis_tac[is_in_finv_right]) |> funpow 2 UNDISCH
+
 val _ = map2 (curry save_thm)
-  ["in_fun_not","in_fun_forall","in_fun_exists","in_fun_binop","in_bool_false","in_bool_true","in_fun_select"]
-  [ in_fun_not , in_fun_forall , in_fun_exists , in_fun_binop , in_bool_false , in_bool_true , in_fun_select ]
+  ["in_fun_not","in_fun_forall","in_fun_exists","in_fun_binop","in_bool_false","in_bool_true","in_fun_select","in_fun_equals"]
+  [ in_fun_not , in_fun_forall , in_fun_exists , in_fun_binop , in_bool_false , in_bool_true , in_fun_select , in_fun_equals ]
 
 val std_sig_instances = store_thm("std_sig_instances",
   ``is_std_sig sig ⇒
