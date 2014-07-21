@@ -13,61 +13,6 @@ type context_state = {
   interpretation_lookups : thm list
   }
 
-val theory_ok_hol_ctxt = prove(
-  ``theory_ok (thyof hol_ctxt)``,
-  match_mp_tac (MP_CANON extends_theory_ok) >>
-  match_exists_tac (concl hol_extends_bool) >>
-  simp[hol_extends_bool,bool_theory_ok])
-
-val is_infinity_sig_hol_ctxt = prove(
-  ``is_infinity_sig (sigof hol_ctxt)``,
-  simp[hol_ctxt_def] >>
-  match_mp_tac infinity_has_infinity_sig >>
-  match_mp_tac select_has_select_sig >>
-  match_mp_tac (MP_CANON is_bool_sig_extends) >>
-  qexists_tac`mk_bool_ctxt init_ctxt` >>
-  conj_asm2_tac >- (
-    match_mp_tac eta_extends >>
-    fs[is_bool_sig_def] ) >>
-  match_mp_tac bool_has_bool_sig >>
-  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
-
-val interpretations1 = bool_interpretations hol_bool_interpretation
-val equality_thm0 = CONJUNCT1 (funpow 0 CONJUNCT2 interpretations1)
-val truth_thm0    = CONJUNCT1 (funpow 1 CONJUNCT2 interpretations1)
-val and_thm0      = CONJUNCT1 (funpow 2 CONJUNCT2 interpretations1)
-val implies_thm0  = CONJUNCT1 (funpow 3 CONJUNCT2 interpretations1)
-val forall_thm0   = CONJUNCT1 (funpow 4 CONJUNCT2 interpretations1)
-val exists_thm0   = CONJUNCT1 (funpow 5 CONJUNCT2 interpretations1)
-val or_thm0       = CONJUNCT1 (funpow 6 CONJUNCT2 interpretations1)
-val falsity_thm0  = CONJUNCT1 (funpow 7 CONJUNCT2 interpretations1)
-val not_thm0      =           (funpow 8 CONJUNCT2 interpretations1)
-
-val equality_thm =
-  equality_thm0 |> Q.SPEC`range ina`
-  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
-  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_equals)))
-val truth_thm =
-  truth_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_true)))
-val and_thm =
-  and_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
-val implies_thm =
-  implies_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
-val forall_thm =
-  forall_thm0|> Q.SPEC`range ina`
-  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
-  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_forall)))
-val exists_thm =
-  exists_thm0|> Q.SPEC`range ina`
-  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
-  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_exists)))
-val or_thm =
-  or_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
-val falsity_thm =
-  falsity_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_false)))
-val not_thm =
-  not_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_not)))
-
 (* can't do this in general?
 val select_thm = prove(
   ``is_set_theory ^mem ⇒ is_in in_ind ⇒ is_in ina ⇒ good_select select ⇒
@@ -126,7 +71,7 @@ val ind_thm =
   |> Q.SPEC`"ind"` |> SIMP_RULE (std_ss++LIST_ss) [LENGTH_NIL]
 
 val initial_context_state = {
-  theory_ok_thm = theory_ok_hol_ctxt,
+  theory_ok_thm = hol_theory_ok,
   is_infinity_sig_thm = is_infinity_sig_hol_ctxt,
   models_thm = CONJ (CONJUNCT1 hol_model_models)
                     (Q.ISPECL[`hol_ctxt`,`hol_model select in_ind`]subinterpretation_refl),

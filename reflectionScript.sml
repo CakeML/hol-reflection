@@ -795,11 +795,11 @@ val infinity_extends_select = prove(
     ACCEPT_TAC select_theory_ok ) >>
   EVAL_TAC)
 
-val hol_theory_ok =
+val hol_theory_ok = save_thm("hol_theory_ok",
 extends_theory_ok
 |> Q.SPECL[`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`,`mk_infinity_ctxt (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt)))`]
 |> SIMP_RULE std_ss [select_theory_ok,infinity_extends_select]
-|> SIMP_RULE std_ss [GSYM hol_ctxt_def]
+|> SIMP_RULE std_ss [GSYM hol_ctxt_def])
 
 (* probably not true
 val is_bool_interpretation_subinterpretation = store_thm("is_bool_interpretation_subinterpretation",
@@ -876,6 +876,19 @@ val infinity_has_infinity_sig = store_thm("infinity_has_infinity_sig",
     fs[is_select_sig_def,mk_infinity_ctxt_def,FLOOKUP_UPDATE] >>
     fs[is_bool_sig_def,is_std_sig_def,FLOOKUP_UPDATE]) >>
   EVAL_TAC)
+
+val is_infinity_sig_hol_ctxt = store_thm("is_infinity_sig_hol_ctxt",
+  ``is_infinity_sig (sigof hol_ctxt)``,
+  simp[hol_ctxt_def] >>
+  match_mp_tac infinity_has_infinity_sig >>
+  match_mp_tac select_has_select_sig >>
+  match_mp_tac (MP_CANON is_bool_sig_extends) >>
+  qexists_tac`mk_bool_ctxt init_ctxt` >>
+  conj_asm2_tac >- (
+    match_mp_tac eta_extends >>
+    fs[is_bool_sig_def] ) >>
+  match_mp_tac bool_has_bool_sig >>
+  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
 
 val is_in_in_ind_implies_infinite = store_thm("is_in_in_ind_implies_infinite",
   ``is_in (in_ind:ind->'U) ⇒ is_infinite ^mem (range in_ind)``,
@@ -982,6 +995,46 @@ val hol_bool_interpretation = prove(
   rw[] >> fs[] >> rfs[] >> fs[LENGTH_NIL_SYM] >>
   metis_tac[]) |> funpow 3 UNDISCH
 val _ = save_thm("hol_bool_interpretation",hol_bool_interpretation)
+
+val interpretations1 = bool_interpretations hol_bool_interpretation
+val equality_thm0 = CONJUNCT1 (funpow 0 CONJUNCT2 interpretations1)
+val truth_thm0    = CONJUNCT1 (funpow 1 CONJUNCT2 interpretations1)
+val and_thm0      = CONJUNCT1 (funpow 2 CONJUNCT2 interpretations1)
+val implies_thm0  = CONJUNCT1 (funpow 3 CONJUNCT2 interpretations1)
+val forall_thm0   = CONJUNCT1 (funpow 4 CONJUNCT2 interpretations1)
+val exists_thm0   = CONJUNCT1 (funpow 5 CONJUNCT2 interpretations1)
+val or_thm0       = CONJUNCT1 (funpow 6 CONJUNCT2 interpretations1)
+val falsity_thm0  = CONJUNCT1 (funpow 7 CONJUNCT2 interpretations1)
+val not_thm0      =           (funpow 8 CONJUNCT2 interpretations1)
+
+val equality_thm =
+  equality_thm0 |> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_equals)))
+val truth_thm =
+  truth_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_true)))
+val and_thm =
+  and_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
+val implies_thm =
+  implies_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
+val forall_thm =
+  forall_thm0|> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_forall)))
+val exists_thm =
+  exists_thm0|> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_exists)))
+val or_thm =
+  or_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
+val falsity_thm =
+  falsity_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_false)))
+val not_thm =
+  not_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_not)))
+
+val _ = map2 (curry save_thm)
+  ["equality_thm","truth_thm","and_thm","implies_thm","forall_thm","exists_thm","or_thm","falsity_thm","not_thm"]
+  [ equality_thm , truth_thm , and_thm , implies_thm , forall_thm , exists_thm , or_thm , falsity_thm , not_thm ]
 
 (* TODO: move *)
 val bool_sig_quant_instances = store_thm("bool_sig_quant_instances",
