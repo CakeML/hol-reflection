@@ -112,7 +112,8 @@ in
         val thr = mk_is_in_thm (type_of b)
         val th = MATCH_MP th thd
         val th = MATCH_MP th thr
-        val goal = (mk_set(hyp cb @ hyp th), th |> concl |> dest_imp |> fst)
+        val hyps = set_diff (mk_set(hyp cb @ hyp th)) (hyp cx)
+        val goal = (hyps, th |> concl |> dest_imp |> fst)
         val th1 = TAC_PROOF(goal,
           gen_tac >> strip_tac >>
           CONV_TAC(LAND_CONV(RAND_CONV(BETA_CONV))) >>
