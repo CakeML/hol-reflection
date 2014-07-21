@@ -1050,114 +1050,18 @@ val bool_sig_quant_instances = store_thm("bool_sig_quant_instances",
   disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
   EVAL_TAC >> rw[])
 
-val hol_is_bool_sig = prove(
+val exists_REV_ASSOCD_thm = store_thm("exists_REV_ASSOCD_thm",
+  ``∃i. ty = REV_ASSOCD (Tyvar a) i (Tyvar a)``,
+  qexists_tac`[ty,Tyvar a]` >>
+  EVAL_TAC )
+
+val hol_is_bool_sig = store_thm("hol_is_bool_sig",
   ``is_bool_sig (sigof hol_ctxt)``,
   match_mp_tac (MP_CANON is_bool_sig_extends) >>
   match_exists_tac(concl hol_extends_bool) >>
   simp[hol_extends_bool] >>
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
-
-val onto_rhs =
-  mk_infinity_ctxt_def |> SPEC_ALL |> concl |> rhs
-  |> rand |> rand |> rator |> funpow 3 rand
-val one_one_rhs =
-  mk_infinity_ctxt_def |> SPEC_ALL |> concl |> rhs
-  |> funpow 2 rand |> rand |> rator |> funpow 3 rand
-
-val hol_interprets_one_one = prove(``
-  is_set_theory ^mem ⇒
-  good_select select ⇒
-  is_in in_ind ⇒
-  is_in ina ⇒ is_in inb ⇒
-   tmaof (hol_model select in_ind) "ONE_ONE" [range ina; range inb] =
-   Abstract (range (in_fun ina inb)) (range in_bool)
-        (λf. in_bool (ONE_ONE (finv (in_fun ina inb) f)))``,
-  rw[] >>
-  assume_tac (CONJUNCT1 hol_model_models) >>
-  fs[models_def] >>
-  assume_tac hol_theory_ok >>
-  first_x_assum(qspec_then`Const "ONE_ONE" (typeof ^one_one_rhs) === ^one_one_rhs`mp_tac) >>
-  discharge_hyps_keep >- EVAL_TAC >>
-  simp[satisfies_def] >>
-  `is_type_valuation (base_tyval =++ [("A",range ina);("B",range inb)])` by (
-    match_mp_tac is_type_valuation_update_list >>
-    simp[base_tyval_def] >>
-    metis_tac[inhabited_range] ) >>
-  first_assum (fn th =>
-    (constrained_term_valuation_exists
-     |> UNDISCH
-     |> C MATCH_MP th
-     |> mp_tac)) >>
-  fs[is_interpretation_def] >>
-  first_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) >>
-  disch_then(qspec_then`[]`mp_tac) >>
-  discharge_hyps >- EVAL_TAC >> strip_tac >>
-  qmatch_assum_abbrev_tac`is_type_valuation τ` >>
-  disch_then(qspec_then`(τ,σ)`mp_tac) >>
-  discharge_hyps_keep >- simp[is_valuation_def] >>
-  strip_tac >>
-  qmatch_assum_abbrev_tac`termsem tmsig i v (s === t) = True` >>
-  qspecl_then[`sigof hol_ctxt`,`i`,`v`,`s`,`t`]mp_tac (UNDISCH termsem_equation) >>
-  simp[Abbr`tmsig`] >>
-  discharge_hyps >- (
-    simp[is_structure_def,is_interpretation_def,Abbr`v`] >>
-    conj_asm1_tac >- (
-      ACCEPT_TAC (MATCH_MP theory_ok_sig hol_theory_ok |> SIMP_RULE std_ss[])) >>
-    fs[theory_ok_def] ) >>
-  disch_then(mp_tac o SYM) >>
-  simp[boolean_eq_true,Abbr`s`] >>
-  simp[termsem_def] >>
-  strip_tac >> fs[Abbr`v`] >>
-  qmatch_assum_abbrev_tac`instance tmsig i name ty τ = z` >>
-  `FLOOKUP tmsig name = SOME ty` by (
-    unabbrev_all_tac >> EVAL_TAC ) >>
-  qspecl_then[`tmsig`,`i`,`name`]mp_tac instance_def >>
-  simp[] >>
-  disch_then(qspec_then`[]`mp_tac) >>
-  rator_x_assum`instance`mp_tac >>
-  match_mp_tac SWAP_IMP >>
-  simp[] >> disch_then kall_tac >>
-  simp[Abbr`ty`] >> EVAL_STRING_SORT >>
-  simp[typesem_def] >>
-  `is_std_type_assignment (tyaof i)` by fs[is_std_interpretation_def] >>
-  `(τ "A" = range ina) ∧ (τ "B" = range inb)` by (
-    simp[Abbr`τ`,UPDATE_LIST_THM,APPLY_UPDATE_THM] )>>
-  simp[] >> disch_then kall_tac >>
-  imp_res_tac typesem_Bool >>
-  imp_res_tac typesem_Fun >>
-  simp[Abbr`t`,Once termsem_def] >>
-  simp[range_in_fun,range_in_bool,typesem_def] >>
-  match_mp_tac (UNDISCH abstract_eq) >>
-  simp[in_bool_def,boolean_in_boolset] >>
-  qx_gen_tac`f` >> strip_tac >>
-  conj_asm2_tac >- ( simp[boolean_in_boolset] ) >>
-  simp[Once termsem_def] >>
-  simp[Once termsem_def] >>
-  Q.ISPEC_THEN`i`
-    assume_tac(Q.GENL[`ty`,`i`] (MATCH_MP bool_sig_quant_instances hol_is_bool_sig)) >>
-  rfs[] >>
-  simp[typesem_def] >>
-  simp[Abbr`i`,CONV_RULE(RAND_CONV(REWR_CONV in_fun_forall)) forall_thm] >>
-  match_mp_tac apply_abstract_matchable >>
-  simp[boolean_in_boolset] >>
-  simp[Once termsem_def] >>
-  simp[typesem_def] >>
-  cheat) |> funpow 5 UNDISCH
-
-val hol_interprets_onto = prove(``
-  is_set_theory ^mem ⇒
-  good_select select ⇒
-  is_in in_ind ⇒
-  is_in ina ⇒ is_in inb ⇒
-         tmaof (i mem select in_ind) "ONTO" [range ina; range inb] =
-         Abstract (range (in_fun ina inb)) (range in_bool)
-              (λf. in_bool (ONTO (finv (in_fun ina inb) f)))``,
-cheat) |> funpow 5 UNDISCH
-
-val _ = map2 (curry save_thm)
-  ["hol_interprets_one_one","hol_interprets_onto"]
-  [ hol_interprets_one_one , hol_interprets_onto ]
 
 (* TODO: move *)
 

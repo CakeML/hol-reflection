@@ -1,7 +1,7 @@
-open HolKernel lcsymtacs listSimps miscTheory finite_mapTheory listTheory
-open miscLib reflectionLib holSyntaxSyntax 
-open holSyntaxExtraTheory holBoolSyntaxTheory holBoolTheory
-     holSemanticsTheory
+open HolKernel lcsymtacs listSimps miscTheory finite_mapTheory listTheory combinTheory
+open miscLib basicReflectionLib reflectionLib holSyntaxSyntax
+open holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holBoolTheory
+     setSpecTheory holSemanticsTheory holSemanticsExtraTheory
      holAxiomsSyntaxTheory holAxiomsTheory holConsistencyTheory
      reflectionTheory
 
@@ -64,6 +64,146 @@ val bool_thm =
   |> SIMP_RULE (std_ss++LIST_ss) [SYM(UNDISCH range_in_bool)]
 
 val ind_thm = hol_model_models |> funpow 2 CONJUNCT2
+
+val onto_rhs =
+  mk_infinity_ctxt_def |> SPEC_ALL |> concl |> rhs
+  |> rand |> rand |> rator |> funpow 3 rand
+val one_one_rhs =
+  mk_infinity_ctxt_def |> SPEC_ALL |> concl |> rhs
+  |> funpow 2 rand |> rand |> rator |> funpow 3 rand
+
+val mem = ``mem:'U->'U->bool``
+
+val _ = show_assums := true
+
+val tac1 =
+  discharge_hyps_keep >- EVAL_TAC >>
+  simp[satisfies_def] >>
+  `is_type_valuation (base_tyval =++ [("A",range ina);("B",range inb)])` by (
+    match_mp_tac is_type_valuation_update_list >>
+    simp[base_tyval_def] >>
+    metis_tac[inhabited_range] ) >>
+  first_assum (fn th =>
+    (constrained_term_valuation_exists
+     |> UNDISCH
+     |> C MATCH_MP th
+     |> mp_tac)) >>
+  fs[is_interpretation_def] >>
+  first_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  discharge_hyps >- EVAL_TAC >> strip_tac >>
+  qmatch_assum_abbrev_tac`is_type_valuation τ` >>
+  disch_then(qspec_then`(τ,σ)`mp_tac) >>
+  discharge_hyps_keep >- simp[is_valuation_def] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`termsem tmsig i v (s === t) = True` >>
+  qspecl_then[`sigof hol_ctxt`,`i`,`v`,`s`,`t`]mp_tac (UNDISCH termsem_equation) >>
+  simp[Abbr`tmsig`] >>
+  discharge_hyps >- (
+    simp[is_structure_def,is_interpretation_def,Abbr`v`] >>
+    conj_asm1_tac >- (
+      ACCEPT_TAC (MATCH_MP theory_ok_sig hol_theory_ok |> SIMP_RULE std_ss[])) >>
+    fs[theory_ok_def] ) >>
+  disch_then(mp_tac o SYM) >>
+  simp[boolean_eq_true,Abbr`s`] >>
+  simp[termsem_def] >>
+  strip_tac >> fs[Abbr`v`] >>
+  qmatch_assum_abbrev_tac`instance tmsig i name ty τ = z` >>
+  `FLOOKUP tmsig name = SOME ty` by (
+    unabbrev_all_tac >> EVAL_TAC ) >>
+  qspecl_then[`tmsig`,`i`,`name`]mp_tac instance_def >>
+  simp[] >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  rator_x_assum`instance`mp_tac >>
+  match_mp_tac SWAP_IMP >>
+  simp[] >> disch_then kall_tac >>
+  simp[Abbr`ty`] >> EVAL_STRING_SORT >>
+  simp[typesem_def] >>
+  `is_std_type_assignment (tyaof i)` by fs[is_std_interpretation_def] >>
+  `(τ "A" = range ina) ∧ (τ "B" = range inb)` by (
+    simp[Abbr`τ`,UPDATE_LIST_THM,APPLY_UPDATE_THM] )>>
+  simp[] >> disch_then kall_tac
+
+val cert = term_to_cert (rhs(concl ONE_ONE_DEF))
+
+val hol_interprets_one_one = prove(``
+  is_set_theory ^mem ⇒
+  good_select select ⇒
+  is_in in_ind ⇒
+  is_in ina ⇒ is_in inb ⇒
+   (tmaof (hol_model select in_ind) "ONE_ONE" [range ina; range inb] =
+    Abstract (range (in_fun ina inb)) (range in_bool)
+         (λf. in_bool (ONE_ONE (finv (in_fun ina inb) f))))``,
+  rw[] >>
+  assume_tac (CONJUNCT1 hol_model_models) >>
+  fs[models_def] >>
+  assume_tac hol_theory_ok >>
+  first_x_assum(qspec_then`Const "ONE_ONE" (typeof ^one_one_rhs) === ^one_one_rhs`mp_tac) >>
+  tac1 >>
+  qspecl_then[`mem`,`inb`,`ina`,`tmsig`,`tyaof i`,`tmaof i`,`τ`,`σ`,`tysof hol_ctxt`]mp_tac(
+    Q.GENL[`tysig`,`tmval`,`tyval`,`tmass`,`tyass`,`tmsig`,`in_A`,`in_B`,`mem`]
+      (DISCH_ALL cert)) >>
+  simp[AND_IMP_INTRO] >>
+  discharge_hyps >- (
+    simp[good_context_def,Abbr`tmsig`,Abbr`i`,is_interpretation_def,GSYM CONJ_ASSOC] >>
+    conj_tac >- ACCEPT_TAC (MATCH_MP theory_ok_sig hol_theory_ok |> SIMP_RULE std_ss[]) >>
+    simp[SIMP_RULE std_ss [] (MATCH_MP bool_sig_instances hol_is_bool_sig)] >>
+    simp[SIMP_RULE std_ss [] (MATCH_MP std_sig_instances (MATCH_MP is_bool_sig_std hol_is_bool_sig)),typesem_def] >>
+    simp[implies_thm,forall_thm] >>
+    conj_tac >- (ACCEPT_TAC (IINST1 ``ina:'a->'U`` ``inb:'b->'U`` equality_thm)) >>
+    EVAL_TAC >> simp[] >>
+    simp[exists_REV_ASSOCD_thm] ) >>
+  Q.PAT_ABBREV_TAC`t' = Abs "f" X Y` >>
+  `t' = t` by (
+    unabbrev_all_tac >>
+    simp[equation_def] ) >>
+  pop_assum SUBST1_TAC >>
+  simp[in_fun_def] >>
+  disch_then(SUBST1_TAC o SYM) >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[in_bool_def,range_in_bool,boolean_in_boolset] >>
+  rw[ONE_ONE_DEF]) |> funpow 5 UNDISCH
+
+val cert = term_to_cert (rhs(concl ONTO_DEF))
+
+val hol_interprets_onto = prove(``
+  is_set_theory ^mem ⇒
+  good_select select ⇒
+  is_in in_ind ⇒
+  is_in ina ⇒ is_in inb ⇒
+     (tmaof (hol_model select in_ind) "ONTO" [range ina; range inb] =
+      Abstract (range (in_fun ina inb)) (range in_bool)
+          (λf. in_bool (ONTO (finv (in_fun ina inb) f))))``,
+  rw[] >>
+  assume_tac (CONJUNCT1 hol_model_models) >>
+  fs[models_def] >>
+  assume_tac hol_theory_ok >>
+  first_x_assum(qspec_then`Const "ONTO" (typeof ^onto_rhs) === ^onto_rhs`mp_tac) >>
+  tac1 >>
+  qspecl_then[`mem`,`inb`,`ina`,`tmsig`,`tyaof i`,`tmaof i`,`τ`,`σ`,`tysof hol_ctxt`]mp_tac(
+    Q.GENL[`tysig`,`tmval`,`tyval`,`tmass`,`tyass`,`tmsig`,`in_A`,`in_B`,`mem`]
+      (DISCH_ALL cert)) >>
+  simp[AND_IMP_INTRO] >>
+  discharge_hyps >- (
+    simp[good_context_def,Abbr`tmsig`,Abbr`i`,is_interpretation_def,GSYM CONJ_ASSOC] >>
+    conj_tac >- ACCEPT_TAC (MATCH_MP theory_ok_sig hol_theory_ok |> SIMP_RULE std_ss[]) >>
+    simp[SIMP_RULE std_ss [] (MATCH_MP bool_sig_quant_instances hol_is_bool_sig)] >>
+    simp[SIMP_RULE std_ss [] (MATCH_MP std_sig_instances (MATCH_MP is_bool_sig_std hol_is_bool_sig)),typesem_def] >>
+    simp[implies_thm,forall_thm,exists_thm] >>
+    conj_tac >- (ACCEPT_TAC (IINST1 ``ina:'a->'U`` ``inb:'b->'U`` equality_thm)) >>
+    conj_tac >- (ACCEPT_TAC (IINST1 ``ina:'a->'U`` ``inb:'b->'U`` forall_thm)) >>
+    EVAL_TAC >> simp[] >>
+    simp[exists_REV_ASSOCD_thm] ) >>
+  Q.PAT_ABBREV_TAC`t' = Abs "f" X Y` >>
+  `t' = t` by (
+    unabbrev_all_tac >>
+    simp[equation_def] ) >>
+  pop_assum SUBST1_TAC >>
+  simp[in_fun_def] >>
+  disch_then(SUBST1_TAC o SYM) >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[in_bool_def,range_in_bool,boolean_in_boolset] >>
+  rw[ONTO_DEF]) |> funpow 5 UNDISCH
 
 val initial_context_state = {
   theory_ok_thm = hol_theory_ok,
@@ -139,10 +279,6 @@ val exists_equal_thm = prove(
   ``$? ($= x) ⇔ T``,
   `$= x = λz. x = z` by ( simp[FUN_EQ_THM] ) >>
   pop_assum SUBST1_TAC >> simp[])
-val exists_REV_ASSOCD_thm = prove(
-  ``∃i. ty = REV_ASSOCD (Tyvar a) i (Tyvar a)``,
-  qexists_tac`[ty,Tyvar a]` >>
-  EVAL_TAC )
 
 val tm_def = new_definition("IND_SUC_DEF",``IND_SUC = @(x:ind). x ≠ x``)
 
