@@ -1,6 +1,7 @@
 structure basicReflectionLib = struct
 local
-  open HolKernel boolLib bossLib holSyntaxSyntax listSyntax pairSyntax stringSyntax
+  open HolKernel boolLib bossLib listSimps listSyntax pairSyntax stringSyntax
+  open holSyntaxSyntax holSemanticsTheory holSemanticsExtraTheory holBoolTheory
 in
 
 (* (n_imp_and_intro n) converts terms of the form ``P1 /\ ... /\ Pn ==> Q``
@@ -121,6 +122,13 @@ fun replace_assum th simpth =
   in
     MP th1 th4
   end
+
+fun bool_interpretations interp_th =
+  is_bool_interpretation_def
+  |> SPECL [mem, rand(concl interp_th)]
+  |> SIMP_RULE std_ss [interp_th,is_std_interpretation_def,GSYM CONJ_ASSOC]
+  |> CONJUNCT2
+  |> SIMP_RULE (std_ss++LIST_ss) [interprets_nil,interprets_one]
 
 end
 end
