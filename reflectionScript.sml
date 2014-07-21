@@ -1065,12 +1065,11 @@ val one_one_rhs =
   mk_infinity_ctxt_def |> SPEC_ALL |> concl |> rhs
   |> funpow 2 rand |> rand |> rator |> funpow 3 rand
 
-(*
 val hol_interprets_one_one = prove(``
   is_set_theory ^mem ⇒
   good_select select ⇒
   is_in in_ind ⇒
-  ∀ina inb. is_in ina ∧ is_in inb ⇒
+  is_in ina ⇒ is_in inb ⇒
    tmaof (hol_model select in_ind) "ONE_ONE" [range ina; range inb] =
    Abstract (range (in_fun ina inb)) (range in_bool)
         (λf. in_bool (ONE_ONE (finv (in_fun ina inb) f)))``,
@@ -1139,46 +1138,26 @@ val hol_interprets_one_one = prove(``
     assume_tac(Q.GENL[`ty`,`i`] (MATCH_MP bool_sig_quant_instances hol_is_bool_sig)) >>
   rfs[] >>
   simp[typesem_def] >>
-  mp_tac hol_bool_interpretation >>
+  simp[Abbr`i`,CONV_RULE(RAND_CONV(REWR_CONV in_fun_forall)) forall_thm] >>
+  match_mp_tac apply_abstract_matchable >>
+  simp[boolean_in_boolset] >>
+  simp[Once termsem_def] >>
+  simp[typesem_def] >>
+  cheat) |> funpow 5 UNDISCH
 
-  simp[is_bool_interpretation_def]
-
-    first_assum(qspec_then`Tyvar "A"`mp_tac) >>
-    disch_then(SUBST1_TAC o CONJUNCT1) >>
-    p
-    simp[]
-    simp_tac (srw_ss()) []
-    print_find"termsem_forall"
-
-    simp[] >> strip_tac >> fs[Abbr`ty`]
-    qmatch_abbrev_tac
-    simp[(UNDISCH boolean_eq_true)]
-      first_assum(match_mp_tac o snd o EQ_IMP_RULE o MATCH_MP term_ok_equation) >>
-      simp[Abbr`s`,Abbr`t`] >>
-      EVAL_TAC
-
-      select_theory_ok
-      hol_ctxt_def
-      conj_asm1_tac >- (
-        match_mp_tac is_type_valuation_update_list >>
-        simp[base_tyval_def] >>
-        metis_tac[inhabited_range] ) >>
-      is_term_valuation_def
-      print_apropos``is_term_valuation a  b x``
-      print_find"is_term_val"
-      base_tm
-
-    print_apropos``i satisfies (x,y,z)``
-
-
-  mk_infinity_ctxt_def
-  metis_tac[hol_ctxt_def])
-
-        (∀ina inb. is_in ina ∧ is_in inb ⇒
+val hol_interprets_onto = prove(``
+  is_set_theory ^mem ⇒
+  good_select select ⇒
+  is_in in_ind ⇒
+  is_in ina ⇒ is_in inb ⇒
          tmaof (i mem select in_ind) "ONTO" [range ina; range inb] =
          Abstract (range (in_fun ina inb)) (range in_bool)
-              (λf. in_bool (ONTO (finv (in_fun ina inb) f))))``,
-*)
+              (λf. in_bool (ONTO (finv (in_fun ina inb) f)))``,
+cheat) |> funpow 5 UNDISCH
+
+val _ = map2 (curry save_thm)
+  ["hol_interprets_one_one","hol_interprets_onto"]
+  [ hol_interprets_one_one , hol_interprets_onto ]
 
 (* TODO: move *)
 

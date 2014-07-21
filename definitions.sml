@@ -63,12 +63,7 @@ val bool_thm =
   |> Q.SPEC`[]`
   |> SIMP_RULE (std_ss++LIST_ss) [SYM(UNDISCH range_in_bool)]
 
-val ind_thm =
-  hol_model_is_interpretation |> SIMP_RULE std_ss [is_interpretation_def]
-  |> CONJUNCT1 |> SIMP_RULE std_ss [is_type_assignment_def]
-  |> CONV_RULE (RAND_CONV EVAL)
-  |> SIMP_RULE std_ss [FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE]
-  |> Q.SPEC`"ind"` |> SIMP_RULE (std_ss++LIST_ss) [LENGTH_NIL]
+val ind_thm = hol_model_models |> funpow 2 CONJUNCT2
 
 val initial_context_state = {
   theory_ok_thm = hol_theory_ok,
@@ -105,6 +100,8 @@ val initial_context_state = {
   ,falsity_thm
   ,not_thm
   ,ind_thm
+  ,hol_interprets_one_one
+  ,hol_interprets_onto
   ]}
 
 val the_context_state = ref initial_context_state
@@ -118,14 +115,7 @@ want a database with:
     lookup constant current_interpretation = ... (connect to outer) ...
   the current_interpretation will include select_fun as a variable
 
-val exists_equal_thm = prove(
-  ``$? ($= x) ⇔ T``,
-  `$= x = λz. x = z` by ( simp[FUN_EQ_THM] ) >>
-  pop_assum SUBST1_TAC >> simp[])
-val exists_REV_ASSOCD_thm = prove(
-  ``∃i. ty = REV_ASSOCD (Tyvar a) i (Tyvar a)``,
-  qexists_tac`[ty,Tyvar a]` >>
-  EVAL_TAC )
+open basicReflectionLib stringLib holSyntaxTheory alistTheory optionLib listSyntax relationTheory
 
 val cs = list_compset()
 val () = pairLib.add_pair_compset cs
@@ -145,19 +135,21 @@ val () = computeLib.add_thms
 val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:type``))
 val () = computeLib.add_datatype_info cs (valOf(TypeBase.fetch``:term``))
 
-val IND_SUC_def = definition"IND_SUC_def"
-val name = "IND_SUC"
-val tm = term_to_deep(rhs(concl IND_SUC_def))
-val theory_ok_th = theory_ok_hol_ctxt
+val exists_equal_thm = prove(
+  ``$? ($= x) ⇔ T``,
+  `$= x = λz. x = z` by ( simp[FUN_EQ_THM] ) >>
+  pop_assum SUBST1_TAC >> simp[])
+val exists_REV_ASSOCD_thm = prove(
+  ``∃i. ty = REV_ASSOCD (Tyvar a) i (Tyvar a)``,
+  qexists_tac`[ty,Tyvar a]` >>
+  EVAL_TAC )
 
-val tm_def = IND_SUC_def
-
-(term_to_cert``ARB``)
-hol_ctxt_def
-show_assums := true
+val tm_def = new_definition("IND_SUC_DEF",``IND_SUC = @(x:ind). x ≠ x``)
 
 fun mk_ConstDef_th theory_ok_th tm_def =
   let
+    val old_state = !the_context_state
+    val theory_ok_th = #theory_ok_thm old_state
     val name = tm_def |> concl |> lhs |> dest_const |> fst
     val tm = tm_def |> concl |> rhs |> term_to_deep
     val ctxt = theory_ok_th |> concl |> funpow 5 rand
@@ -179,9 +171,40 @@ fun mk_ConstDef_th theory_ok_th tm_def =
           rw[]) ) >>
       EVAL_TAC >> simp[])
     val updates_th = MP updates_th goal_th
+    val new_ctxt = mk_cons(rand(rator (concl updates_th)),rand(concl updates_th))
+    val (new_ctxt_extends_goal:goal) = ([],list_mk_comb(``$extends``,[new_ctxt,ctxt]))
+    val new_ctxt_extends = TAC_PROOF(new_ctxt_extends_goal,
+      ONCE_REWRITE_TAC[extends_def] >>
+      MATCH_MP_TAC RTC_SUBSET >>
+      CONV_TAC (RATOR_CONV BETA_CONV) >>
+      CONV_TAC BETA_CONV >>
+      PROVE_TAC[updates_th] )
+    val new_theory_ok =
+      MATCH_MP (MATCH_MP extends_theory_ok new_ctxt_extends) theory_ok_th
+    val infinity_sig_th = #is_infinity_sig_thm old_state
+    (* is_infinity_sig_extends *)
+    print_find"new_definition_correct"
+    new_specification_correct
+    consistent_update_def
+    val models_th = #models_thm old_state
+    val int_lookups = #interpretation_lookups old_state
+    term_to_cert (rhs(concl tm_def))
+
+new_type_definition_correct
+  is_infinity_sig_thm : thm,
+  models_thm : thm,
+  signature_lookups : thm list,
+  interpretation_lookups : thm list
 
   in
   end
+
+val IND_SUC_def = definition"IND_SUC_def"
+val name = "IND_SUC"
+val tm = term_to_deep(rhs(concl IND_SUC_def))
+val theory_ok_th = theory_ok_hol_ctxt
+
+val tm_def = IND_SUC_def
 
 mk_ConstDef_th theory_ok_hol_ctxt IND_SUC_def
 
