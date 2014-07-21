@@ -1,7 +1,8 @@
-open HolKernel lcsymtacs listSimps miscTheory finite_mapTheory listTheory combinTheory
+open HolKernel lcsymtacs listSimps miscTheory finite_mapTheory listTheory pred_setTheory combinTheory
 open miscLib basicReflectionLib reflectionLib holSyntaxSyntax
-open holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holBoolTheory
+open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      setSpecTheory holSemanticsTheory holSemanticsExtraTheory
+     holBoolSyntaxTheory holBoolTheory
      holAxiomsSyntaxTheory holAxiomsTheory holConsistencyTheory
      reflectionTheory
 
@@ -13,35 +14,65 @@ type context_state = {
   interpretation_lookups : thm list
   }
 
-(* can't do this in general?
+(*
+val range_to_in_def = xDefine"range_to_in"`
+  range_to_in0 ^mem r = @ina. is_in ina ∧ (r = range ina)`
+val _ = overload_on("range_to_in",``range_to_in0 ^mem``)
+
+val range_to_in_thm = prove(
+  ``(∃ina:'a->'U. is_in ina) ⇒
+    is_in  ((range_to_in r):'a->'U) ∧
+    (range ((range_to_in r):'a->'U) = r)``,
+  strip_tac >>
+  simp[range_to_in_def] >>
+  SELECT_ELIM_TAC
+
+val select_fun_def = xDefine "select_fun"`
+  select_fun0 ^mem (:'a) r p = range_to_in r (@x:'a. p (range_to_in r x))`
+val _ = overload_on("select_fun",``select_fun0 ^mem``)
+
+val good_select_select_fun = prove(
+  ``good_select (select_fun ty)``,
+  Cases_on`ty` >>
+  rw[good_select_def,select_fun_def]
+*)
+
+val range_to_in_gives_good_select = prove(
+  ``(∀r. is_in (range_to_in r) ∧ (range (range_to_in r) = r)) ⇒
+    good_select (λr p. range_to_in r (@x. p (range_to_in r x)))``,
+  rw[good_select_def] >-
+    metis_tac[is_in_range_thm] >>
+  SELECT_ELIM_TAC >> simp[] >>
+  `is_in (range_to_in r)` by metis_tac[] >>
+  imp_res_tac is_in_bij_thm >>
+  fs[ext_def,BIJ_DEF,SURJ_DEF] >>
+  metis_tac[])
+
 val select_thm = prove(
   ``is_set_theory ^mem ⇒ is_in in_ind ⇒ is_in ina ⇒ good_select select ⇒
+    (select = λr p. range_to_in r (@x. p (range_to_in r x))) ⇒
+    (range_to_in (range ina) = ina) ⇒
     (tmaof (hol_model select in_ind) "@" [range ina] =
      in_fun (in_fun ina in_bool) ina $@)``,
   rw[] >>
+  qmatch_assum_abbrev_tac`good_select select` >>
   rw[UNDISCH in_fun_select] >>
   qspec_then`select`(assume_tac o funpow 2 CONJUNCT2 o UNDISCH)select_model_models >>
   mp_tac (CONJUNCT2 hol_model_models) >>
   simp[subinterpretation_def] >>
-  disch_then(qspec_then`"@"`mp_tac o CONJUNCT2) >>
+  disch_then(qspec_then`"@"`mp_tac o CONJUNCT2 o CONJUNCT1) >>
   CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV EVAL))) >>
   simp[PULL_EXISTS,type_ok_def,FLOOKUP_UPDATE] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[REV_ASSOCD,type_ok_def] >> disch_then kall_tac >>
   fs[good_select_def] >>
-  assume_tac (UNDISCH is_in_in_bool) >>
-  CONV_TAC(DEPTH_CONV range_in_fun_conv) >>
-  simp[range_in_bool] >>
+  Q.ISPEC_THEN`in_bool`mp_tac(Q.GEN`inb`range_in_fun) >>
+  discharge_hyps >- simp[is_in_in_bool] >>
+  simp[range_in_bool] >> disch_then kall_tac >>
   match_mp_tac(UNDISCH abstract_eq) >>
   rw[] >- metis_tac[is_in_range_thm]
        >- metis_tac[is_in_range_thm] >>
-  first_x_assum(qspecl_then[`range ina`,`Holds x`]mp_tac) >>
-
-  MATCH_MP select_sig_instances
-  (is_infinity_sig_hol_ctxt |> SIMP_RULE std_ss [is_infinity_sig_def] |> CONJUNCT1)
-  print_find"hol_mod"
-  is_select_int
-*)
+  simp[Abbr`select`])
 
 val hol_model_is_interpretation =
   hol_model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT1 |> CONJUNCT1
