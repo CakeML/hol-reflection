@@ -7,10 +7,10 @@ open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      reflectionTheory
 
 type context_state = {
-  theory_ok_thm : thm,
-  is_infinity_sig_thm : thm,
-  models_thm : thm,
-  signature_lookups : thm list,
+           theory_ok_thm : thm,
+             extends_thm : thm,
+              models_thm : thm,
+       signature_lookups : thm list,
   interpretation_lookups : thm list
   }
 
@@ -37,6 +37,36 @@ val good_select_select_fun = prove(
   rw[good_select_def,select_fun_def]
 *)
 
+val good_range_to_in_def = xDefine"good_range_to_in"`
+  good_range_to_in0 ^mem (range_to_in:'U -> ('ty -> 'U)) =
+    ∀ina. is_in (ina:'ty -> 'U) ⇒
+          is_in (range_to_in (range ina)) ∧
+          (range (range_to_in (range ina)) = (range ina))`
+val _ = overload_on("good_range_to_in",``good_range_to_in0 ^mem``)
+
+val select_fun_def = xDefine "select_fun"`
+  select_fun0 ^mem (range_to_in:'U->('ty->'U)) r p =
+    if ∃inty:'ty->'U. is_in inty ∧ (r = range inty) then
+      range_to_in r (@x. p (range_to_in r x))
+    else base_select r p`
+val _ = overload_on("select_fun",``select_fun0 ^mem``)
+
+val good_select_select_fun = prove(
+  ``is_set_theory ^mem ⇒
+    good_range_to_in (range_to_in:'U->('ty->'U)) ⇒
+    good_select (select_fun range_to_in)``,
+  rw[] >>
+  simp[good_select_def,select_fun_def] >>
+  rpt gen_tac >> strip_tac >>
+  reverse IF_CASES_TAC >- metis_tac[good_select_def,good_select_base_select] >>
+  fs[good_range_to_in_def] >>
+  first_x_assum(qspec_then`inty`strip_assume_tac) >> rfs[] >>
+  conj_tac >- metis_tac[is_in_range_thm] >>
+  strip_tac >>
+  SELECT_ELIM_TAC >> simp[] >>
+  metis_tac[is_in_finv_right])
+
+(*
 val range_to_in_gives_good_select = prove(
   ``(∀r. is_in (range_to_in r) ∧ (range (range_to_in r) = r)) ⇒
     good_select (λr p. range_to_in r (@x. p (range_to_in r x)))``,
@@ -73,6 +103,34 @@ val select_thm = prove(
   rw[] >- metis_tac[is_in_range_thm]
        >- metis_tac[is_in_range_thm] >>
   simp[Abbr`select`])
+*)
+
+val select_thm = prove(
+  ``is_set_theory ^mem ⇒ is_in in_ind ⇒ is_in ina ⇒ good_range_to_in range_to_in ⇒
+    (range_to_in (range ina) = ina) ⇒
+    (tmaof (hol_model (select_fun range_to_in) in_ind) "@" [range ina] =
+     in_fun (in_fun ina in_bool) ina $@)``,
+  rw[] >>
+  imp_res_tac good_select_select_fun >>
+  qmatch_assum_abbrev_tac`good_select select` >>
+  rw[UNDISCH in_fun_select] >>
+  qspec_then`select`(assume_tac o funpow 2 CONJUNCT2 o UNDISCH)select_model_models >>
+  mp_tac (CONJUNCT2 hol_model_models) >>
+  simp[subinterpretation_def] >>
+  disch_then(qspec_then`"@"`mp_tac o CONJUNCT2 o CONJUNCT1) >>
+  CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV EVAL))) >>
+  simp[PULL_EXISTS,type_ok_def,FLOOKUP_UPDATE] >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  simp[REV_ASSOCD,type_ok_def] >> disch_then kall_tac >>
+  fs[good_select_def] >>
+  Q.ISPEC_THEN`in_bool`mp_tac(Q.GEN`inb`range_in_fun) >>
+  discharge_hyps >- simp[is_in_in_bool] >>
+  simp[range_in_bool] >> disch_then kall_tac >>
+  match_mp_tac(UNDISCH abstract_eq) >>
+  rw[] >- metis_tac[is_in_range_thm]
+       >- metis_tac[is_in_range_thm] >>
+  simp[Abbr`select`,select_fun_def] >>
+  metis_tac[])
 
 val hol_model_is_interpretation =
   hol_model_models |> SIMP_RULE std_ss [models_def] |> CONJUNCT1 |> CONJUNCT1
