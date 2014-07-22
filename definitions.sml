@@ -7,11 +7,39 @@ open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      reflectionTheory
 
 type context_state = {
-           theory_ok_thm : thm,
-             extends_thm : thm,
-              models_thm : thm,
+  (* parameters:
+       ctxt  : update list
+       model : ((string # 'U list) # 'U) list -> 'U interpretation
+  *)
+             context_thm : thm,
+  (* context_thm:
+     [] |- theory_ok ctxt ∧ ctxt extends hol_ctxt
+  *)
+              model_thm  : thm,
+  (* model_thm:
+     [is_set_theory mem,
+      is_in in_ind,
+      good_select select,
+      good_constraints ctxt constraints,
+      various assumptions of the form:
+        MEM (("?c",[range ?in_ty1; ...]),?in_ty ?in_ty1 ... ?c) constraints
+     ]
+       |-
+     (model constraints) models (thyof ctxt) ∧
+     subinterpretation hol_ctxt (hol_model select in_ind) (model constraints)
+  *)
        signature_lookups : thm list,
+  (* each signature_lookup is of the form:
+     [] |- FLOOKUP (tysof ctxt) "?name" = SOME ?arity, or
+     [] |- FLOOKUP (tmsof ctxt) "?name" = SOME ?type
+
+     it might not even be worth caching these
+  *)
   interpretation_lookups : thm list
+  (* each interpretation lookup is of the form:
+     [...] |- tyaof (model constraints) "?name" [?args...] = ...
+
+  *)
   }
 
 (*
