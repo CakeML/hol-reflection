@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib Parse lcsymtacs listSimps
 open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory finite_mapTheory alistTheory
 open miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
-open holBoolSyntaxTheory holBoolTheory holConsistencyTheory holAxiomsSyntaxTheory holAxiomsTheory
+open holBoolSyntaxTheory holBoolTheory holExtensionTheory holConsistencyTheory holAxiomsSyntaxTheory holAxiomsTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
@@ -108,11 +108,6 @@ val is_in_in_fun = store_thm("is_in_in_fun",
   rw[in_fun_def,out_fun_def] >>
   first_x_assum(mp_tac o
     MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH in_funspace_abstract))) >>
-  simp[AND_IMP_INTRO] >>
-  discharge_hyps >- (
-    imp_res_tac is_in_bij_thm >>
-    fs[ext_def,BIJ_IFF_INV] >>
-    metis_tac[] ) >>
   rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   gen_tac >>
@@ -157,8 +152,7 @@ val range_in_fun = store_thm("range_in_fun",
     match_mp_tac (UNDISCH abstract_in_funspace) >>
     rw[] ) >>
   qspecl_then[`a`,`range ina`,`range inb`]mp_tac (UNDISCH in_funspace_abstract) >>
-  simp[] >>
-  discharge_hyps >- metis_tac[] >> strip_tac >>
+  simp[] >> strip_tac >>
   qpat_assum`a = X`(SUBST1_TAC) >>
   qsuff_tac`∃x. Abstract (range ina) (range inb) f = in_fun ina inb x` >- metis_tac[] >>
   rw[in_fun_def] >>
@@ -879,7 +873,7 @@ val infinity_has_infinity_sig = store_thm("infinity_has_infinity_sig",
 
 val is_infinity_sig_hol_ctxt = store_thm("is_infinity_sig_hol_ctxt",
   ``is_infinity_sig (sigof hol_ctxt)``,
-  simp[hol_ctxt_def] >>
+  simp[hol_ctxt_def,fhol_ctxt_def] >>
   match_mp_tac infinity_has_infinity_sig >>
   match_mp_tac select_has_select_sig >>
   match_mp_tac (MP_CANON is_bool_sig_extends) >>
@@ -953,7 +947,7 @@ val hol_model_exists = prove(
     assume_tac select_bool_interpretation >>
     fs[is_bool_interpretation_def] ) >>
   disch_then(qx_choose_then`i`strip_assume_tac) >>
-  fs[GSYM hol_ctxt_def] >>
+  fs[GSYM hol_ctxt_def,GSYM fhol_ctxt_def] >>
   qexists_tac`i` >> simp[])
 
 val hol_model_def = new_specification("hol_model_def",["hol_model0"],hol_model_exists)
