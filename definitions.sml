@@ -6,10 +6,31 @@ open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holAxiomsSyntaxTheory holAxiomsTheory holConsistencyTheory
      reflectionTheory
 
+(* another idea:
+   define underspecified polymorphic constants in terms of a list of 'U which
+   represent the ranges of all the types that will eventually be relevant.
+   e.g. for select:
+   ``
+   ("@", λls.
+     case some ina. (ls = [range ina]) ∧ MEM (range ina) ranges of
+       | SOME ina => Abstract (Funspace (range ina) (range in_bool)) (range ina)
+                              (λp. base_select (range ina) (Holds p)))
+   =+ tmaof bool_model
+   ``
+*)
+
+val good_constraint_def = Define`
+  good_constraint ctxt δ ((name,args),m) ⇔
+    ∃ty. FLOOKUP (tmsof ctxt) name = SOME ty ∧
+         LENGTH (tyvars ty) = LENGTH args ∧
+         m <: typesem
+
 type context_state = {
   (* parameters:
        ctxt  : update list
-       model : ((string # 'U list) # 'U) list -> 'U interpretation
+       model : in_ind -> constraints -> 'U interpretation
+        where
+          constraints : ((string # 'U list) # 'U) list
   *)
              context_thm : thm,
   (* context_thm:
@@ -19,14 +40,11 @@ type context_state = {
   (* model_thm:
      [is_set_theory mem,
       is_in in_ind,
-      good_select select,
-      good_constraints ctxt constraints,
+      EVERY (good_constraint ctxt (tyaof (model in_ind constraints))) constraints,
       various assumptions of the form:
         MEM (("?c",[range ?in_ty1; ...]),?in_ty ?in_ty1 ... ?c) constraints
      ]
-       |-
-     (model constraints) models (thyof ctxt) ∧
-     subinterpretation hol_ctxt (hol_model select in_ind) (model constraints)
+     |- (model in_ind constraints) models (thyof ctxt)
   *)
        signature_lookups : thm list,
   (* each signature_lookup is of the form:
