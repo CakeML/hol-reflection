@@ -199,6 +199,17 @@ val finv_in_bool_True = prove(
 
 val _ = save_thm("finv_in_bool_True",finv_in_bool_True)
 
+val tag_def = Define`
+  tag0 ^mem = @tag:type->'U->'U .
+    (∀ty1 v1 ty2 v2.
+       (((ty1,v1) ≠ (ty2,v2)) ⇒ tag ty1 v1 ≠ tag ty2 v2)) ∧
+    (∀ty v. ∃u. IMAGE (tag ty) (ext v) = ext u)` (* TODO *)
+val _ = overload_on("tag",``tag0 ^mem``)
+
+val in_def_def = Define`
+  in_def0 ^mem (ty:type) = (tag ty) o (@f. is_in f)`
+val _ = overload_on("in_def",``in_def0 ^mem``)
+
 val Var_thm = prove(
   ``^tmval (x,ty) = inty v ⇒
     ∀mem. inty v = termsem0 mem ^tmsig ^interpretation ^valuation (Var x ty)``,
