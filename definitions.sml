@@ -6,6 +6,39 @@ open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holAxiomsSyntaxTheory holAxiomsTheory holConsistencyTheory
      reflectionTheory
 
+datatype update =
+    ConstSpec of thm
+  | TypeDefn of string * thm *  string * string
+  | NewType of string * int
+  | NewConst of string * hol_type
+  | NewAxiom of term
+
+fun ConstDef th = let
+  val (x,t) = dest_eq th
+  val (x,ty) = dest_const x
+  val th = ASSUME (mk_eq(mk_var(x,ty),t))
+in
+  ConstSpec th
+end
+
+build_interpretation (tyis,tmis) ctxt =
+  build an interpretation of ctxt, making sure to constrain type instances
+  tyis and term instances tmis
+  tyis : hol_type list
+  tmis : term list
+  ctxt : term list (where each term is of type :upd)
+  returns a theorem of the form
+  [is_set_theory mem] |-
+    i models (thyof ^(ctxt_to_deep ctxt)) ∧
+    ... for each tyi,  ...
+    ... for each tmi,  ^(assumptions of (term_to_cert tmi))
+
+
+val init_model_def = new_specification(init
+
+fun build_interpretation _ [] =
+  init
+
 (* another idea:
    define underspecified polymorphic constants in terms of a list of 'U which
    represent the ranges of all the types that will eventually be relevant.
