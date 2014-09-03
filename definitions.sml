@@ -6,21 +6,28 @@ open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holAxiomsSyntaxTheory holAxiomsTheory holConsistencyTheory
      reflectionTheory
 
+val mem = ``mem:'U->'U->bool``
+
 datatype update =
-    ConstSpec of thm
+    ConstSpec of thm * thm
+    (* ConstSpec
+         ⊢ prop[cs/vs]
+         [] ⊢ (thyof ctxt, ^(map term_to_deep eqs)) |- ^(term_to_deep prop)
+     *)
   | TypeDefn of string * thm *  string * string
   | NewType of string * int
   | NewConst of string * hol_type
   | NewAxiom of term
 
-fun ConstDef th = let
-  val (x,t) = dest_eq th
+fun ConstDef ctxt defth = let
+  val (x,t) = dest_eq (concl defth)
   val (x,ty) = dest_const x
-  val th = ASSUME (mk_eq(mk_var(x,ty),t))
+  val th = ASSUME (mk_eq(mk_var(x,ty),t)) (* TODO: need to do this in inner HOL, not outer *)
 in
-  ConstSpec th
+  ConstSpec (defth, th)
 end
 
+(*
 build_interpretation (tyis,tmis) ctxt =
   build an interpretation of ctxt, making sure to constrain type instances
   tyis and term instances tmis
@@ -32,12 +39,11 @@ build_interpretation (tyis,tmis) ctxt =
     i models (thyof ^(ctxt_to_deep ctxt)) ∧
     ... for each tyi,  ...
     ... for each tmi,  ^(assumptions of (term_to_cert tmi))
+*)
 
 
-val init_model_def = new_specification(init
-
-fun build_interpretation _ [] =
-  init
+fun build_interpretation _ [] = init_model_def |> SPEC mem |> UNDISCH
+  | build_interpretation
 
 (* another idea:
    define underspecified polymorphic constants in terms of a list of 'U which
