@@ -327,6 +327,8 @@ val tmval_th2 = TAC_PROOF(goal,
   metis_tac[is_in_range_thm])
 val tmval_th3 = MP tmval_th1 tmval_th2
   |> SIMP_RULE (std_ss++LIST_ss)[]
+
+(** code below doesn't currently work
 val r12 =
   foldl (uncurry PROVE_HYP) r11 (CONJUNCTS (ASSUME (mk_conj(is_term_valuation_asm,(list_mk_conj asms)))))
 val r13 = CHOOSE (tmval, tmval_th3) r12
@@ -342,5 +344,6 @@ val simpths = mapfilter (QCHANGED_CONV (SIMP_CONV std_ss
 val r16 = foldl (uncurry (C simplify_assum)) r15 simpths |> PROVE_HYP TRUTH
 
 val _ = save_thm("example",r16)
+**)
 
 val _ = export_theory()
