@@ -1147,22 +1147,39 @@ val boolean_of_eq_true = store_thm("boolean_of_eq_true",
 
 val bool_cert_thm = prove(
   ``is_set_theory ^mem ==> 
-    good_context mem tysig tmsig tyass tmass tyal tmval ==> 
-      typesem tyass tyval (Tyapp "bool" []) = range in_bool``,
+    good_context mem tysig tmsig tyass tmass tyval tmval ==> 
+      (is_in in_bool /\
+       typesem tyass tyval (Tyapp "bool" []) = range in_bool)``,
   rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def] >>
-  rw[range_in_bool,typesem_def]) |> UNDISCH |> UNDISCH;
+  rw[is_in_in_bool,range_in_bool,typesem_def]) |> UNDISCH |> UNDISCH;
 
-val fun_cert_thm = store_thm("fun_cert_thm",
+val fun_cert_thm = prove(
   ``is_set_theory ^mem ==> 
-    good_context mem tysig tmsig tyass tmass tyal tmval ==>
-    is_in in1 ==> is_in in2 ==>
-    (typesem tyass tyval ty1 = range in1) ==>
-    (typesem tyass tyval ty2 = range in2) ==>
-    (typesem tyass tyval (Tyapp "fun" [ty1; ty2]) = range (in_fun in1 in2))``,
+    good_context mem tysig tmsig tyass tmass tyval tmval ==>
+    (is_in in1 /\ typesem tyass tyval ty1 = range in1) ==>
+    (is_in in2 /\ typesem tyass tyval ty2 = range in2) ==>
+      (is_in (in_fun in1 in2) /\
+       typesem tyass tyval (Tyapp "fun" [ty1; ty2]) = range (in_fun in1 in2))``,
   rw[good_context_def,typesem_def,is_std_interpretation_def,is_std_type_assignment_def] >>
-  rw[range_in_fun]) |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH;
+  rw[is_in_in_fun,range_in_fun]) |> UNDISCH |> UNDISCH;
 
-val _ = save_thms ["bool_cert_thm", "fun_cert_thm"]
-                  [ bool_cert_thm,   fun_cert_thm ]
+val tag_def = Define`
+  (tag : (type # 'U) -> 'U) = @f. INJ f UNIV UNIV`
+
+val in_def_def = Define`
+  in_def0 ^mem ty x = tag (ty, ((@f. is_in f) x))`
+val _ = Parse.overload_on("in_def",``in_def0 ^mem``)
+
+val tyvar_cert_thm = prove(
+  ``is_set_theory ^mem ==> 
+    good_context mem tysig tmsig tyass tmass tyval tmval ==> 
+    is_in (in_def (Tyvar v) : 'a -> 'U) ==> 
+    tyval v = range (in_def (Tyvar v) : 'a -> 'U) ==>
+      (is_in (in_def (Tyvar v) : 'a -> 'U) /\
+       typesem tyass tyval (Tyvar v) = range (in_def (Tyvar v) : 'a -> 'U))``,
+  rw[typesem_def]) |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH;
+
+val _ = save_thms ["bool_cert_thm", "fun_cert_thm", "tyvar_cert_thm"]
+                  [ bool_cert_thm,   fun_cert_thm,   tyvar_cert_thm ]
 
 val _ = export_theory()
