@@ -9,15 +9,16 @@ open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val mem = ``mem:'U->'U->bool``
 
 datatype update =
-    ConstSpec of thm * thm
+    ConstSpec of thm * thm * term list
     (* ConstSpec
-         ⊢ prop[cs/vs]
+         ⊢ prop[cs/vs] (where vs = MAP FST eqs)
          [] ⊢ (thyof ctxt, ^(map term_to_deep eqs)) |- ^(term_to_deep prop)
+         cs
      *)
-  | TypeDefn of string * thm *  string * string
-  | NewType of string * int
-  | NewConst of string * hol_type
-  | NewAxiom of term
+  | TypeDefn of hol_type * (thm * thm) *  term * term
+  | NewType of hol_type
+  | NewConst of term
+  | NewAxiom of thm
 
 fun ConstDef ctxt defth = let
   val (x,t) = dest_eq (concl defth)
