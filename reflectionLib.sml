@@ -60,6 +60,22 @@ in
                              (mk_wf_is_inner_thm ty2))
     | _ => ASSUME ``wf_to_inner ^(mk_to_inner ty)``
 
+  fun type_to_cert ty = case type_view ty of
+      Tyapp ("min","bool",[]) => bool_cert_thm
+    | Tyapp ("min","fun",[ty1,ty2]) =>
+         fun_cert_thm
+         |> C MATCH_MP (type_to_cert ty1)
+         |> C MATCH_MP (type_to_cert ty2)
+    | Tyapp (_,con,args) =>
+         tycon_cert_thm
+(* XXX
+	 |> INST [``con:string`` |-> fromMLstring con,
+		  ``args`` |-> mk_list ()]
+*)
+    | Tyvar v => 
+         tyvar_cert_thm (* XXX also instantiate type variable! *)
+         |> INST [``v:string`` |-> fromMLstring v]
+
   fun var_to_cert v =
     let
       val v_deep = term_to_deep (assert is_var v)
