@@ -1186,9 +1186,9 @@ val tycon_cert_thm = prove(
     tyass con (MAP (typesem tyass tyval) args) = range (in_def (Tyapp con args) : 'a -> 'U) ==>
       (is_in (in_def (Tyapp con args) : 'a -> 'U) /\
        typesem tyass tyval (Tyapp con args) = range (in_def (Tyapp con args) : 'a -> 'U))``,
-  rw[typesem_def] >> metis_tac[]) |> UNDISCH |> UNDISCH;
+  rw[typesem_def] >> metis_tac[]) |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH;
 
-val _ = save_thms ["bool_cert_thm", "fun_cert_thm", "tyvar_cert_thm"]
-                  [ bool_cert_thm,   fun_cert_thm,   tyvar_cert_thm ]
+val _ = save_thms ["bool_cert_thm", "fun_cert_thm", "tyvar_cert_thm", "tycon_cert_thm"]
+                  [ bool_cert_thm,   fun_cert_thm,   tyvar_cert_thm,   tycon_cert_thm ]
 
 val _ = export_theory()
