@@ -1179,6 +1179,15 @@ val tyvar_cert_thm = prove(
        typesem tyass tyval (Tyvar v) = range (in_def (Tyvar v) : 'a -> 'U))``,
   rw[typesem_def]) |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH;
 
+val tycon_cert_thm = prove(
+  ``is_set_theory ^mem ==>
+    good_context mem tysig tmsig tyass tmass tyval tmval ==>
+    is_in (in_def (Tyapp con args) : 'a -> 'U) ==>
+    tyass con (MAP (typesem tyass tyval) args) = range (in_def (Tyapp con args) : 'a -> 'U) ==>
+      (is_in (in_def (Tyapp con args) : 'a -> 'U) /\
+       typesem tyass tyval (Tyapp con args) = range (in_def (Tyapp con args) : 'a -> 'U))``,
+  rw[typesem_def] >> metis_tac[]) |> UNDISCH |> UNDISCH;
+
 val _ = save_thms ["bool_cert_thm", "fun_cert_thm", "tyvar_cert_thm"]
                   [ bool_cert_thm,   fun_cert_thm,   tyvar_cert_thm ]
 
