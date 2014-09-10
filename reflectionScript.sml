@@ -6,167 +6,6 @@ open holBoolSyntaxTheory holBoolTheory holExtensionTheory holConsistencyTheory h
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
 
-val finv_def = Define`
-  finv f x = @y. f y = x`
-
-val is_in_def = xDefine"is_in"`
-  is_in0 ^mem f = ∃x. BIJ f UNIV {a | mem a x}`
-val _ = Parse.overload_on("is_in",``is_in0 ^mem``)
-
-val is_in_finv_left = store_thm("is_in_finv_left",
-  ``∀ina.
-    is_in ina ⇒ ∀x. finv ina (ina x) = x``,
-  rw[finv_def] >>
-  SELECT_ELIM_TAC >>
-  conj_tac >-metis_tac[] >>
-  fs[is_in_def,BIJ_DEF,INJ_DEF])
-
-val ext_def = xDefine"ext"`
-  ext0 ^mem s = { a | mem a s }`
-val _ = Parse.overload_on("ext",``ext0 ^mem``)
-
-val range_def = xDefine"range"`
-  range0 ^mem (f : α -> 'U) = @x. BIJ f UNIV {a | mem a x}`
-val _ = Parse.overload_on("range",``range0 ^mem``)
-
-val is_in_bij_thm = store_thm("is_in_bij_thm",
-  ``∀f. is_in f ⇒ BIJ f UNIV (ext (range f))``,
-  rw[is_in_def,range_def] >>
-  SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
-  rw[ext_def])
-
-val is_in_range_thm = store_thm("is_in_range_thm",
-  ``∀f x. is_in f ⇒ f x <: range f``,
-  rw[] >>
-  imp_res_tac is_in_bij_thm >>
-  fs[BIJ_DEF,ext_def,INJ_DEF])
-
-val is_in_finv_right = store_thm("is_in_finv_right",
-  ``∀ina.
-    is_in ina ⇒ ∀x. x <: range ina ⇒
-      (ina (finv ina x)) = x``,
-  rw[finv_def] >>
-  SELECT_ELIM_TAC >>
-  conj_tac >-(
-    imp_res_tac is_in_bij_thm >>
-    fs[ext_def,BIJ_DEF,SURJ_DEF] ) >>
-  rw[])
-
-val in_bool_def = xDefine"in_bool"`
-  in_bool0 ^mem = Boolean`
-val _ = Parse.overload_on("in_bool",``in_bool0 ^mem``)
-
-val is_in_in_bool = store_thm("is_in_in_bool",
-  ``is_set_theory ^mem ⇒
-    is_in in_bool``,
-  rw[is_in_def,BIJ_IFF_INV] >>
-  qexists_tac`boolset` >>
-  rw[in_bool_def,boolean_in_boolset] >>
-  qexists_tac`λx. x = True` >>
-  rw[in_bool_def,boolean_eq_true] >>
-  rfs[mem_boolset,boolean_eq_true,true_neq_false,boolean_def])
-
-val in_fun_def = xDefine"in_fun"`
-  in_fun0 ^mem ina inb f =
-    Abstract (range ina) (range inb) (λx. inb (f (finv ina x)))`
-val _ = Parse.overload_on("in_fun",``in_fun0 ^mem``)
-
-val out_fun_def = xDefine"out_fun"`
-  out_fun0 ^mem ina inb mf x = finv inb (mf ' (ina x))`
-val _ = Parse.overload_on("out_fun",``out_fun0 ^mem``)
-
-val is_in_in_fun = store_thm("is_in_in_fun",
-  ``is_set_theory ^mem ⇒
-    ∀ina inb. is_in ina ∧ is_in inb ⇒ is_in (in_fun ina inb)``,
-  rw[] >>
-  rw[is_in_def,BIJ_IFF_INV] >>
-  qexists_tac`Funspace (range ina) (range inb)` >>
-  conj_tac >- (
-    rw[in_fun_def] >>
-    match_mp_tac (UNDISCH abstract_in_funspace) >>
-    simp[range_def] >>
-    SELECT_ELIM_TAC >>
-    conj_tac >- metis_tac[is_in_def] >>
-    rw[] >>
-    SELECT_ELIM_TAC >>
-    conj_tac >- metis_tac[is_in_def] >>
-    rw[] >>
-    fs[BIJ_IFF_INV] ) >>
-  qexists_tac`out_fun ina inb` >>
-  conj_tac >- (
-    rw[out_fun_def,in_fun_def,FUN_EQ_THM] >>
-    qmatch_abbrev_tac`finv invb (Abstract s t f ' a) = Z` >>
-    rfs[] >>
-    `Abstract s t f ' a = f a` by (
-      match_mp_tac (UNDISCH apply_abstract) >>
-      imp_res_tac is_in_bij_thm >>
-      fs[ext_def,BIJ_IFF_INV] >>
-      unabbrev_all_tac >> fs[] ) >>
-    rw[Abbr`Z`,Abbr`f`,Abbr`a`,Abbr`invb`] >>
-    imp_res_tac is_in_finv_left >>
-    simp[] ) >>
-  rw[in_fun_def,out_fun_def] >>
-  first_x_assum(mp_tac o
-    MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH in_funspace_abstract))) >>
-  rw[] >>
-  match_mp_tac (UNDISCH abstract_eq) >>
-  gen_tac >>
-  qspecl_then[`f`,`ina (finv ina x)`,`range ina`,`range inb`]mp_tac
-    (UNDISCH apply_abstract) >>
-  discharge_hyps >- (
-    imp_res_tac is_in_bij_thm >>
-    fs[ext_def,BIJ_DEF,INJ_DEF] ) >>
-  rw[] >>
-  imp_res_tac is_in_finv_right >>
-  rw[])
-
-val range_in_bool = store_thm("range_in_bool",
-  ``is_set_theory ^mem ⇒
-    range in_bool = boolset``,
-  strip_tac >>
-  imp_res_tac is_in_in_bool >>
-  imp_res_tac is_in_bij_thm >>
-  imp_res_tac is_extensional >>
-  pop_assum mp_tac >>
-  simp[extensional_def] >>
-  disch_then kall_tac >>
-  fs[ext_def,BIJ_IFF_INV,mem_boolset] >>
-  fs[in_bool_def,boolean_def] >>
-  metis_tac[] )
-
-val range_in_fun = store_thm("range_in_fun",
-  ``is_set_theory ^mem ∧ is_in ina ∧ is_in inb ⇒
-    range (in_fun ina inb) = Funspace (range ina) (range inb)``,
-  rw[] >>
-  strip_assume_tac(SPEC_ALL (UNDISCH is_in_in_fun)) >> rfs[] >>
-  imp_res_tac is_in_bij_thm >>
-  imp_res_tac is_extensional >>
-  pop_assum mp_tac >>
-  simp[extensional_def] >>
-  disch_then kall_tac >>
-  fs[ext_def,BIJ_IFF_INV] >>
-  rw[EQ_IMP_THM] >- (
-    fs[in_fun_def] >>
-    res_tac >>
-    pop_assum(SUBST1_TAC o SYM) >>
-    match_mp_tac (UNDISCH abstract_in_funspace) >>
-    rw[] ) >>
-  qspecl_then[`a`,`range ina`,`range inb`]mp_tac (UNDISCH in_funspace_abstract) >>
-  simp[] >> strip_tac >>
-  qpat_assum`a = X`(SUBST1_TAC) >>
-  qsuff_tac`∃x. Abstract (range ina) (range inb) f = in_fun ina inb x` >- metis_tac[] >>
-  rw[in_fun_def] >>
-  qexists_tac`finv inb o f o ina` >>
-  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
-  metis_tac[is_in_finv_right,is_in_finv_left])
-
-val finv_in_bool_eq_true = store_thm("finv_in_bool_eq_true",
-  ``is_set_theory ^mem ⇒
-    ∀x.
-    ((x = True) ⇒ finv in_bool x) ∧
-    (x <: boolset ∧ finv in_bool x ⇒ (x = True))``,
-  metis_tac[is_in_finv_right,in_bool_def,boolean_def,range_in_bool,is_in_in_bool,is_in_finv_left])
-
 val provable_imp_eq_true = store_thm("provable_imp_eq_true",
   ``∀thy i v.
     is_set_theory ^mem ⇒
@@ -192,23 +31,194 @@ val good_context_def = Define`
     is_valuation ^tysig ^tyass ^valuation`
 val good_context = good_context_def |> concl |> strip_forall |> snd |> lhs
 
-val finv_in_bool_True = prove(
+val finv_def = Define`
+  finv f x = @y. f y = x`
+
+val wf_to_inner_def = xDefine"wf_to_inner"`
+  wf_to_inner0 ^mem f = ∃x. BIJ f UNIV {a | mem a x}`
+val _ = Parse.overload_on("wf_to_inner",``wf_to_inner0 ^mem``)
+
+val wf_to_inner_finv_left = store_thm("wf_to_inner_finv_left",
+  ``∀ina.
+    wf_to_inner ina ⇒ ∀x. finv ina (ina x) = x``,
+  rw[finv_def] >>
+  SELECT_ELIM_TAC >>
+  conj_tac >-metis_tac[] >>
+  fs[wf_to_inner_def,BIJ_DEF,INJ_DEF])
+
+val ext_def = xDefine"ext"`
+  ext0 ^mem s = { a | mem a s }`
+val _ = Parse.overload_on("ext",``ext0 ^mem``)
+
+val range_def = xDefine"range"`
+  range0 ^mem (f : α -> 'U) = @x. BIJ f UNIV {a | mem a x}`
+val _ = Parse.overload_on("range",``range0 ^mem``)
+
+val wf_to_inner_bij_thm = store_thm("wf_to_inner_bij_thm",
+  ``∀f. wf_to_inner f ⇒ BIJ f UNIV (ext (range f))``,
+  rw[wf_to_inner_def,range_def] >>
+  SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
+  rw[ext_def])
+
+val wf_to_inner_range_thm = store_thm("wf_to_inner_range_thm",
+  ``∀f x. wf_to_inner f ⇒ f x <: range f``,
+  rw[] >>
+  imp_res_tac wf_to_inner_bij_thm >>
+  fs[BIJ_DEF,ext_def,INJ_DEF])
+
+val wf_to_inner_finv_right = store_thm("wf_to_inner_finv_right",
+  ``∀ina.
+    wf_to_inner ina ⇒ ∀x. x <: range ina ⇒
+      (ina (finv ina x)) = x``,
+  rw[finv_def] >>
+  SELECT_ELIM_TAC >>
+  conj_tac >-(
+    imp_res_tac wf_to_inner_bij_thm >>
+    fs[ext_def,BIJ_DEF,SURJ_DEF] ) >>
+  rw[])
+
+val bool_to_inner_def = xDefine"bool_to_inner"`
+  bool_to_inner0 ^mem = Boolean`
+val _ = Parse.overload_on("bool_to_inner",``bool_to_inner0 ^mem``)
+
+val wf_to_inner_bool_to_inner = store_thm("wf_to_inner_bool_to_inner",
+  ``is_set_theory ^mem ⇒
+    wf_to_inner bool_to_inner``,
+  rw[wf_to_inner_def,BIJ_IFF_INV] >>
+  qexists_tac`boolset` >>
+  rw[bool_to_inner_def,boolean_in_boolset] >>
+  qexists_tac`λx. x = True` >>
+  rw[bool_to_inner_def,boolean_eq_true] >>
+  rfs[mem_boolset,boolean_eq_true,true_neq_false,boolean_def])
+
+val fun_to_inner_def = xDefine"fun_to_inner"`
+  fun_to_inner0 ^mem ina inb f =
+    Abstract (range ina) (range inb) (λx. inb (f (finv ina x)))`
+val _ = Parse.overload_on("fun_to_inner",``fun_to_inner0 ^mem``)
+
+val out_fun_def = xDefine"out_fun"`
+  out_fun0 ^mem ina inb mf x = finv inb (mf ' (ina x))`
+val _ = Parse.overload_on("out_fun",``out_fun0 ^mem``)
+
+val wf_to_inner_fun_to_inner = store_thm("wf_to_inner_fun_to_inner",
+  ``is_set_theory ^mem ⇒
+    ∀ina inb. wf_to_inner ina ∧ wf_to_inner inb ⇒ wf_to_inner (fun_to_inner ina inb)``,
+  rw[] >>
+  rw[wf_to_inner_def,BIJ_IFF_INV] >>
+  qexists_tac`Funspace (range ina) (range inb)` >>
+  conj_tac >- (
+    rw[fun_to_inner_def] >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[range_def] >>
+    SELECT_ELIM_TAC >>
+    conj_tac >- metis_tac[wf_to_inner_def] >>
+    rw[] >>
+    SELECT_ELIM_TAC >>
+    conj_tac >- metis_tac[wf_to_inner_def] >>
+    rw[] >>
+    fs[BIJ_IFF_INV] ) >>
+  qexists_tac`out_fun ina inb` >>
+  conj_tac >- (
+    rw[out_fun_def,fun_to_inner_def,FUN_EQ_THM] >>
+    qmatch_abbrev_tac`finv invb (Abstract s t f ' a) = Z` >>
+    rfs[] >>
+    `Abstract s t f ' a = f a` by (
+      match_mp_tac (UNDISCH apply_abstract) >>
+      imp_res_tac wf_to_inner_bij_thm >>
+      fs[ext_def,BIJ_IFF_INV] >>
+      unabbrev_all_tac >> fs[] ) >>
+    rw[Abbr`Z`,Abbr`f`,Abbr`a`,Abbr`invb`] >>
+    imp_res_tac wf_to_inner_finv_left >>
+    simp[] ) >>
+  rw[fun_to_inner_def,out_fun_def] >>
+  first_x_assum(mp_tac o
+    MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH in_funspace_abstract))) >>
+  rw[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  gen_tac >>
+  qspecl_then[`f`,`ina (finv ina x)`,`range ina`,`range inb`]mp_tac
+    (UNDISCH apply_abstract) >>
+  discharge_hyps >- (
+    imp_res_tac wf_to_inner_bij_thm >>
+    fs[ext_def,BIJ_DEF,INJ_DEF] ) >>
+  rw[] >>
+  imp_res_tac wf_to_inner_finv_right >>
+  rw[])
+
+val range_bool_to_inner = store_thm("range_bool_to_inner",
+  ``is_set_theory ^mem ⇒
+    range bool_to_inner = boolset``,
+  strip_tac >>
+  imp_res_tac wf_to_inner_bool_to_inner >>
+  imp_res_tac wf_to_inner_bij_thm >>
+  imp_res_tac is_extensional >>
+  pop_assum mp_tac >>
+  simp[extensional_def] >>
+  disch_then kall_tac >>
+  fs[ext_def,BIJ_IFF_INV,mem_boolset] >>
+  fs[bool_to_inner_def,boolean_def] >>
+  metis_tac[] )
+
+val range_fun_to_inner = store_thm("range_fun_to_inner",
+  ``is_set_theory ^mem ∧ wf_to_inner ina ∧ wf_to_inner inb ⇒
+    range (fun_to_inner ina inb) = Funspace (range ina) (range inb)``,
+  rw[] >>
+  strip_assume_tac(SPEC_ALL (UNDISCH wf_to_inner_fun_to_inner)) >> rfs[] >>
+  imp_res_tac wf_to_inner_bij_thm >>
+  imp_res_tac is_extensional >>
+  pop_assum mp_tac >>
+  simp[extensional_def] >>
+  disch_then kall_tac >>
+  fs[ext_def,BIJ_IFF_INV] >>
+  rw[EQ_IMP_THM] >- (
+    fs[fun_to_inner_def] >>
+    res_tac >>
+    pop_assum(SUBST1_TAC o SYM) >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    rw[] ) >>
+  qspecl_then[`a`,`range ina`,`range inb`]mp_tac (UNDISCH in_funspace_abstract) >>
+  simp[] >> strip_tac >>
+  qpat_assum`a = X`(SUBST1_TAC) >>
+  qsuff_tac`∃x. Abstract (range ina) (range inb) f = fun_to_inner ina inb x` >- metis_tac[] >>
+  rw[fun_to_inner_def] >>
+  qexists_tac`finv inb o f o ina` >>
+  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
+  metis_tac[wf_to_inner_finv_right,wf_to_inner_finv_left])
+
+val finv_bool_to_inner_eq_true = store_thm("finv_bool_to_inner_eq_true",
+  ``is_set_theory ^mem ⇒
+    ∀x.
+    ((x = True) ⇒ finv bool_to_inner x) ∧
+    (x <: boolset ∧ finv bool_to_inner x ⇒ (x = True))``,
+  metis_tac[wf_to_inner_finv_right,bool_to_inner_def,boolean_def,range_bool_to_inner,wf_to_inner_bool_to_inner,wf_to_inner_finv_left])
+
+val finv_bool_to_inner_True = prove(
 ``^good_context ⇒
-  (finv in_bool x ⇒ y) ⇒ ((x = True) ⇒ y)``,
-  metis_tac[finv_in_bool_eq_true,good_context_def]) |> UNDISCH
+  (finv bool_to_inner x ⇒ y) ⇒ ((x = True) ⇒ y)``,
+  metis_tac[finv_bool_to_inner_eq_true,good_context_def]) |> UNDISCH
+val _ = save_thm("finv_bool_to_inner_True",finv_bool_to_inner_True)
 
-val _ = save_thm("finv_in_bool_True",finv_in_bool_True)
-
-val tag_def = Define`
-  tag0 ^mem = @tag:type->'U->'U .
+val tag_exists = prove(
+  ``∃tag:('U->'U->bool)->type->'U->'U. ∀mem.
     (∀ty1 v1 ty2 v2.
-       (((ty1,v1) ≠ (ty2,v2)) ⇒ tag ty1 v1 ≠ tag ty2 v2)) ∧
-    (∀ty v. ∃u. IMAGE (tag ty) (ext v) = ext u)` (* TODO *)
-val _ = overload_on("tag",``tag0 ^mem``)
+       (((ty1,v1) ≠ (ty2,v2)) ⇒ tag mem ty1 v1 ≠ tag mem ty2 v2)) ∧
+    (∀ty v. ∃u. IMAGE (tag mem ty) (ext v) = ext u) ∧
+    (∀ty v. ¬ (tag mem ty v <: boolset) ∧
+            (∀x y. ¬ (tag mem ty v <: Funspace x y)))``,
+    (* TODO:
+       possible witness: tag ty x = {{0,1,2,(rep ty, x)}}
+    *)
+  cheat)
 
-val in_def_def = Define`
-  in_def0 ^mem (ty:type) = (tag ty) o (@f. is_in f)`
-val _ = overload_on("in_def",``in_def0 ^mem``)
+val tag_def =
+  new_specification("tag_def",["tag0"],tag_exists)
+  |> SPEC mem
+val _ = overload_on("tag",``tag0 ^mem``)
+val _ = save_thm("tag_def",tag_def)
+
+val to_inner_def = Define`
+  to_inner0 ^mem (ty:type) = (tag ty) o (@f. wf_to_inner f)`
+val _ = overload_on("to_inner",``to_inner0 ^mem``)
 
 val Var_thm = prove(
   ``^tmval (x,ty) = inty v ⇒
@@ -222,22 +232,22 @@ val Const_thm = prove(
 
 val Comb_thm = prove(
   ``^good_context ⇒
-    in_fun ina inb f = termsem ^tmsig ^interpretation ^valuation ftm ∧
+    fun_to_inner ina inb f = termsem ^tmsig ^interpretation ^valuation ftm ∧
     ina x = termsem ^tmsig ^interpretation ^valuation xtm ⇒
-    is_in ina ⇒ is_in inb
+    wf_to_inner ina ⇒ wf_to_inner inb
     ⇒
     inb (f x) =
       termsem ^tmsig ^interpretation ^valuation (Comb ftm xtm)``,
   rw[good_context_def,termsem_def] >>
   rpt(first_x_assum(SUBST1_TAC o SYM)) >>
-  rw[in_fun_def] >>
+  rw[fun_to_inner_def] >>
   match_mp_tac EQ_SYM >>
   match_mp_tac apply_abstract_matchable >>
   simp[] >>
-  rw[is_in_range_thm] >>
+  rw[wf_to_inner_range_thm] >>
   AP_TERM_TAC >>
   AP_TERM_TAC >>
-  match_mp_tac is_in_finv_left >>
+  match_mp_tac wf_to_inner_finv_left >>
   simp[]) |> UNDISCH
 
 val Abs_thm = prove(
@@ -245,15 +255,14 @@ val Abs_thm = prove(
     ∀ina inb f x ty b.
     range ina = typesem tyass tyval ty ⇒
     range inb = typesem tyass tyval (typeof b) ⇒
-    is_in ina ⇒ is_in inb ⇒
     (∀m. m <: range ina ⇒
       inb (f (finv ina m)) =
         termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b) ⇒
     term_ok (tysig,tmsig) b
     ⇒
-    in_fun ina inb f =
+    fun_to_inner ina inb f =
       termsem tmsig (tyass,tmass) (tyval,tmval) (Abs x ty b)``,
-  rw[termsem_def,in_fun_def,good_context_def] >>
+  rw[termsem_def,fun_to_inner_def,good_context_def] >>
   match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
   rw[] >>
   match_mp_tac (UNDISCH termsem_typesem) >>
@@ -268,21 +277,21 @@ val save_thms = map2 (curry save_thm)
 val _ = save_thms ["Var_thm","Const_thm","Comb_thm","Abs_thm"]
                   [ Var_thm , Const_thm , Comb_thm , Abs_thm ]
 
-val good_context_is_in_in_bool = prove(mk_imp(good_context,rand(concl(is_in_in_bool))),
-  rw[good_context_def,is_in_in_bool]) |> UNDISCH
+val good_context_wf_to_inner_bool_to_inner = prove(mk_imp(good_context,rand(concl(wf_to_inner_bool_to_inner))),
+  rw[good_context_def,wf_to_inner_bool_to_inner]) |> UNDISCH
 
-val good_context_is_in_in_fun = prove(mk_imp(good_context,rand(concl(is_in_in_fun))),
-  rw[good_context_def,is_in_in_fun]) |> UNDISCH
+val good_context_wf_to_inner_fun_to_inner = prove(mk_imp(good_context,rand(concl(wf_to_inner_fun_to_inner))),
+  rw[good_context_def,wf_to_inner_fun_to_inner]) |> UNDISCH
 
 val good_context_tyass_bool = prove(
-  ``^good_context ==> (tyass "bool" [] = range in_bool)``,
-  rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_in_bool]) |> UNDISCH
+  ``^good_context ==> (tyass "bool" [] = range bool_to_inner)``,
+  rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_bool_to_inner]) |> UNDISCH
 
 val good_context_tyass_fun = prove(
   ``^good_context ==> !tya tyb ina inb.
-      is_in ina /\ is_in inb /\ tya = range ina /\ tyb = range inb ==>
-        tyass "fun" [tya; tyb] = range (in_fun ina inb)``,
-  rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_in_fun]
+      wf_to_inner ina /\ wf_to_inner inb /\ tya = range ina /\ tyb = range inb ==>
+        tyass "fun" [tya; tyb] = range (fun_to_inner ina inb)``,
+  rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_fun_to_inner]
   ) |> UNDISCH
 
 val good_context_lookup_bool = prove(
@@ -305,9 +314,9 @@ val good_context_instance_equality = prove(
     ^good_context ∧
     type_ok ^tysig ty ∧
     typesem ^tyass ^tyval ty = range ina ∧
-    is_in ina ⇒
+    wf_to_inner ina ⇒
     instance ^tmsig ^interpretation "=" (Fun ty (Fun ty Bool)) ^tyval =
-      in_fun ina (in_fun ina in_bool) $=``,
+      fun_to_inner ina (fun_to_inner ina bool_to_inner) $=``,
   rw[good_context_def] >>
   fs[is_std_sig_def] >>
   imp_res_tac instance_def >>
@@ -327,37 +336,40 @@ val good_context_instance_equality = prove(
     metis_tac[] ) >>
   simp[combinTheory.APPLY_UPDATE_THM] >>
   disch_then kall_tac >>
-  simp[in_fun_def] >>
+  simp[fun_to_inner_def] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   simp[] >> gen_tac >> strip_tac >>
   conj_tac >- (
     match_mp_tac (UNDISCH abstract_in_funspace) >>
     simp[boolean_in_boolset] ) >>
-  Q.ISPECL_THEN[`mem`,`in_bool`,`ina`]mp_tac (GEN_ALL range_in_fun) >>
-  discharge_hyps >- ( simp[is_in_in_bool] ) >>
-  strip_tac >> simp[range_in_bool] >>
-  Q.ISPECL_THEN[`mem`,`in_bool`,`ina`]mp_tac (GEN_ALL range_in_fun) >>
-  discharge_hyps >- ( simp[is_in_in_bool] ) >>
-  strip_tac >> simp[range_in_bool] >>
+  Q.ISPECL_THEN[`mem`,`bool_to_inner`,`ina`]mp_tac (GEN_ALL range_fun_to_inner) >>
+  discharge_hyps >- ( simp[wf_to_inner_bool_to_inner] ) >>
+  strip_tac >> simp[range_bool_to_inner] >>
+  Q.ISPECL_THEN[`mem`,`bool_to_inner`,`ina`]mp_tac (GEN_ALL range_fun_to_inner) >>
+  discharge_hyps >- ( simp[wf_to_inner_bool_to_inner] ) >>
+  strip_tac >> simp[range_bool_to_inner] >>
   conj_tac >- (
     match_mp_tac (UNDISCH abstract_in_funspace) >>
-    simp[in_bool_def,boolean_in_boolset] ) >>
+    simp[bool_to_inner_def,boolean_in_boolset] ) >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  simp[in_bool_def,boolean_in_boolset] >>
+  simp[bool_to_inner_def,boolean_in_boolset] >>
   simp[boolean_def] >> rw[true_neq_false] >>
   spose_not_then strip_assume_tac >>
-  metis_tac[is_in_finv_right])
+  metis_tac[wf_to_inner_finv_right])
 
 val _ = save_thms
-  ["good_context_is_in_in_bool","good_context_is_in_in_fun",
+  ["good_context_wf_to_inner_bool_to_inner",
+   "good_context_wf_to_inner_fun_to_inner",
    "good_context_tyass_bool", "good_context_tyass_fun",
    "good_context_lookup_bool","good_context_lookup_fun",
    "good_context_extend_tmval","good_context_instance_equality"]
-  [ good_context_is_in_in_bool , good_context_is_in_in_fun ,
-    good_context_tyass_bool, good_context_tyass_fun, 
+  [ good_context_wf_to_inner_bool_to_inner ,
+    good_context_wf_to_inner_fun_to_inner ,
+    good_context_tyass_bool, good_context_tyass_fun,
     good_context_lookup_bool , good_context_lookup_fun ,
     good_context_extend_tmval , good_context_instance_equality ]
 
+(*
 val base_tyval_exists = prove(
   ``∃τ. ∀mem. is_set_theory mem ⇒ is_type_valuation0 mem (τ mem)``,
   rw[GSYM SKOLEM_THM,is_type_valuation_def] >>
@@ -1190,5 +1202,7 @@ val tycon_cert_thm = prove(
 
 val _ = save_thms ["bool_cert_thm", "fun_cert_thm", "tyvar_cert_thm", "tycon_cert_thm"]
                   [ bool_cert_thm,   fun_cert_thm,   tyvar_cert_thm,   tycon_cert_thm ]
+
+*)
 
 val _ = export_theory()
