@@ -52,8 +52,6 @@ fun type_name (ty : hol_type) = case type_view ty of
   | Tyapp (thy,tyop,args) => tyop ^ underscores (map type_name args)
 
 val U = mk_vartype("'U")
-fun mk_in_var (ty : hol_type) =
-  mk_var ("in_" ^ type_name ty, ty --> U)
 
 val mem = ``mem:'U->'U->bool``
 local

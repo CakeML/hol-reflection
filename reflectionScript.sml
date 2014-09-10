@@ -255,6 +255,8 @@ val Abs_thm = prove(
     ∀ina inb f x ty b.
     range ina = typesem tyass tyval ty ⇒
     range inb = typesem tyass tyval (typeof b) ⇒
+    wf_to_inner ina ⇒ (* these are unnecessary for this theorem *)
+    wf_to_inner inb ⇒ (* but useful for the automation *)
     (∀m. m <: range ina ⇒
       inb (f (finv ina m)) =
         termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b) ⇒

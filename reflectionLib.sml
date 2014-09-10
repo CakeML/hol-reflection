@@ -23,8 +23,8 @@ in
   fun simp_asms th = foldl (uncurry (C simplify_assum)) th (get_simpths th)
   val replace_asms =
     repeat (C replace_assum good_context_instance_equality) o
-    repeat (C replace_assum good_context_is_in_in_bool) o
-    repeat (C replace_assum good_context_is_in_in_fun) o
+    repeat (C replace_assum good_context_wf_to_inner_bool_to_inner) o
+    repeat (C replace_assum good_context_wf_to_inner_fun_to_inner) o
     repeat (C replace_assum good_context_tyass_bool) o
     repeat (C replace_assum good_context_tyass_fun) o
     repeat (C replace_assum good_context_lookup_bool) o
@@ -37,33 +37,34 @@ in
              (f th)
   val full_simp_asms = repeat (changed (simp_asms o replace_asms))
 
-  val in_bool_tm = ``in_bool``
-  val in_fun_tm = ``in_fun``
+  val bool_to_inner_tm = ``bool_to_inner``
+  val fun_to_inner_tm = ``fun_to_inner``
+  val to_inner_tm = ``to_inner``
 
-  fun mk_in (ty : hol_type) = case type_view ty of
-      Tyapp(thy, "bool", [])        => in_bool_tm
-    | Tyapp(thy, "fun",  [ty1,ty2]) => mk_binop in_fun_tm (mk_in ty1, mk_in ty2)
-    | _                             => mk_in_var ty
+  fun mk_to_inner (ty : hol_type) = case type_view ty of
+      Tyapp(thy, "bool", [])        => bool_to_inner_tm
+    | Tyapp(thy, "fun",  [ty1,ty2]) => mk_binop fun_to_inner_tm (mk_to_inner ty1, mk_to_inner ty2)
+    | _                             => mk_monop to_inner_tm (type_to_deep ty)
 
   (* Take a HOL type {ty} and return a theorem of the form
-   * [^good_context, is_in in_ty1, ..., is_in in_tyn] |- is_in ^(mk_in ty),
+   * [^good_context, wf_is_inner in_ty1, ..., wf_is_inner in_tyn] |- wf_is_inner ^(mk_to_inner ty),
    * where ty1,...,tyn are types in ty other than
    * bool and function types.
    *)
-  fun mk_is_in_thm ty = case type_view ty of
-      Tyapp ("min","bool",[]) => good_context_is_in_in_bool
+  fun mk_wf_is_inner_thm ty = case type_view ty of
+      Tyapp ("min","bool",[]) => good_context_wf_to_inner_bool_to_inner
     | Tyapp ("min","fun",[ty1,ty2]) =>
-         good_context_is_in_in_fun
-         |> ISPECL [mk_in ty1, mk_in ty2]
-         |> C MP (CONJ (mk_is_in_thm ty1)
-                             (mk_is_in_thm ty2))
-    | _ => ASSUME ``is_in ^(mk_in ty)``
+         good_context_wf_to_inner_fun_to_inner
+         |> ISPECL [mk_to_inner ty1, mk_to_inner ty2]
+         |> C MP (CONJ (mk_wf_is_inner_thm ty1)
+                             (mk_wf_is_inner_thm ty2))
+    | _ => ASSUME ``wf_to_inner ^(mk_to_inner ty)``
 
   fun var_to_cert v =
     let
       val v_deep = term_to_deep (assert is_var v)
       val (x_deep,ty_deep) = dest_Var v_deep
-      val l = mk_comb(mk_in (type_of v),v)
+      val l = mk_comb(mk_to_inner (type_of v),v)
       val a = mk_eq(mk_comb(tmval,mk_pair(x_deep,ty_deep)),l)
     in
       MATCH_MP Var_thm (ASSUME a) |> SPEC mem
@@ -77,7 +78,7 @@ in
     let
       val c_deep = term_to_deep (assert is_const c)
       val (name_deep,ty_deep) = dest_Const c_deep
-      val l = mk_comb(mk_in (type_of c),c)
+      val l = mk_comb(mk_to_inner (type_of c),c)
       val a = mk_eq(mk_instance name_deep ty_deep,l)
       val th = MATCH_MP Const_thm (ASSUME a) |> SPEC mem
     in
@@ -95,8 +96,8 @@ in
         val (dty,rty) = dom_rng (type_of t1)
       in
         MATCH_MP (Comb_thm) (CONJ c1 c2)
-        |> C MATCH_MP (mk_is_in_thm dty)
-        |> C MATCH_MP (mk_is_in_thm rty)
+        |> C MATCH_MP (mk_wf_is_inner_thm dty)
+        |> C MATCH_MP (mk_wf_is_inner_thm rty)
         |> full_simp_asms
       end
     | LAMB(x,b) =>
@@ -108,8 +109,8 @@ in
         val ina = cx |> concl |> lhs |> rator
         val inb = cb |> concl |> lhs |> rator
         val th = Abs_thm |> ISPECL[ina,inb,tm,xd,tyd,bd] |> funpow 2 UNDISCH
-        val thd = mk_is_in_thm (type_of x)
-        val thr = mk_is_in_thm (type_of b)
+        val thd = mk_wf_is_inner_thm (type_of x)
+        val thr = mk_wf_is_inner_thm (type_of b)
         val th = MATCH_MP th thd
         val th = MATCH_MP th thr
         val hyps = set_diff (mk_set(hyp cb @ hyp th)) (hyp cx)
@@ -128,8 +129,9 @@ in
             match_mp_tac good_context_extend_tmval >>
             PROVE_TAC[]) >>
           match_mp_tac EQ_SYM >>
-          match_mp_tac (MP_CANON is_in_finv_right) >>
-          PROVE_TAC[good_context_is_in_in_bool,good_context_is_in_in_fun])
+          match_mp_tac (MP_CANON wf_to_inner_finv_right) >>
+          PROVE_TAC[good_context_wf_to_inner_bool_to_inner,
+                    good_context_wf_to_inner_fun_to_inner])
         val th2 = MP th th1
       in
         th2 |> UNDISCH |> full_simp_asms
