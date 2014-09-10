@@ -1,0 +1,42 @@
+Ultimate desired theorem:
+... (was written on a sheet of paper in Vienna) ...
+
+Tools:
+
+  mk_to_inner : hol_type -> term
+
+  makes the projection from an outer type to an inner type
+  type_of (mk_to_inner ty) = ty --> 'U
+                  (actually: 'a --> 'U, but we only care about the instance at 'a = ty)
+
+  bool_to_inner = Boolean
+  fun_to_inner a_to_inner b_to_inner f =
+    Abstract (range a_to_inner) (range b_to_inner) (λx. b_to_inner (f (finv a_to_inner x)))`
+
+  mk_to_inner bool = bool_to_inner
+  mk_to_inner (a --> b) = fun_to_inner ^(mk_to_inner a) ^(mk_to_inner b)
+  mk_to_inner ty = to_inner [ty]
+
+  tag : hol_type -> 'U -> 'U
+  tag s x = tag t y ⇒ (s,x) = (t,y)
+  and tag s x is not a boolean or a function
+  and the image of a set is again a set
+
+  to_inner ty = tag [ty] o @f. ∃x. BIJ f UNIV {a | mem a x}
+
+  term_to_cert : term -> thm
+  suppose tm deeply embeds as [tm]
+  and type_of tm = ty
+  term_to_cert tm
+
+  produces
+    asms ⊢ termsem sig int val [tm] = ^(mk_to_inner ty) tm
+  where sig, int, val are variables, and
+  asms constrain them
+    in particular
+      (a) good_context (well-formedness of the sig int and val)
+      (b) instances of term constants appearing in tm have their intended values
+      (c) wf_to_inner assumptions for type variables and type constants appearing in tm
+      (d) term variables appearing in tm have their intended (outer) values
+
+  build_interpretation...
