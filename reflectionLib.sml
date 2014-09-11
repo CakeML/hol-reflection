@@ -179,14 +179,14 @@ in
     let
       val cert = term_to_cert p
       val equation_intro_rule = PURE_REWRITE_RULE (find_equation_thms p [])
-      val th2 = AP_TERM``finv in_bool`` cert
+      val th2 = AP_TERM``finv bool_to_inner`` cert
       val th3 =
-        is_in_finv_left
-        |> Q.ISPEC`in_bool`
-        |> C MATCH_MP good_context_is_in_in_bool
+        wf_to_inner_finv_left
+        |> Q.ISPEC`bool_to_inner`
+        |> C MATCH_MP good_context_wf_to_inner_bool_to_inner
         |> (fn th => CONV_RULE (LAND_CONV (REWR_CONV th)) th2)
         |> EQ_IMP_RULE |> snd
-      val th4 = MATCH_MP finv_in_bool_True th3
+      val th4 = MATCH_MP finv_bool_to_inner_True th3
       val inst_sig = Q.INST[`tmsig`|->`tmsof(sigof(thyof ctxt))`,
                             `tysig`|->`tysof(sigof(thyof ctxt))`]
       val th5 = th4 |> inst_sig
