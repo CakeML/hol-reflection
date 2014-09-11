@@ -39,12 +39,21 @@ in
 
   val bool_to_inner_tm = ``bool_to_inner``
   val fun_to_inner_tm = ``fun_to_inner``
-  val to_inner_tm = ``to_inner``
+
+  val universe_ty = ``:'U``
+  val bool_ty = ``:bool``
+  val type_ty = ``:type``
+  fun to_inner_tm ty = 
+    mk_comb (
+      mk_const ("to_inner0", (universe_ty --> universe_ty --> bool_ty)
+                         --> type_ty --> ty --> universe_ty),
+      mk_var ("mem", universe_ty --> universe_ty --> bool_ty)
+    )
 
   fun mk_to_inner (ty : hol_type) = case type_view ty of
       Tyapp(thy, "bool", [])        => bool_to_inner_tm
     | Tyapp(thy, "fun",  [ty1,ty2]) => mk_binop fun_to_inner_tm (mk_to_inner ty1, mk_to_inner ty2)
-    | _                             => mk_monop to_inner_tm (type_to_deep ty)
+    | _                             => mk_monop (to_inner_tm ty) (type_to_deep ty)
 
   (* Take a HOL type {ty} and return a theorem of the form
    * [^good_context, wf_is_inner in_ty1, ..., wf_is_inner in_tyn] |- wf_is_inner ^(mk_to_inner ty),
