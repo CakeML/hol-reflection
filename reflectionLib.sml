@@ -76,13 +76,13 @@ in
          |> C MATCH_MP (type_to_cert ty1)
          |> C MATCH_MP (type_to_cert ty2)
     | Tyapp (_,con,args) =>
-         tycon_cert_thm
-(* XXX
+         tycon_cert_thm (* TODO: get rid of the MAP somehow *)
+         |> INST_TYPE [``:'a`` |-> ty]
 	 |> INST [``con:string`` |-> fromMLstring con,
-		  ``args`` |-> mk_list ()]
-*)
+		  ``args:type list`` |-> mk_list (map type_to_deep args, ``:type``)]
     | Tyvar v => 
-         tyvar_cert_thm (* XXX also instantiate type variable! *)
+         tyvar_cert_thm
+         |> INST_TYPE [``:'a`` |-> ty]
          |> INST [``v:string`` |-> fromMLstring v]
 
   fun var_to_cert v =
