@@ -201,9 +201,10 @@ in
       simp_asms th6
     end
 
+  (*
   local
     val tyval_asms = filter (can (match_term ``^tyval x = range y``)) o hyp
-    val mk_is_in = mk_monop``is_in``
+    val mk_wf_to_inner = mk_monop``wf_to_inner``
     val is_set_theory_mem = ``is_set_theory ^mem``
     val is_type_valuation_tm = ``is_type_valuation``
     val update_list_tm = ``$=++``
@@ -221,8 +222,8 @@ in
         val pairs = map mk_kv asms
         val pairs = mk_list(pairs,mk_prod(string_ty,U))
         val tyval = list_mk_icomb(update_list_tm,[base_tyval_tm,pairs])
-        val is_ins = map (mk_is_in o rand o rand) asms
-        val goal = (is_set_theory_mem::is_ins,mk_comb(is_type_valuation_tm,tyval))
+        val wf_to_inners = map (mk_wf_to_inner o rand o rand) asms
+        val goal = (is_set_theory_mem::wf_to_inners,mk_comb(is_type_valuation_tm,tyval))
         val th = TAC_PROOF(goal,
           match_mp_tac is_type_valuation_update_list >>
           conj_tac >- ACCEPT_TAC base_tyval_def >>
@@ -234,6 +235,7 @@ in
         SIMP_RULE std_ss [UPDATE_LIST_THM] th
       end
   end
+  *)
 
   val tmval_asms = filter (can (match_term ``^tmval x = y``)) o hyp
 
