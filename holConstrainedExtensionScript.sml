@@ -79,16 +79,41 @@ val TypeDefn_constrainable = store_thm("TypeDefn_constrainable",
   simp[EXTENSION,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,tyvars_def] >>
   rw[EQ_IMP_THM] >> fs[])
 
+val _ = Parse.type_abbrev("constraints",``:'U list -> ('U list # 'U list) option``)
+
 val constrain_assignment_def = Define`
-  constrain_assignment cs f =
-    λname args. case cs name args of SOME x => x | NONE => f name args`
+  constrain_assignment cs p ns f =
+    λname args. case cs args of NONE => f name args
+    | SOME x => THE(ALOOKUP (ZIP(ns,p x)) name)`
 
 val constrain_interpretation_def = Define`
-  constrain_interpretation (tycs,tmcs) ((δ,γ):'U interpretation) =
-    (constrain_assignment tycs δ,
-     constrain_assignment tmcs γ)`
+  constrain_interpretation upd cs ((δ,γ):'U interpretation) =
+    (constrain_assignment cs FST (MAP FST (types_of_upd upd)) δ,
+     constrain_assignment cs SND (MAP FST (consts_of_upd upd)) γ)`
 
-val add_constraints_thm = store_thm("add_constraints_thm",
+val well_formed_constraints_def = xDefine"well_formed_constraints"`
+  well_formed_constraints0 ^mem upd cs δ ⇔
+    ∀vs tyvs tmvs. cs vs = SOME (tyvs,tmvs) ⇒
+        LENGTH tyvs = LENGTH (types_of_upd upd) ∧
+        EVERY inhabited tyvs ∧
+        let vars = STRING_SORT (tvars (HD (axioms_of_upd upd))) in
+        LENGTH vars = LENGTH vs ∧
+        let τ = K boolset =++ (ZIP(vars,vs))in
+        (* TODO: should constrain δ here, or expect it to already be constrained? *)
+        LIST_REL (λv ty. v <: typesem δ τ ty)
+          tmvs (MAP SND (consts_of_upd upd))`
+val _ = Parse.overload_on("well_formed_constraints",``well_formed_constraints0 ^mem``)
+
+val old_constrain_assignment_def = Define`
+  old_constrain_assignment cs f =
+    λname args. case cs name args of SOME x => x | NONE => f name args`
+
+val old_constrain_interpretation_def = Define`
+  old_constrain_interpretation (tycs,tmcs) ((δ,γ):'U interpretation) =
+    (old_constrain_assignment tycs δ,
+     old_constrain_assignment tmcs γ)`
+
+val old_add_constraints_thm = store_thm("old_add_constraints_thm",
   ``is_set_theory ^mem ⇒
     ∀i upd ctxt cs.
       upd updates ctxt ∧ ctxt extends init_ctxt ∧
@@ -105,11 +130,11 @@ val add_constraints_thm = store_thm("add_constraints_thm",
              (LENGTH (tyvars ty) = LENGTH args) ∧
              ∀τ. is_type_valuation τ ∧
                  (MAP τ (STRING_SORT (tyvars ty)) = args) ⇒
-             (THE (SND cs name args)) <: typesem (constrain_assignment (FST cs) (FST i)) τ ty) ∧
+             (THE (SND cs name args)) <: typesem (old_constrain_assignment (FST cs) (FST i)) τ ty) ∧
       (∀p. MEM p (axioms_of_upd upd) ⇒
-        constrain_interpretation cs i satisfies (sigof (upd::ctxt),[],p))
+        old_constrain_interpretation cs i satisfies (sigof (upd::ctxt),[],p))
       ⇒
-      (constrain_interpretation cs i) models (thyof (upd::ctxt))``,
+      (old_constrain_interpretation cs i) models (thyof (upd::ctxt))``,
   rw[] >> fs[models_def] >>
   REWRITE_TAC[CONJ_ASSOC] >>
   `theory_ok (thyof ctxt)` by metis_tac[extends_theory_ok,init_theory_ok] >>
@@ -124,17 +149,17 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     first_x_assum match_mp_tac >>
     EVAL_TAC ) >>
   conj_asm1_tac >- (
-    fs[is_interpretation_def,is_std_interpretation_def,constrain_interpretation_def] >>
+    fs[is_interpretation_def,is_std_interpretation_def,old_constrain_interpretation_def] >>
     simp[GSYM CONJ_ASSOC] >>
     conj_tac >- (
       fs[is_type_assignment_def,FEVERY_ALL_FLOOKUP] >> rw[] >>
-      res_tac >> rw[constrain_assignment_def] >>
+      res_tac >> rw[old_constrain_assignment_def] >>
       BasicProvers.CASE_TAC >> rw[] >>
       fs[IS_SOME_EXISTS,PULL_EXISTS] >>
       res_tac >> metis_tac[] ) >>
     CONV_TAC(lift_conjunct_conv(can (match_term ``is_std_type_assignment X``))) >>
     conj_asm1_tac >- (
-      fs[is_std_type_assignment_def,constrain_assignment_def] >>
+      fs[is_std_type_assignment_def,old_constrain_assignment_def] >>
       simp[FUN_EQ_THM] >>
       fs[IS_SOME_EXISTS] >>
       imp_res_tac theory_ok_sig >>
@@ -147,7 +172,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       rpt (BasicProvers.CASE_TAC >> res_tac >> fs[]) >>
       fs[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
     conj_tac >- (
-      fs[interprets_def,constrain_assignment_def] >> rw[] >>
+      fs[interprets_def,old_constrain_assignment_def] >> rw[] >>
       BasicProvers.CASE_TAC >>
       fs[IS_SOME_EXISTS,PULL_EXISTS] >>
       imp_res_tac theory_ok_sig >>
@@ -160,7 +185,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     fs[is_term_assignment_def,FEVERY_ALL_FLOOKUP] >> rw[] >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
-    rw[constrain_assignment_def] >>
+    rw[old_constrain_assignment_def] >>
     reverse BasicProvers.CASE_TAC >- (
       fs[IS_SOME_EXISTS,PULL_EXISTS] >>
       first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
@@ -176,7 +201,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
           simp[Abbr`al`,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
         imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
         fs[Abbr`al`] ) >>
-      rw[] >> res_tac >> fs[constrain_assignment_def]) >>
+      rw[] >> res_tac >> fs[old_constrain_assignment_def]) >>
     Cases_on`type_ok (tysof ctxt) v` >- (
       qmatch_abbrev_tac`a <: b` >>
       qmatch_assum_abbrev_tac`a <: c` >>
@@ -211,7 +236,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     `is_std_type_assignment d1 ∧
      is_std_type_assignment δ` by (
        reverse conj_asm2_tac >- fs[is_std_interpretation_def] >>
-       simp[Abbr`d1`,GSYM constrain_assignment_def] ) >>
+       simp[Abbr`d1`,GSYM old_constrain_assignment_def] ) >>
     rator_x_assum`ALOOKUP` mp_tac >> simp[] >>
     Q.PAT_ABBREV_TAC`t1 = domain (typeof pred)` >>
     Q.PAT_ABBREV_TAC`t2 = Tyapp name X` >>
@@ -294,7 +319,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   simp[term_ok_def,type_ok_def] >>
   REWRITE_TAC[CONJ_ASSOC] >>
   conj_tac >- (
-    rw[constrain_interpretation_def,constrain_assignment_def,FUN_EQ_THM] >>
+    rw[old_constrain_interpretation_def,old_constrain_assignment_def,FUN_EQ_THM] >>
     BasicProvers.CASE_TAC >>
     fs[IS_SOME_EXISTS,PULL_EXISTS] >> res_tac >>
     fs[ALL_DISTINCT_APPEND,MEM_MAP,EXISTS_PROD] >>
