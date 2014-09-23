@@ -160,13 +160,10 @@ val old_add_constraints_thm = store_thm("old_add_constraints_thm",
     CONV_TAC(lift_conjunct_conv(can (match_term ``is_std_type_assignment X``))) >>
     conj_asm1_tac >- (
       fs[is_std_type_assignment_def,old_constrain_assignment_def] >>
-      simp[FUN_EQ_THM] >>
-      fs[IS_SOME_EXISTS] >>
       imp_res_tac theory_ok_sig >>
-      fs[is_std_sig_def] >>
+      fs[is_std_sig_def,IS_SOME_EXISTS,PULL_EXISTS] >>
       imp_res_tac ALOOKUP_MEM >>
       rw[] >> fs[ALL_DISTINCT_APPEND] >>
-      BasicProvers.CASE_TAC >>
       BasicProvers.CASE_TAC >>
       res_tac >> fs[] >> rw[] >>
       rpt (BasicProvers.CASE_TAC >> res_tac >> fs[]) >>
