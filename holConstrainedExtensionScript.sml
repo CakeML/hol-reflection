@@ -84,7 +84,8 @@ val _ = Parse.type_abbrev("constraints",``:'U list -> ('U list # 'U list) option
 val constrain_assignment_def = Define`
   constrain_assignment cs p ns f =
     λname args. case cs args of NONE => f name args
-    | SOME x => THE(ALOOKUP (ZIP(ns,p x)) name)`
+    | SOME x => case ALOOKUP (ZIP(ns,p x)) name of NONE => f name args
+                   | SOME v => v`
 
 val constrain_interpretation_def = Define`
   constrain_interpretation upd cs ((δ,γ):'U interpretation) =
@@ -103,6 +104,30 @@ val well_formed_constraints_def = xDefine"well_formed_constraints"`
         LIST_REL (λv ty. v <: typesem δ τ ty)
           tmvs (MAP SND (consts_of_upd upd))`
 val _ = Parse.overload_on("well_formed_constraints",``well_formed_constraints0 ^mem``)
+
+val constrain_interpretation_subinterpretation = store_thm("constrain_interpretation_subinterpretation",
+  ``∀upd cs i ctxt.
+      well_formed_constraints upd cs (tyaof i) ∧ upd updates ctxt ∧ ctxt extends init_ctxt
+      ⇒
+      subinterpretation ctxt i (constrain_interpretation upd cs i)``,
+  rw[] >> Cases_on`i` >>
+  fs[subinterpretation_def,constrain_interpretation_def] >>
+  fs[well_formed_constraints_def,constrain_assignment_def] >>
+  simp[FUN_EQ_THM] >>
+  `upd::ctxt extends init_ctxt` by (
+    simp[extends_def,Once relationTheory.RTC_CASES1] >>
+    simp[GSYM extends_def] ) >>
+  pop_assum(mp_tac o MATCH_MP extends_ALL_DISTINCT) >>
+  simp[init_ALL_DISTINCT,ALL_DISTINCT_APPEND] >> strip_tac >>
+  rw[term_ok_def,type_ok_def] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
+  imp_res_tac ALOOKUP_MEM >>
+  Cases_on`x`>>fs[]>>res_tac>>
+  fs[LET_THM,LIST_REL_EL_EQN] >>
+  fs[ZIP_MAP,MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
+  imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
+  PairCases_on`p`>>fs[] >> metis_tac[])
 
 val old_constrain_assignment_def = Define`
   old_constrain_assignment cs f =
