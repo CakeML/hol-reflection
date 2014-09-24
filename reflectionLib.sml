@@ -1,11 +1,124 @@
 structure reflectionLib = struct
 local
   open HolKernel boolLib bossLib lcsymtacs listSimps stringSimps
-  open miscLib miscTheory combinTheory pred_setTheory pairSyntax stringSyntax listSyntax holSyntaxSyntax
+  open miscLib miscTheory combinTheory pred_setTheory numSyntax pairSyntax stringSyntax listSyntax holSyntaxSyntax
   open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
   open holBoolTheory
   open reflectionTheory basicReflectionLib
 
+  val bool_to_inner_tm = ``bool_to_inner``
+  val fun_to_inner_tm = ``fun_to_inner``
+
+  val universe_ty = ``:'U``
+  val bool_ty = ``:bool``
+  val type_ty = ``:type``
+  fun to_inner_tm ty = 
+    mk_comb (
+      mk_const ("to_inner0", (universe_ty --> universe_ty --> bool_ty)
+                         --> type_ty --> ty --> universe_ty),
+      mk_var ("mem", universe_ty --> universe_ty --> bool_ty)
+    )
+
+  fun mk_to_inner (ty : hol_type) = case type_view ty of
+      Tyapp(thy, "bool", [])        => bool_to_inner_tm
+    | Tyapp(thy, "fun",  [ty1,ty2]) => mk_binop fun_to_inner_tm (mk_to_inner ty1, mk_to_inner ty2)
+    | _                             => mk_monop (to_inner_tm ty) (type_to_deep ty)
+
+
+  fun to_inner_prop (ty : hol_type) : term =
+    ``wf_to_inner ^(mk_to_inner ty)``
+
+  fun mk_range (ty : hol_type) : term =
+    ``range ^(mk_to_inner ty)``
+
+
+  datatype any_type_view = 
+    BoolType | FunType of hol_type * hol_type | BaseType of type_view
+
+  fun base_type_view (ty : hol_type) : type_view = case type_view ty of
+      Tyapp(thy, "bool", [])        => raise Fail "base_type_view called on bool"
+    | Tyapp(thy, "fun",  [ty1,ty2]) => raise Fail "base_type_view called on funtype"
+    | view                          => view
+
+  fun any_type_view (ty : hol_type) : any_type_view = case type_view ty of
+      Tyapp(thy, "bool", [])        => BoolType
+    | Tyapp(thy, "fun",  [ty1,ty2]) => FunType(ty1,ty2)
+    | view                          => BaseType view
+
+  
+  fun base_types_of_type (ty : hol_type) : hol_type list = case any_type_view ty of
+      BoolType         => []
+    | BaseType _       => [ty]
+    | FunType(ty1,ty2) => base_types_of_type ty1 @ base_types_of_type ty2
+
+  fun base_type_assums (ty : hol_type) : term list = case base_type_view ty of
+      Tyapp(thy, name, args) => [``FLOOKUP tysig ^(fromMLstring name) = 
+                                     SOME ^(term_of_int (length args))``,
+                                 ``tyass ^(fromMLstring name) (map mk_range args) = 
+                                     ^(mk_range ty)``]
+    | Tyvar name             => [``tyval ^(fromMLstring name) = ^(mk_range ty)``]
+
+
+  val type_assums : hol_type -> term list =
+    flatten o map (fn ty => to_inner_prop ty :: base_type_assums ty) o base_types_of_type
+
+  fun typesem_prop (ty : hol_type) : term =
+    ``typesem tyass tyval ^(type_to_deep ty) = ^(mk_range ty)``
+
+  (* TODO: typesem_cert *)
+
+
+  fun types_of_term (tm : term) : hol_type list = case dest_term tm of
+      VAR (name,ty)       => [ty]
+    | CONST {Name,Thy,Ty} => [Ty]
+    | LAMB (var,body)     => type_of var :: types_of_term body
+    | COMB (tm1,tm2)      => types_of_term tm1 @ types_of_term tm2
+
+  val base_types_of_term : term -> hol_type list =
+    flatten o (map base_types_of_type) o types_of_term
+
+
+  fun dest_base_term (tm : term) : lambda = case dest_term tm of
+      LAMB (var,body)     => raise Fail "dest_base_term called on lambda"
+    | COMB (tm1,tm2)      => raise Fail "dest_base_term called on combination"
+    | view                => view
+
+
+  fun const_tyargs (thy : string) (name : string) (ty : hol_type) : hol_type list =
+    let val pty = type_of (first (equal name o fst o dest_const) (thy_consts thy))
+        fun str_le (x : string) (y : string) = not ((String.compare (x,y)) = GREATER)
+        fun tyvar_to_str (x : hol_type) = tyvar_to_deep (dest_vartype x)
+        fun le x y = str_le (fst x) (fst y)
+        val sub = map (fn {redex,residue} => (tyvar_to_str redex, residue))
+                      (match_type pty ty)
+     in map snd (sort le sub)
+    end
+
+
+  fun base_terms_of_term (tm : term) : term list = case dest_term tm of
+      VAR (name,ty)       => [tm]
+    | CONST {Name,Thy,Ty} => [tm]
+    | LAMB (var,body)     => filter (not o equal var) (base_terms_of_term body)
+    | COMB (tm1,tm2)      => base_terms_of_term tm1 @ base_terms_of_term tm2
+
+  fun base_term_assums (tm : term) : term list = case dest_base_term tm of
+      VAR (name,ty)       => [``tmval (^(fromMLstring name), ^(type_to_deep ty)) = 
+                                  ^(mk_to_inner ty) ^tm``]
+    | CONST {Thy,Name,Ty} => [``FLOOKUP tmsig ^(fromMLstring Name) = 
+                                  SOME ^(type_to_deep Ty)``,
+                              ``tmass ^(fromMLstring Name) 
+                                      ^(mk_list (map mk_range 
+                                                   (const_tyargs Thy Name Ty),
+                                                 ``:'U``)) =
+                                  ^(mk_to_inner Ty) ^tm``]
+
+  (* TODO: Remove duplicates here and elsewhere. *)
+  fun term_assums (tm : term) : term list =
+    flatten (map base_type_assums (base_types_of_term tm)) @
+    flatten (map base_term_assums (base_terms_of_term tm))
+
+
+(*******************
   val MID_EXISTS_AND_THM = prove(
     ``(?x. P x /\ Q /\ R x) <=> (Q /\ ?x. P x /\ R x)``,
     metis_tac[])
@@ -255,5 +368,5 @@ in
 
   fun IINST1 var tm th =
     INST_TY_TERM (match_term var tm) th
-
+*******************)
 end end
