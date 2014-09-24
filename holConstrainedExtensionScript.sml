@@ -105,13 +105,13 @@ val well_formed_constraints_def = xDefine"well_formed_constraints"`
           tmvs (MAP SND (consts_of_upd upd))`
 val _ = Parse.overload_on("well_formed_constraints",``well_formed_constraints0 ^mem``)
 
-val constrain_interpretation_subinterpretation = store_thm("constrain_interpretation_subinterpretation",
+val constrain_interpretation_equal_on = store_thm("constrain_interpretation_equal_on",
   ``∀upd cs i ctxt.
       well_formed_constraints upd cs (tyaof i) ∧ upd updates ctxt ∧ ctxt extends init_ctxt
       ⇒
-      subinterpretation ctxt i (constrain_interpretation upd cs i)``,
+      equal_on ctxt i (constrain_interpretation upd cs i)``,
   rw[] >> Cases_on`i` >>
-  fs[subinterpretation_def,constrain_interpretation_def] >>
+  fs[equal_on_def,constrain_interpretation_def] >>
   fs[well_formed_constraints_def,constrain_assignment_def] >>
   simp[FUN_EQ_THM] >>
   `upd::ctxt extends init_ctxt` by (
