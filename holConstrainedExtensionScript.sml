@@ -223,6 +223,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   rw[] >> fs[models_def] >>
   REWRITE_TAC[CONJ_ASSOC] >>
   `theory_ok (thyof ctxt)` by metis_tac[extends_theory_ok,init_theory_ok] >>
+  `theory_ok (thyof (upd::ctxt))` by metis_tac[updates_theory_ok] >>
   `∃δ γ. i =(δ,γ)` by metis_tac[pair_CASES] >>
   `ALL_DISTINCT (MAP FST (type_list (upd::ctxt))) ∧
    ALL_DISTINCT (MAP FST (const_list (upd::ctxt)))` by (
@@ -369,7 +370,13 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       qsuff_tac`x1 = x2`>-rw[]>>
       unabbrev_all_tac >>
       match_mp_tac typesem_consts >>
-
+      qexists_tac`tysof(upd::ctxt)` >>
+      simp[FUN_EQ_THM,constrain_assignment_def] >>
+      fs[theory_ok_def] >>
+      first_x_assum match_mp_tac >>
+      simp[IN_FRANGE_FLOOKUP,FLOOKUP_FUNION] >>
+      qexists_tac`EL n (MAP FST (consts_of_upd upd))` >>
+      simp[]) >>
     Cases_on`type_ok (tysof ctxt) v` >- (
       qmatch_abbrev_tac`a <: b` >>
       qmatch_assum_abbrev_tac`a <: c` >>
@@ -379,10 +386,13 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[type_ok_def] >> rw[FUN_EQ_THM] >>
       BasicProvers.CASE_TAC >>
-      fs[IS_SOME_EXISTS,PULL_EXISTS] >> res_tac >>
-      fs[Once updates_cases] >> rw[] >> fs[] >> rw[] >>
-      imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >>
-      metis_tac[] ) >>
+      BasicProvers.CASE_TAC >>
+      fs[well_formed_constraints_def,ALL_DISTINCT_APPEND] >>
+      qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+      PairCases_on`p`>>res_tac>>
+      imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
+      imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
+      metis_tac[]) >>
     qpat_assum`FLOOKUP X Y = Z`mp_tac >>
     simp[FLOOKUP_FUNION] >>
     BasicProvers.CASE_TAC >- (
@@ -399,12 +409,18 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     qsuff_tac `b = c` >- rw[] >>
     unabbrev_all_tac >>
     fs[Once updates_cases] >> rw[] >> fs[] >- (
-      rpt AP_THM_TAC >> AP_TERM_TAC >> rw[FUN_EQ_THM] ) >>
+      rpt AP_THM_TAC >> AP_TERM_TAC >> rw[FUN_EQ_THM] >>
+      BasicProvers.CASE_TAC >>
+      BasicProvers.CASE_TAC >>
+      fs[well_formed_constraints_def] >>
+      qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+      PairCases_on`p`>>res_tac>>
+      fs[LENGTH_NIL]) >>
     qmatch_abbrev_tac`typesem d1 τ v = typesem δ τ v` >>
     `is_std_type_assignment d1 ∧
      is_std_type_assignment δ` by (
        reverse conj_asm2_tac >- fs[is_std_interpretation_def] >>
-       simp[Abbr`d1`,GSYM old_constrain_assignment_def] ) >>
+       simp[Abbr`d1`,GSYM constrain_assignment_def] ) >>
     rator_x_assum`ALOOKUP` mp_tac >> simp[] >>
     Q.PAT_ABBREV_TAC`t1 = domain (typeof pred)` >>
     Q.PAT_ABBREV_TAC`t2 = Tyapp name X` >>
@@ -435,11 +451,16 @@ val add_constraints_thm = store_thm("add_constraints_thm",
         fs[theory_ok_def] ) >>
       simp[type_ok_def] >> rw[FUN_EQ_THM] >>
       BasicProvers.CASE_TAC >>
-      fs[IS_SOME_EXISTS,PULL_EXISTS] >> res_tac >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
+      BasicProvers.CASE_TAC >>
+      fs[well_formed_constraints_def] >>
+      qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+      PairCases_on`p`>>res_tac>>
+      imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
+      imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
+      metis_tac[]) >>
     unabbrev_all_tac >>
     simp[typesem_def,MAP_MAP_o,combinTheory.o_DEF,ETA_AX] >>
+    BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     qsuff_tac`set (tyvars v) = set (tvars pred)` >- (
       qpat_assum`set (tyvars v) = X`kall_tac >>
@@ -462,6 +483,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     imp_res_tac tyvars_typeof_subset_tvars >>
     fs[pred_setTheory.SUBSET_DEF,tyvars_def] >>
     metis_tac[] ) >>
+
   gen_tac >>
   qmatch_abbrev_tac`P ⇒ q` >>
   strip_tac >> qunabbrev_tac`q` >>
