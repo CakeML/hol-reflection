@@ -483,56 +483,99 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     imp_res_tac tyvars_typeof_subset_tvars >>
     fs[pred_setTheory.SUBSET_DEF,tyvars_def] >>
     metis_tac[] ) >>
-
   gen_tac >>
   qmatch_abbrev_tac`P ⇒ q` >>
   strip_tac >> qunabbrev_tac`q` >>
   first_x_assum(qspec_then`p`mp_tac) >>
-  fs[Abbr`P`] >>
-  disch_then kall_tac >>
-  first_x_assum(qspec_then`p`mp_tac) >> simp[] >>
-  strip_tac >>
-  `term_ok (sigof ctxt) p` by fs[theory_ok_def] >>
-  imp_res_tac theory_ok_sig >>
-  match_mp_tac satisfies_extend >>
-  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
-  simp[] >>
-  REWRITE_TAC[CONJ_ASSOC] >>
-  conj_asm1_tac >- (
-    conj_tac >>
-    match_mp_tac SUBMAP_FUNION >>
-    disj2_tac >>
-    fs[ALL_DISTINCT_APPEND,pred_setTheory.IN_DISJOINT] >>
-    metis_tac[] ) >>
-  match_mp_tac satisfies_consts >>
-  qexists_tac`i` >> simp[] >> fs[] >>
-  simp[term_ok_def,type_ok_def] >>
-  REWRITE_TAC[CONJ_ASSOC] >>
-  conj_tac >- (
-    rw[old_constrain_interpretation_def,old_constrain_assignment_def,FUN_EQ_THM] >>
-    BasicProvers.CASE_TAC >>
-    fs[IS_SOME_EXISTS,PULL_EXISTS] >> res_tac >>
-    fs[ALL_DISTINCT_APPEND,MEM_MAP,EXISTS_PROD] >>
-    imp_res_tac ALOOKUP_MEM >>
-    metis_tac[] ) >>
-  fs[satisfies_def] >> rw[] >>
-  qmatch_assum_abbrev_tac`tmsof ctxt ⊑ tmsig` >>
-  qmatch_assum_abbrev_tac`tysof ctxt ⊑ tysig` >>
-  first_assum(
-    mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH extend_valuation_exists))) >>
-  first_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) >>
-  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
-  first_x_assum(qspec_then`v'`mp_tac) >> simp[] >>
+  simp[] >> strip_tac >>
+  Cases_on`MEM p (axiom_list ctxt)` >- (
+    fs[Abbr`P`] >>
+    `term_ok (sigof ctxt) p` by (
+      fs[theory_ok_def]) >>
+    imp_res_tac theory_ok_sig >>
+    match_mp_tac satisfies_extend >>
+    map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+    simp[] >>
+    REWRITE_TAC[CONJ_ASSOC] >>
+    conj_asm1_tac >- (
+      conj_tac >>
+      match_mp_tac SUBMAP_FUNION >>
+      disj2_tac >>
+      fs[ALL_DISTINCT_APPEND,pred_setTheory.IN_DISJOINT] >>
+      metis_tac[] ) >>
+    match_mp_tac satisfies_consts >>
+    qexists_tac`i` >> simp[] >> fs[] >>
+    simp[term_ok_def,type_ok_def] >>
+    REWRITE_TAC[CONJ_ASSOC] >>
+    conj_tac >- (
+      rw[constrain_interpretation_def,constrain_assignment_def,FUN_EQ_THM] >>
+      BasicProvers.CASE_TAC >>
+      BasicProvers.CASE_TAC >>
+      fs[well_formed_constraints_def,ALL_DISTINCT_APPEND,EXISTS_PROD] >>
+      qmatch_assum_rename_tac`cs ls = SOME q`["ls"]>>
+      PairCases_on`q`>>res_tac>>
+      TRY(
+        fs[LET_THM]>>
+        qpat_assum`∀X. Y`mp_tac >>
+        qpat_abbrev_tac`vars = STRING_SORT X` >>
+        disch_then(qspec_then`K boolset =++ ZIP(vars,x)`mp_tac) >>
+        discharge_hyps >- (
+          conj_tac >- (
+            match_mp_tac is_type_valuation_UPDATE_LIST >>
+            simp[EVERY_MEM,is_type_valuation_def] >>
+            conj_tac >- metis_tac[setSpecTheory.boolean_in_boolset] >>
+            simp[MEM_ZIP,PULL_EXISTS] >>
+            fs[EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
+          match_mp_tac MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same >>
+          simp[Abbr`vars`] ) >>
+        strip_tac >> imp_res_tac LIST_REL_LENGTH) >>
+      imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
+      imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
+      metis_tac[]) >>
+    fs[satisfies_def] >> rw[] >>
+    qmatch_assum_abbrev_tac`tmsof ctxt ⊑ tmsig` >>
+    qmatch_assum_abbrev_tac`tysof ctxt ⊑ tysig` >>
+    first_assum(
+      mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH extend_valuation_exists))) >>
+    first_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) >>
+    discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+    first_x_assum(qspec_then`v'`mp_tac) >> simp[] >>
+    disch_then (SUBST1_TAC o SYM) >>
+    match_mp_tac EQ_TRANS >>
+    qexists_tac`termsem (tmsof ctxt) (δ,γ) v' p` >>
+    conj_tac >- (
+      match_mp_tac termsem_frees >>
+      simp[] >> rw[] >>
+      first_x_assum match_mp_tac >>
+      imp_res_tac term_ok_VFREE_IN >>
+      fs[term_ok_def] ) >>
+    metis_tac[termsem_extend]) >>
+  fs[valid_constraints_def] >>
+  simp[satisfies_def] >>
+  rw[] >>
+  first_x_assum(qspec_then`v`mp_tac) >>
+  qpat_abbrev_tac`P = IS_SOME X` >>
+  Cases_on`P` >- (
+    disch_then(match_mp_tac o MP_CANON) >>
+    simp[] >>
+    fs[markerTheory.Abbrev_def]) >>
+  simp[] >> pop_assum mp_tac >>
+  simp[markerTheory.Abbrev_def] >> strip_tac >>
+  fs[satisfies_def] >>
+  first_x_assum(qspec_then`v`mp_tac) >>
+  discharge_hyps >- (
+    fs[is_valuation_def] >>
+    fs[is_term_valuation_def] >>
+    rw[] >>
+    cheat ) >>
+    need something like termsem_free_consts
+    termsem_def
+    instance_def
+
   disch_then (SUBST1_TAC o SYM) >>
-  match_mp_tac EQ_TRANS >>
-  qexists_tac`termsem (tmsof ctxt) (δ,γ) v' p` >>
-  conj_tac >- (
-    match_mp_tac termsem_frees >>
-    simp[] >> rw[] >>
-    first_x_assum match_mp_tac >>
-    imp_res_tac term_ok_VFREE_IN >>
-    fs[term_ok_def] ) >>
-  metis_tac[termsem_extend])
+  match_mp_tac termsem_consts >>
+  termsem_frees
+  constrain_assignment_def
 *)
 
 val old_constrain_assignment_def = Define`
