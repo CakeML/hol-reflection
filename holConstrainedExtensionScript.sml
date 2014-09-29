@@ -52,6 +52,66 @@ val type_ok_types_in = store_thm("type_ok_types_in",
   gen_tac >> strip_tac >> Induct >> simp[] >> rw[] >>
   TRY (imp_res_tac term_ok_def >> NO_TAC) >> fs[term_ok_def])
 
+val termsem_sig = save_thm("termsem_sig",holSemanticsExtraTheory.termsem_consts)
+
+val (subterm1_rules,subterm1_ind,subterm1_cases) = Hol_reln`
+  subterm1 t1 (Comb t1 t2) ∧
+  subterm1 t2 (Comb t1 t2) ∧
+  subterm1 tm (Abs x ty tm) ∧
+  subterm1 (Var x ty) (Abs x ty tm)`
+
+val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
+val _ = Parse.overload_on("subterm",``RTC subterm1``)
+val subterm_Var = save_thm("subterm_Var",
+  ``tm subterm (Var x ty)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val subterm_Const = save_thm("subterm_Const",
+  ``tm subterm (Const x ty)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val _ = export_rewrites["subterm_Var","subterm_Const"]
+val subterm_Comb = save_thm("subterm_Comb",
+  ``tm subterm (Comb t1 t2)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+val subterm_Abs = save_thm("subterm_Abs",
+  ``tm subterm (Abs x ty t)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subterm1_cases])
+
+val VFREE_IN_subterm = store_thm("VFREE_IN_subterm",
+  ``∀t1 t2. VFREE_IN t1 t2 ⇒ t1 subterm t2``,
+  Induct_on`t2` >> simp[subterm_Comb,subterm_Abs] >>
+  metis_tac[])
+
+val subterm_welltyped = save_thm("subterm_welltyped",
+  let val th =
+    prove(``∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t``,
+      ho_match_mp_tac has_type_strongind >>
+      simp[subterm_Comb,subterm_Abs] >> rw[] >>
+      rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[])
+  in METIS_PROVE[th,welltyped_def]
+    ``∀t tm. welltyped tm ∧ t subterm tm ⇒ welltyped t``
+  end)
+
+val termsem_consts = store_thm("termsem_consts",
+  ``∀tmsig i v tm i'.
+      (∀name ty. VFREE_IN (Const name ty) tm ⇒
+                 instance tmsig i' name ty (tyvof v) =
+                 instance tmsig i name ty (tyvof v)) ∧
+      (∀t. t subterm tm ⇒
+         typesem (tyaof i') (tyvof v) (typeof t) =
+         typesem (tyaof i ) (tyvof v) (typeof t))
+      ⇒
+      termsem tmsig i' v tm = termsem tmsig i v tm``,
+  Induct_on`tm` >> simp[termsem_def] >> rw[]
+  >- (
+    fs[subterm_Comb] >>
+    metis_tac[]) >>
+  fsrw_tac[boolSimps.DNF_ss][subterm_Abs] >>
+  rpt AP_TERM_TAC >> simp[FUN_EQ_THM])
+
 (* maybe the above too *)
 
 val constrainable_update_def = Define`
