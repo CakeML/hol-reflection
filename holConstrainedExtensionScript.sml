@@ -52,7 +52,26 @@ val type_ok_types_in = store_thm("type_ok_types_in",
   gen_tac >> strip_tac >> Induct >> simp[] >> rw[] >>
   TRY (imp_res_tac term_ok_def >> NO_TAC) >> fs[term_ok_def])
 
-val termsem_sig = save_thm("termsem_sig",holSemanticsExtraTheory.termsem_consts)
+(*
+val (subtype1_rules,subtype1_ind,subtype1_cases) = Hol_reln`
+  MEM a args ⇒ subtype1 a (Tyapp name args)`
+val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
+val _ = Parse.overload_on("subtype",``RTC subtype1``)
+val subtype_Tyvar = save_thm("subtype_Tyvar",
+  ``ty subtype (Tyvar x)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subtype1_cases])
+val _ = export_rewrites["subtype_Tyvar"]
+val subtype_Tyapp = save_thm("subtype_Tyapp",
+  ``ty subtype (Tyapp name args)``
+  |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
+      [Once relationTheory.RTC_CASES2,subtype1_cases])
+
+val typesem_consts = store_thm("typesem_consts",
+  ``∀δ δ' τ ty.
+    (∀name args. (Tyapp name args) subtype ty ⇒
+    ⇒ typesem δ' τ ty = typesem δ τ ty
+*)
 
 val (subterm1_rules,subterm1_ind,subterm1_cases) = Hol_reln`
   subterm1 t1 (Comb t1 t2) ∧
@@ -223,7 +242,7 @@ val constrain_interpretation_equal_on = store_thm("constrain_interpretation_equa
       constrainable_update upd ∧
       well_formed_constraints upd cs (tyaof i) ∧ upd updates ctxt ∧ ctxt extends init_ctxt
       ⇒
-      equal_on ctxt i (constrain_interpretation upd cs i)``,
+      equal_on (sigof ctxt) i (constrain_interpretation upd cs i)``,
   rw[] >> Cases_on`i` >>
   fs[equal_on_def,constrain_interpretation_def] >>
   fs[well_formed_constraints_def,constrain_assignment_def] >>
@@ -268,6 +287,19 @@ val valid_constraints_def = xDefine"valid_constraints"`
           (constrain_interpretation upd cs i)
           v p = True`
 val _ = Parse.overload_on("valid_constraints",``valid_constraints0 ^mem``)
+
+(*
+val termsem_constrain_interpretation_NONE = prove(
+  ``∀upd ctxt cs i v tm.
+    constrainable_update upd ∧
+    MEM tm (axioms_of_upd upd) ∧
+    cs (MAP (tyvof v) (STRING_SORT (SET_TO_LIST (tyvars_of_upd upd)))) = NONE
+    ⇒
+    termsem (tmsof (upd::ctxt)) (constrain_interpretation upd cs i) v tm =
+    termsem (tmsof (upd::ctxt)) i v tm``,
+  Induct_on`tm` >>
+  simp[termsem_def]
+*)
 
 (*
 val add_constraints_thm = store_thm("add_constraints_thm",
@@ -364,7 +396,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
           rw[] >>
           qmatch_abbrev_tac`m <: typesem d1 τ v` >>
           qsuff_tac`typesem d1 τ v = typesem δ τ v` >- rw[] >>
-          match_mp_tac typesem_consts >>
+          match_mp_tac typesem_sig >>
           qexists_tac`tysof ctxt` >>
           conj_tac >- (
             fs[theory_ok_def] >>
@@ -429,7 +461,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       qmatch_abbrev_tac`m <: x1 ⇒ m <: x2` >>
       qsuff_tac`x1 = x2`>-rw[]>>
       unabbrev_all_tac >>
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       qexists_tac`tysof(upd::ctxt)` >>
       simp[FUN_EQ_THM,constrain_assignment_def] >>
       fs[theory_ok_def] >>
@@ -442,7 +474,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       qmatch_assum_abbrev_tac`a <: c` >>
       qsuff_tac `b = c` >- rw[] >>
       unabbrev_all_tac >>
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[type_ok_def] >> rw[FUN_EQ_THM] >>
       BasicProvers.CASE_TAC >>
@@ -501,7 +533,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     strip_tac >>
     conj_tac >- (
       unabbrev_all_tac >>
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       qexists_tac`tysof (ctxt)` >>
       imp_res_tac proves_term_ok >>
       qpat_assum`k ∈ X`kall_tac >>
@@ -563,9 +595,9 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       disj2_tac >>
       fs[ALL_DISTINCT_APPEND,pred_setTheory.IN_DISJOINT] >>
       metis_tac[] ) >>
-    match_mp_tac satisfies_consts >>
+    match_mp_tac satisfies_sig >>
     qexists_tac`i` >> simp[] >> fs[] >>
-    simp[term_ok_def,type_ok_def] >>
+    simp[equal_on_def,term_ok_def,type_ok_def] >>
     REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
       rw[constrain_interpretation_def,constrain_assignment_def,FUN_EQ_THM] >>
@@ -627,7 +659,17 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     fs[is_valuation_def] >>
     fs[is_term_valuation_def] >>
     rw[] >>
+    qmatch_rename_tac`tmvof v (x,ty) <: X`["X"] >>
+    first_x_assum(fn th => first_assum (qspec_then`x`mp_tac o MATCH_MP th)) >>
+    qmatch_abbrev_tac`z <: a ⇒ z <: b` >>
+    qsuff_tac`a = b`>-rw[]>>
+    unabbrev_all_tac >>
+    fs[constrainable_update_def]
+
+    typesem_sig
+
     cheat ) >>
+
     need something like termsem_free_consts
     termsem_def
     instance_def
@@ -738,7 +780,7 @@ val old_add_constraints_thm = store_thm("old_add_constraints_thm",
       qmatch_assum_abbrev_tac`a <: c` >>
       qsuff_tac `b = c` >- rw[] >>
       unabbrev_all_tac >>
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[type_ok_def] >> rw[FUN_EQ_THM] >>
       BasicProvers.CASE_TAC >>
@@ -788,7 +830,7 @@ val old_add_constraints_thm = store_thm("old_add_constraints_thm",
     strip_tac >>
     conj_tac >- (
       unabbrev_all_tac >>
-      match_mp_tac typesem_consts >>
+      match_mp_tac typesem_sig >>
       qexists_tac`tysof (ctxt)` >>
       imp_res_tac proves_term_ok >>
       qpat_assum`k ∈ X`kall_tac >>
@@ -845,7 +887,7 @@ val old_add_constraints_thm = store_thm("old_add_constraints_thm",
     disj2_tac >>
     fs[ALL_DISTINCT_APPEND,pred_setTheory.IN_DISJOINT] >>
     metis_tac[] ) >>
-  match_mp_tac satisfies_consts >>
+  match_mp_tac satisfies_sig >>
   qexists_tac`i` >> simp[] >> fs[] >>
   simp[term_ok_def,type_ok_def] >>
   REWRITE_TAC[CONJ_ASSOC] >>
