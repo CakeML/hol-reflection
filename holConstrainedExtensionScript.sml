@@ -44,7 +44,7 @@ val types_in_def = Define`
   types_in (Var x ty) = {ty} ∧
   types_in (Const c ty) = {ty} ∧
   types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
-  types_in (Abs x ty t) = ty INSERT types_in t`
+  types_in (Abs v t) = types_in v ∪ types_in t`
 val _ = export_rewrites["types_in_def"]
 
 val type_ok_types_in = store_thm("type_ok_types_in",
@@ -52,7 +52,6 @@ val type_ok_types_in = store_thm("type_ok_types_in",
   gen_tac >> strip_tac >> Induct >> simp[] >> rw[] >>
   TRY (imp_res_tac term_ok_def >> NO_TAC) >> fs[term_ok_def])
 
-(*
 val (subtype1_rules,subtype1_ind,subtype1_cases) = Hol_reln`
   MEM a args ⇒ subtype1 a (Tyapp name args)`
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
@@ -67,6 +66,21 @@ val subtype_Tyapp = save_thm("subtype_Tyapp",
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subtype1_cases])
 
+val subtype_type_ok = store_thm("subtype_type_ok",
+  ``∀tysig ty1 ty2. type_ok tysig ty2 ∧ ty1 subtype ty2 ⇒ type_ok tysig ty1``,
+  gen_tac >>
+  (relationTheory.RTC_lifts_invariants
+    |> Q.GEN`R` |> Q.ISPEC`inv subtype1`
+    |> SIMP_RULE std_ss [relationTheory.inv_MOVES_OUT,relationTheory.inv_DEF]
+    |> Q.GEN`P` |> Q.ISPEC`type_ok tysig`
+    |> match_mp_tac) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  CONV_TAC SWAP_FORALL_CONV >> gen_tac >>
+  ho_match_mp_tac subtype1_ind >>
+  simp[type_ok_def,EVERY_MEM])
+
+(*
 val typesem_consts = store_thm("typesem_consts",
   ``∀δ δ' τ ty.
     (∀name args. (Tyapp name args) subtype ty ⇒
@@ -76,8 +90,8 @@ val typesem_consts = store_thm("typesem_consts",
 val (subterm1_rules,subterm1_ind,subterm1_cases) = Hol_reln`
   subterm1 t1 (Comb t1 t2) ∧
   subterm1 t2 (Comb t1 t2) ∧
-  subterm1 tm (Abs x ty tm) ∧
-  subterm1 (Var x ty) (Abs x ty tm)`
+  subterm1 tm (Abs v tm) ∧
+  subterm1 v (Abs v tm)`
 
 val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
 val _ = Parse.overload_on("subterm",``RTC subterm1``)
@@ -95,7 +109,7 @@ val subterm_Comb = save_thm("subterm_Comb",
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases])
 val subterm_Abs = save_thm("subterm_Abs",
-  ``tm subterm (Abs x ty t)``
+  ``tm subterm (Abs v t)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases])
 
@@ -116,6 +130,7 @@ val subterm_welltyped = save_thm("subterm_welltyped",
 
 val termsem_consts = store_thm("termsem_consts",
   ``∀tmsig i v tm i'.
+      welltyped tm ∧
       (∀name ty. VFREE_IN (Const name ty) tm ⇒
                  instance tmsig i' name ty (tyvof v) =
                  instance tmsig i name ty (tyvof v)) ∧
@@ -128,6 +143,7 @@ val termsem_consts = store_thm("termsem_consts",
   >- (
     fs[subterm_Comb] >>
     metis_tac[]) >>
+  simp[termsem_def] >>
   fsrw_tac[boolSimps.DNF_ss][subterm_Abs] >>
   rpt AP_TERM_TAC >> simp[FUN_EQ_THM])
 
@@ -145,8 +161,9 @@ val constrainable_update_def = Define`
       ∀name arity.
         MEM (name,arity) (types_of_upd upd) ⇒
         arity = CARD vars ∧
-        ∀args. Tyapp name args ∈ all_types ⇒
-               args = MAP Tyvar (STRING_SORT (SET_TO_LIST vars))`
+        ∀args ty.
+          Tyapp name args subtype ty ∧ ty ∈ all_types ⇒
+          args = MAP Tyvar (STRING_SORT (SET_TO_LIST vars))`
 
 val TypeDefn_constrainable = store_thm("TypeDefn_constrainable",
   ``∀name pred abs rep ctxt.
@@ -195,7 +212,24 @@ val TypeDefn_constrainable = store_thm("TypeDefn_constrainable",
   simp[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,ALL_DISTINCT_LIST_UNION] >>
   simp[STRING_SORT_SET_TO_LIST_set_tvars] >>
   simp[conexts_of_upd_def,tvars_def,equation_def,tyvars_def] >>
-  rw[] >> fs[] >> rw[] >> fs[] >> TRY(metis_tac[]))
+  rw[] >> fs[] >> rw[] >> fs[Once subtype_Tyapp] >> TRY(metis_tac[]) >>
+  rw[] >> fs[Once subtype_Tyapp] >>
+  fs[Q.ISPEC`Tyvar`(Q.SPEC`l`MEM_MAP)] >> rw[] >> fs[] >>
+  fs[Once subtype_Tyapp] >> TRY(metis_tac[]) >>
+  fs[Q.ISPEC`Tyvar`(Q.SPEC`l`MEM_MAP)] >> rw[] >> fs[] >>
+  qmatch_assum_abbrev_tac`aty subtype bty` >>
+  `type_ok (tysof ctxt) bty` by (
+    (imp_res_tac proves_term_ok >> fs[term_ok_def] >>
+     imp_res_tac term_ok_type_ok >> rfs[] >> NO_TAC) ORELSE
+    (qspec_then`sigof ctxt`mp_tac type_ok_types_in >> simp[] >>
+     disch_then(match_mp_tac) >>
+     imp_res_tac proves_term_ok >> fs[term_ok_def] >>
+     metis_tac[])) >>
+  `type_ok (tysof ctxt) aty` by metis_tac[subtype_type_ok] >>
+  fs[Abbr`aty`,type_ok_def] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,EXISTS_PROD] >>
+  metis_tac[])
 
 val _ = Parse.type_abbrev("constraints",``:'U list -> ('U list # 'U list) option``)
 
@@ -654,11 +688,15 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   simp[] >> pop_assum mp_tac >>
   simp[markerTheory.Abbrev_def] >> strip_tac >>
   fs[satisfies_def] >>
+  fs[markerTheory.Abbrev_def,METIS_PROVE[]``A ∨ B ⇔ ¬A⇒B``] >>
+  imp_res_tac tyvars_of_upd_def >>
+  fs[LET_THM,EVERY_MAP] >>
   first_x_assum(qspec_then`v`mp_tac) >>
   discharge_hyps >- (
     fs[is_valuation_def] >>
     fs[is_term_valuation_def] >>
     rw[] >>
+    well_formed_constraints_def
     qmatch_rename_tac`tmvof v (x,ty) <: X`["X"] >>
     first_x_assum(fn th => first_assum (qspec_then`x`mp_tac o MATCH_MP th)) >>
     qmatch_abbrev_tac`z <: a ⇒ z <: b` >>
