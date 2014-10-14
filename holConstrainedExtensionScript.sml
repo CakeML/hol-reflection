@@ -631,33 +631,9 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       metis_tac[] ) >>
     match_mp_tac satisfies_sig >>
     qexists_tac`i` >> simp[] >> fs[] >>
-    simp[equal_on_def,term_ok_def,type_ok_def] >>
-    REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
-      rw[constrain_interpretation_def,constrain_assignment_def,FUN_EQ_THM] >>
-      BasicProvers.CASE_TAC >>
-      BasicProvers.CASE_TAC >>
-      fs[well_formed_constraints_def,ALL_DISTINCT_APPEND,EXISTS_PROD] >>
-      qmatch_assum_rename_tac`cs ls = SOME q`["ls"]>>
-      PairCases_on`q`>>res_tac>>
-      TRY(
-        fs[LET_THM]>>
-        qpat_assum`∀X. Y`mp_tac >>
-        qpat_abbrev_tac`vars = STRING_SORT X` >>
-        disch_then(qspec_then`K boolset =++ ZIP(vars,x)`mp_tac) >>
-        discharge_hyps >- (
-          conj_tac >- (
-            match_mp_tac is_type_valuation_UPDATE_LIST >>
-            simp[EVERY_MEM,is_type_valuation_def] >>
-            conj_tac >- metis_tac[setSpecTheory.boolean_in_boolset] >>
-            simp[MEM_ZIP,PULL_EXISTS] >>
-            fs[EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
-          match_mp_tac MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same >>
-          simp[Abbr`vars`] ) >>
-        strip_tac >> imp_res_tac LIST_REL_LENGTH) >>
-      imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
-      imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
-      metis_tac[]) >>
+      match_mp_tac (UNDISCH constrain_interpretation_equal_on) >>
+      simp[] ) >>
     fs[satisfies_def] >> rw[] >>
     qmatch_assum_abbrev_tac`tmsof ctxt ⊑ tmsig` >>
     qmatch_assum_abbrev_tac`tysof ctxt ⊑ tysig` >>
@@ -671,7 +647,11 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     qexists_tac`termsem (tmsof ctxt) (δ,γ) v' p` >>
     conj_tac >- (
       match_mp_tac termsem_frees >>
-      simp[] >> rw[] >>
+      simp[] >>
+      conj_tac >- (
+        fs[theory_ok_def] >>
+        metis_tac[term_ok_welltyped] ) >>
+      rw[] >>
       first_x_assum match_mp_tac >>
       imp_res_tac term_ok_VFREE_IN >>
       fs[term_ok_def] ) >>
@@ -689,21 +669,30 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   simp[markerTheory.Abbrev_def] >> strip_tac >>
   fs[satisfies_def] >>
   fs[markerTheory.Abbrev_def,METIS_PROVE[]``A ∨ B ⇔ ¬A⇒B``] >>
-  imp_res_tac tyvars_of_upd_def >>
-  fs[LET_THM,EVERY_MAP] >>
+  qspecl_then[`upd`,`cs`,`δ,γ`,`ctxt`]mp_tac(UNDISCH constrain_interpretation_equal_on) >>
+  discharge_hyps >- simp[] >> strip_tac >>
+  `
+  simp[equal_on_def]
+  constrain_interpretation_def
+  print_find"valuation_ex"
+
   first_x_assum(qspec_then`v`mp_tac) >>
   discharge_hyps >- (
     fs[is_valuation_def] >>
     fs[is_term_valuation_def] >>
     rw[] >>
-    well_formed_constraints_def
     qmatch_rename_tac`tmvof v (x,ty) <: X`["X"] >>
     first_x_assum(fn th => first_assum (qspec_then`x`mp_tac o MATCH_MP th)) >>
     qmatch_abbrev_tac`z <: a ⇒ z <: b` >>
     qsuff_tac`a = b`>-rw[]>>
     unabbrev_all_tac >>
+
+    well_formed_constraints_def
     fs[constrainable_update_def]
 
+
+  imp_res_tac tyvars_of_upd_def >>
+  fs[LET_THM,EVERY_MAP] >>
     typesem_sig
 
     cheat ) >>
@@ -718,6 +707,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
   constrain_assignment_def
 *)
 
+(*
 val old_constrain_assignment_def = Define`
   old_constrain_assignment cs f =
     λname args. case cs name args of SOME x => x | NONE => f name args`
@@ -954,5 +944,6 @@ val old_add_constraints_thm = store_thm("old_add_constraints_thm",
     imp_res_tac term_ok_VFREE_IN >>
     fs[term_ok_def] ) >>
   metis_tac[termsem_extend])
+*)
 
 val _ = export_theory()
