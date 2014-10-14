@@ -310,6 +310,13 @@ val constrain_interpretation_equal_on = store_thm("constrain_interpretation_equa
 
 val valid_constraints_def = xDefine"valid_constraints"`
   valid_constraints0 ^mem ctxt upd cs i ⇔
+    EVERY
+      (λp. constrain_interpretation upd cs i satisfies
+             (sigof (upd::ctxt), [], p))
+      (axioms_of_upd upd)`
+val _ = Parse.overload_on("valid_constraints",``valid_constraints0 ^mem``)
+
+(*
     ∀v.
       is_valuation (tysof (upd::ctxt))
         (tyaof (constrain_interpretation upd cs i))
@@ -320,7 +327,7 @@ val valid_constraints_def = xDefine"valid_constraints"`
         termsem (tmsof (upd::ctxt))
           (constrain_interpretation upd cs i)
           v p = True`
-val _ = Parse.overload_on("valid_constraints",``valid_constraints0 ^mem``)
+*)
 
 (*
 val termsem_constrain_interpretation_NONE = prove(
@@ -335,7 +342,6 @@ val termsem_constrain_interpretation_NONE = prove(
   simp[termsem_def]
 *)
 
-(*
 val add_constraints_thm = store_thm("add_constraints_thm",
   ``is_set_theory ^mem ⇒
     ∀i upd ctxt cs.
@@ -657,6 +663,9 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       fs[term_ok_def] ) >>
     metis_tac[termsem_extend]) >>
   fs[valid_constraints_def] >>
+  fs[markerTheory.Abbrev_def,EVERY_MEM])
+
+(*
   simp[satisfies_def] >>
   rw[] >>
   first_x_assum(qspec_then`v`mp_tac) >>
