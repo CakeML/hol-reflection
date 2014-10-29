@@ -25,18 +25,32 @@ val is_type_valuation_UPDATE_LIST = store_thm("is_type_valuation_UPDATE_LIST",
   BasicProvers.CASE_TAC >> rw[] >> imp_res_tac ALOOKUP_MEM >>
   fs[EVERY_MEM,FORALL_PROD] >> metis_tac[])
 
+val ALL_DISTINCT_MAP_implode = store_thm("ALL_DISTINCT_MAP_implode",
+  ``ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)``,
+  strip_tac >>
+  match_mp_tac ALL_DISTINCT_MAP_INJ >>
+  rw[mlstringTheory.implode_def])
+val _ = export_rewrites["ALL_DISTINCT_MAP_implode"]
+
 val tyvars_Tyapp_MAP_Tyvar = store_thm("tyvars_Tyapp_MAP_Tyvar",
   ``∀x ls. ALL_DISTINCT ls ⇒ (tyvars (Tyapp x (MAP Tyvar ls)) = LIST_UNION [] ls)``,
   simp[tyvars_def] >>
   Induct >> fs[tyvars_def,LIST_UNION_def] >>
   rw[LIST_INSERT_def])
 
+val set_MAP_implode_STRING_SORT_MAP_explode = store_thm("set_MAP_implode_STRING_SORT_MAP_explode",
+  ``set (MAP implode (STRING_SORT (MAP explode ls))) = set ls``,
+  rw[EXTENSION,MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode])
+
 val STRING_SORT_SET_TO_LIST_set_tvars = store_thm("STRING_SORT_SET_TO_LIST_set_tvars",
-  ``∀tm. STRING_SORT (SET_TO_LIST (set (tvars tm))) = STRING_SORT (tvars tm)``,
-  gen_tac >> mp_tac(SPEC_ALL tvars_ALL_DISTINCT) >>
+  ``∀tm. STRING_SORT (MAP explode (SET_TO_LIST (set (tvars tm)))) =
+         STRING_SORT (MAP explode (tvars tm))``,
+  gen_tac >> assume_tac(SPEC_ALL tvars_ALL_DISTINCT) >>
+  simp[STRING_SORT_EQ] >>
+  match_mp_tac sortingTheory.PERM_MAP >>
+  pop_assum mp_tac >>
   REWRITE_TAC[sortingTheory.ALL_DISTINCT_PERM_LIST_TO_SET_TO_LIST] >>
-  strip_tac >>
-  simp[STRING_SORT_EQ,sortingTheory.PERM_SYM])
+  simp[sortingTheory.PERM_SYM])
 
 (* -- *)
 
@@ -163,7 +177,7 @@ val constrainable_update_def = Define`
         arity = CARD vars ∧
         ∀args ty.
           Tyapp name args subtype ty ∧ ty ∈ all_types ⇒
-          args = MAP Tyvar (STRING_SORT (SET_TO_LIST vars))`
+          args = MAP Tyvar (MAP implode (STRING_SORT (MAP explode (SET_TO_LIST vars))))`
 
 val TypeDefn_constrainable = store_thm("TypeDefn_constrainable",
   ``∀name pred abs rep ctxt.
@@ -171,7 +185,7 @@ val TypeDefn_constrainable = store_thm("TypeDefn_constrainable",
     is_std_sig (sigof ctxt) ⇒
     constrainable_update (TypeDefn name pred abs rep)``,
   rw[updates_cases] >>
-  `MEM "fun" (MAP FST (type_list ctxt)) ∧ MEM "bool" (MAP FST (type_list ctxt))` by (
+  `MEM (strlit"fun") (MAP FST (type_list ctxt)) ∧ MEM (strlit"bool") (MAP FST (type_list ctxt))` by (
     fs[is_std_sig_def] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,EXISTS_PROD] >>
@@ -200,16 +214,16 @@ val TypeDefn_constrainable = store_thm("TypeDefn_constrainable",
   simp[tyvars_def,Q.SPECL[`set s`,`set t`]EXTENSION,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,EVERY_MAP] >>
   conj_tac >- (
     simp[conexts_of_upd_def,tvars_def,equation_def,tyvars_def] >>
-    simp[EXTENSION,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,tyvars_def] >>
-    rw[EQ_IMP_THM] >> rw[] >>
-    imp_res_tac proves_term_ok >> fs[Once has_type_cases] >>
-    imp_res_tac WELLTYPED_LEMMA >> fs[tyvars_def] ) >>
+    simp[EXTENSION,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,tyvars_def,mlstringTheory.implode_explode] >>
+    rw[EQ_IMP_THM] >> rw[]) >>
   conj_tac >- metis_tac[] >>
-  ONCE_REWRITE_TAC[GSYM LIST_TO_SET_APPEND] >>
+  CHANGED_TAC(ONCE_REWRITE_TAC[GSYM LIST_TO_SET_APPEND]) >>
   ONCE_REWRITE_TAC[GSYM tyvars_def] >>
   simp[tyvars_Tyapp_MAP_Tyvar] >>
+  simp[set_MAP_implode_STRING_SORT_MAP_explode] >>
   fs[GSYM SUBSET_DEF,SUBSET_UNION_ABSORPTION] >>
   simp[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,ALL_DISTINCT_LIST_UNION] >>
+  simp[set_MAP_implode_STRING_SORT_MAP_explode] >>
   simp[STRING_SORT_SET_TO_LIST_set_tvars] >>
   simp[conexts_of_upd_def,tvars_def,equation_def,tyvars_def] >>
   rw[] >> fs[] >> rw[] >> fs[Once subtype_Tyapp] >> TRY(metis_tac[]) >>
@@ -263,7 +277,7 @@ val well_formed_constraints_def = xDefine"well_formed_constraints"`
         EVERY inhabited vs ∧
         LENGTH tyvs = LENGTH (types_of_upd upd) ∧
         EVERY inhabited tyvs ∧
-        let vars = STRING_SORT (SET_TO_LIST (tyvars_of_upd upd)) in
+        let vars = MAP implode (STRING_SORT (MAP explode (SET_TO_LIST (tyvars_of_upd upd)))) in
         LENGTH vars = LENGTH vs ∧
         ∀τ. is_type_valuation τ ∧ MAP τ vars = vs ⇒
           LIST_REL (λv ty. v <: typesem (constrain_tyass cs upd δ) τ ty)
