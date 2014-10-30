@@ -263,7 +263,7 @@ val Abs_thm = prove(
     term_ok (tysig,tmsig) b
     ⇒
     fun_to_inner ina inb f =
-      termsem tmsig (tyass,tmass) (tyval,tmval) (Abs x ty b)``,
+      termsem tmsig (tyass,tmass) (tyval,tmval) (Abs (Var x ty) b)``,
   rw[termsem_def,fun_to_inner_def,good_context_def] >>
   match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
   rw[] >>

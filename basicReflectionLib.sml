@@ -41,7 +41,7 @@ fun term_to_deep tm =
       let
         val (x,ty) = dest_var x
       in
-        mk_Abs(fromMLstring x, type_to_deep ty, term_to_deep b)
+        mk_Abs(mk_Var(fromMLstring x, type_to_deep ty), term_to_deep b)
       end
 
 fun underscores [] = ""
