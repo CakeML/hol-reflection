@@ -422,7 +422,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       PairCases_on`p`>>res_tac>>
       fs[LET_THM] >>
       qmatch_assum_abbrev_tac`LENGTH ls = 1` >>
-      first_x_assum(qspec_then`(HD ls =+ (τ"A")) (K boolset)`mp_tac) >>
+      first_x_assum(qspec_then`(implode(HD ls) =+ (τ(strlit"A"))) (K boolset)`mp_tac) >>
       discharge_hyps >- (
         Cases_on`ls`>>fs[LENGTH_NIL] >>
         simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
@@ -473,14 +473,15 @@ val add_constraints_thm = store_thm("add_constraints_thm",
         strip_tac >>
         imp_res_tac ALOOKUP_MEM >>
         qpat_assum`∀X. Y`mp_tac >>
-        qpat_abbrev_tac`vars = STRING_SORT X` >>
-        disch_then(qspec_then`K boolset =++ ZIP(vars,MAP τ (STRING_SORT (tyvars v)))`mp_tac) >>
+        qpat_abbrev_tac`vars = MAP implode (STRING_SORT X)` >>
+        disch_then(qspec_then`K boolset =++ ZIP(vars,
+          MAP τ (MAP implode (STRING_SORT (MAP explode (tyvars v)))))`mp_tac) >>
         discharge_hyps >- (
           conj_tac >- (
             match_mp_tac is_type_valuation_UPDATE_LIST >>
             simp[EVERY_MEM,is_type_valuation_def] >>
             conj_tac >- metis_tac[setSpecTheory.boolean_in_boolset] >>
-            simp[MEM_ZIP,PULL_EXISTS] >>
+            simp[MEM_ZIP,PULL_EXISTS,Abbr`vars`] >>
             fs[EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
           match_mp_tac MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same >>
           simp[Abbr`vars`] ) >>
@@ -490,11 +491,13 @@ val add_constraints_thm = store_thm("add_constraints_thm",
         fs[MEM_MAP,EXISTS_PROD,ALL_DISTINCT_APPEND,PULL_EXISTS] >>
         metis_tac[]) >>
       rw[] >>
-      `STRING_SORT (SET_TO_LIST (tyvars_of_upd upd)) = STRING_SORT (tyvars v)` by (
+      `STRING_SORT (MAP explode (SET_TO_LIST (tyvars_of_upd upd))) =
+       STRING_SORT (MAP explode (tyvars v))` by (
         imp_res_tac tyvars_of_upd_def >>
         simp[STRING_SORT_EQ,ALL_DISTINCT_SET_TO_LIST] >>
         imp_res_tac ALOOKUP_MEM >>
         fs[EVERY_MAP,EVERY_MEM] >> res_tac >> fs[] >>
+        match_mp_tac sortingTheory.PERM_MAP >>
         metis_tac[sortingTheory.ALL_DISTINCT_PERM_LIST_TO_SET_TO_LIST,
                   sortingTheory.PERM_SYM,tyvars_ALL_DISTINCT]) >>
       first_x_assum(qspec_then`τ`mp_tac) >>
@@ -612,15 +615,16 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     qsuff_tac`set (tyvars v) = set (tvars pred)` >- (
       qpat_assum`set (tyvars v) = X`kall_tac >>
       rw[] >>
-      `STRING_SORT (tvars pred) = STRING_SORT (tyvars v)` by (
+      `STRING_SORT (MAP explode (tvars pred)) =
+       STRING_SORT (MAP explode (tyvars v))` by (
         `ALL_DISTINCT (tvars pred)` by simp[] >>
         `ALL_DISTINCT (tyvars v)` by simp[] >>
         `PERM (tvars pred) (tyvars v)` by (
           match_mp_tac sortingTheory.PERM_ALL_DISTINCT >>
           fs[pred_setTheory.EXTENSION] ) >>
-        metis_tac[holSyntaxLibTheory.STRING_SORT_EQ] ) >>
-      fs[IS_SOME_EXISTS,PULL_EXISTS,LET_THM] >>
-      metis_tac[optionTheory.NOT_SOME_NONE] ) >>
+        simp[holSyntaxLibTheory.STRING_SORT_EQ] >>
+        metis_tac[sortingTheory.PERM_MAP] ) >>
+      fs[IS_SOME_EXISTS,PULL_EXISTS,LET_THM,MAP_MAP_o,combinTheory.o_DEF]) >>
     simp[tyvars_def,pred_setTheory.EXTENSION,
          holSyntaxLibTheory.MEM_FOLDR_LIST_UNION,
          MEM_MAP,PULL_EXISTS] >>
@@ -629,7 +633,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     fs[WELLTYPED] >>
     imp_res_tac tyvars_typeof_subset_tvars >>
     fs[pred_setTheory.SUBSET_DEF,tyvars_def] >>
-    metis_tac[] ) >>
+    metis_tac[mlstringTheory.implode_explode] ) >>
   gen_tac >>
   qmatch_abbrev_tac`P ⇒ q` >>
   strip_tac >> qunabbrev_tac`q` >>
