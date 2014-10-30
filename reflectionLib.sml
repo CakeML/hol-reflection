@@ -12,7 +12,7 @@ local
   val universe_ty = ``:'U``
   val bool_ty = ``:bool``
   val type_ty = ``:type``
-  fun to_inner_tm ty = 
+  fun to_inner_tm ty =
     mk_comb (
       mk_const ("to_inner0", (universe_ty --> universe_ty --> bool_ty)
                          --> type_ty --> ty --> universe_ty),
@@ -32,7 +32,7 @@ local
     ``range ^(mk_to_inner ty)``
 
 
-  datatype any_type_view = 
+  datatype any_type_view =
     BoolType | FunType of hol_type * hol_type | BaseType of type_view
 
   fun base_type_view (ty : hol_type) : type_view = case type_view ty of
@@ -45,16 +45,15 @@ local
     | Tyapp(thy, "fun",  [ty1,ty2]) => FunType(ty1,ty2)
     | view                          => BaseType view
 
-  
   fun base_types_of_type (ty : hol_type) : hol_type list = case any_type_view ty of
       BoolType         => []
     | BaseType _       => [ty]
     | FunType(ty1,ty2) => base_types_of_type ty1 @ base_types_of_type ty2
 
   fun base_type_assums (ty : hol_type) : term list = case base_type_view ty of
-      Tyapp(thy, name, args) => [``FLOOKUP tysig ^(fromMLstring name) = 
+      Tyapp(thy, name, args) => [``FLOOKUP tysig ^(fromMLstring name) =
                                      SOME ^(term_of_int (length args))``,
-                                 ``tyass ^(fromMLstring name) (map mk_range args) = 
+                                 ``tyass ^(fromMLstring name) (map mk_range args) =
                                      ^(mk_range ty)``]
     | Tyvar name             => [``tyval ^(fromMLstring name) = ^(mk_range ty)``]
 
@@ -117,6 +116,88 @@ local
     flatten (map base_type_assums (base_types_of_term tm)) @
     flatten (map base_term_assums (base_terms_of_term tm))
 
+  type update = {
+    sound_update_thm  : thm, (* |- sound_update ctxt upd *)
+    constrainable_thm : thm, (* |- constrainable_update upd *)
+    tys : hol_type list,
+    consts : term list,
+    axs : thm list }
+
+  fun find_type_instances toconstrain fromupdate =
+    mk_set (
+    foldl
+      (fn (ty1,acc) =>
+        foldl (fn (ty2,acc) =>
+                    case total (match_type ty1) ty2 of NONE => acc
+                      | SOME s => s::acc)
+                 acc
+                 toconstrain)
+      []
+      fromupdate
+    )
+
+  fun find_const_instances toconstrain fromupdate =
+    mk_set (
+    foldl
+      (fn (tm1,acc) =>
+        foldl (fn (tm2,acc) =>
+                    case total (match_term tm1) tm2 of NONE => acc
+                      | SOME (_,s) => s::acc)
+                 acc
+                 toconstrain)
+      []
+      fromupdate
+    )
+
+
+(*
+    foldl : ('a * 'b -> b) -> 'b -> 'a list -> 'b
+    match_type : hol_type -> hol_type -> (hol_type,hol_type) subst
+    type_subst (match_type ty1 ty2) ty1 = ty2
+    match_term : term -> term -> (term,term) subst * (hol_type,hol_type) subst
+    INST_TYPE : (hol_type,hol_type) subst -> thm -> thm
+    mk_set : ''a list -> ''a list
+*)
+
+val update_interpretation_def = new_specification("update_interpretation_def",["update_interpretation"],
+  prove(``∃u. ∀ctxt upd i.
+            sound_update ctxt upd ∧ i models (thyof ctxt) ⇒
+            equal_on (sigof ctxt) i (u ctxt upd i) ∧
+            (u ctxt upd i) models (thyof (upd::ctxt))``,
+          use sound_update_def)
+
+fun get_int th = th |> concl |> rator |> rand
+
+  fun build_interpretation [] tys consts =
+        want:
+        some_int models thyof hol_ctxt ∧ ^assums
+
+    | build_interpretation (upd::ctxt) tys consts =
+        let
+          val instances_to_constrain =
+            Lib.union (find_type_instances tys (#tys upd))
+                      (find_const_instances consts (#consts upd))
+          val instantiated_axioms =
+            concat (map (fn s => map (INST_TYPE s) (#axs upd)) instances_to_constrain)
+          val new_tys =
+            (* mk_set? *)concat (map base_types_of_term o concl) instantiated_axioms
+          val new_consts =
+            concat (map base_terms_of_term o concl) instantiated_axioms
+          val ith = build_interpretation ctxt (new_tys@tys) (new_consts@consts)
+          val itm = get_int (CONJUNCT1 ith)
+          val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) (CONJUNCT1 ith))
+          val jtm = get_int jth
+          val (ktys,kconsts) = the tys and consts that matched when making instances_to_constrain
+          val ktm = ``constrain_interpretation ^(upd_to_inner upd) ^(cs_to_inner ktys kconsts) ^jtm``
+        in
+        end
+
+(*
+  sound_update ctxt upd ⇔
+    ∀i. i models (thyof ctxt) ⇒
+      ∃i'. equal_on (sigof ctxt) i i' ∧
+           i' models (thyof (upd::ctxt))`
+*)
 
 (*******************
   val MID_EXISTS_AND_THM = prove(
