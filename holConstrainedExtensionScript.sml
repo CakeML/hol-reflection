@@ -310,7 +310,8 @@ val constrain_interpretation_equal_on = store_thm("constrain_interpretation_equa
   imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
   TRY(PairCases_on`p`>>fs[] >> metis_tac[]) >>
   qmatch_assum_abbrev_tac`LENGTH vars = LENGTH args` >>
-  first_x_assum(qspec_then`K boolset =++ ZIP(vars,args)`mp_tac) >>
+  first_x_assum(qspec_then`args`mp_tac) >> simp[] >> strip_tac >>
+  first_x_assum(qspec_then`K boolset =++ ZIP(MAP implode vars,args)`mp_tac) >>
   discharge_hyps >- (
     conj_tac >- (
       match_mp_tac is_type_valuation_UPDATE_LIST >>
