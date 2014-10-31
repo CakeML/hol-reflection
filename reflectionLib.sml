@@ -177,6 +177,10 @@ fun get_int th = th |> concl |> rator |> rand
           val instances_to_constrain =
             Lib.union (find_type_instances tys (#tys upd))
                       (find_const_instances consts (#consts upd))
+          val instantiated_tys =
+            concat (map (fn s => map (type_subst s) (#tys upd)))
+          val instantiated_consts =
+            concat (map (fn s => map (inst s) (#consts upd)))
           val instantiated_axioms =
             concat (map (fn s => map (INST_TYPE s) (#axs upd)) instances_to_constrain)
           val new_tys =
@@ -184,11 +188,20 @@ fun get_int th = th |> concl |> rator |> rand
           val new_consts =
             concat (map base_terms_of_term o concl) instantiated_axioms
           val ith = build_interpretation ctxt (new_tys@tys) (new_consts@consts)
+            (* XXX: the recursive call to build_interpretation should take
+               - (tys SETMINUS instantiated_tys) UNION new_tys
+               - (consts SETMINUS instantiated_consts) UNION new_consts
+               [Note: It is *not* guaranteed that
+                (instantiated_tys SUBSET tys) or the analog for consts;
+                this is because we may have been *told* to constrain e.g.
+                one of the constants of a certain instance of the update,
+                but this means that we need to constrain *all* of the
+                constants of that update]
+             *)
           val itm = get_int (CONJUNCT1 ith)
           val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) (CONJUNCT1 ith))
           val jtm = get_int jth
-          val (ktys,kconsts) = the tys and consts that matched when making instances_to_constrain
-          val ktm = ``constrain_interpretation ^(upd_to_inner upd) ^(cs_to_inner ktys kconsts) ^jtm``
+          val ktm = ``constrain_interpretation ^(upd_to_inner upd) ^(cs_to_inner instantiated_types instantiated_consts) ^jtm``
         in
         end
 
