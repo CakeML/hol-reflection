@@ -3,7 +3,7 @@ VMLDIR = ../vml
 endif
 
 HOLHOL = $(VMLDIR)/hol-light
-INCLUDES = $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
+INCLUDES = $(VMLDIR) $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

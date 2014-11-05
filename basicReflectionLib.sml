@@ -27,21 +27,23 @@ fun type_view (ty : hol_type) =
   else
     Tyvar (tyvar_to_deep (dest_vartype ty))
 
+val string_to_inner = mlstringSyntax.mk_strlit o fromMLstring
+
 fun type_to_deep ty = case type_view ty of
-    Tyvar name => mk_Tyvar (fromMLstring name)
+    Tyvar name => mk_Tyvar (string_to_inner name)
   | Tyapp (thy,name,args) =>
-      mk_Tyapp(fromMLstring name, mk_list(List.map type_to_deep args, type_ty))
+      mk_Tyapp(string_to_inner name, mk_list(List.map type_to_deep args, type_ty))
 
 fun term_to_deep tm =
   case dest_term tm of
-    VAR(x,ty) => mk_Var(fromMLstring x, type_to_deep ty)
-  | CONST {Name,Thy,Ty} => mk_Const(fromMLstring Name, type_to_deep Ty)
+    VAR(x,ty) => mk_Var(string_to_inner x, type_to_deep ty)
+  | CONST {Name,Thy,Ty} => mk_Const(string_to_inner Name, type_to_deep Ty)
   | COMB (f,x) => mk_Comb(term_to_deep f, term_to_deep x)
   | LAMB (x,b) =>
       let
         val (x,ty) = dest_var x
       in
-        mk_Abs(mk_Var(fromMLstring x, type_to_deep ty), term_to_deep b)
+        mk_Abs(mk_Var(string_to_inner x, type_to_deep ty), term_to_deep b)
       end
 
 fun underscores [] = ""
