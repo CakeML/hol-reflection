@@ -75,7 +75,7 @@ fun mk_termsem d =
   list_mk_comb(termsem_tm,[tmsig,interpretation,valuation,d])
 
 val EVAL_STRING_SORT =
-  CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (tyvars X)``) tm
+  CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (MAP explode (tyvars X))``) tm
                         then EVAL tm else raise UNCHANGED))
 
 (* given [...,A,...] |- P and H |- A <=> B1 /\ ... /\ Bn

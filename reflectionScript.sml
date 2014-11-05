@@ -286,22 +286,22 @@ val good_context_wf_to_inner_fun_to_inner = prove(mk_imp(good_context,rand(concl
   rw[good_context_def,wf_to_inner_fun_to_inner]) |> UNDISCH
 
 val good_context_tyass_bool = prove(
-  ``^good_context ==> (tyass "bool" [] = range bool_to_inner)``,
+  ``^good_context ==> (tyass (strlit"bool") [] = range bool_to_inner)``,
   rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_bool_to_inner]) |> UNDISCH
 
 val good_context_tyass_fun = prove(
   ``^good_context ==> !tya tyb ina inb.
       wf_to_inner ina /\ wf_to_inner inb /\ tya = range ina /\ tyb = range inb ==>
-        tyass "fun" [tya; tyb] = range (fun_to_inner ina inb)``,
+        tyass (strlit"fun") [tya; tyb] = range (fun_to_inner ina inb)``,
   rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_fun_to_inner]
   ) |> UNDISCH
 
 val good_context_lookup_bool = prove(
-  ``^good_context ⇒ FLOOKUP ^tysig "bool" = SOME 0``,
+  ``^good_context ⇒ FLOOKUP ^tysig (strlit "bool") = SOME 0``,
   rw[good_context_def,is_std_sig_def]) |> UNDISCH
 
 val good_context_lookup_fun = prove(
-  ``^good_context ⇒ FLOOKUP ^tysig "fun" = SOME 2``,
+  ``^good_context ⇒ FLOOKUP ^tysig (strlit "fun") = SOME 2``,
   rw[good_context_def,is_std_sig_def]) |> UNDISCH
 
 val good_context_extend_tmval = prove(
@@ -317,18 +317,18 @@ val good_context_instance_equality = prove(
     type_ok ^tysig ty ∧
     typesem ^tyass ^tyval ty = range ina ∧
     wf_to_inner ina ⇒
-    instance ^tmsig ^interpretation "=" (Fun ty (Fun ty Bool)) ^tyval =
+    instance ^tmsig ^interpretation (strlit"=") (Fun ty (Fun ty Bool)) ^tyval =
       fun_to_inner ina (fun_to_inner ina bool_to_inner) $=``,
   rw[good_context_def] >>
   fs[is_std_sig_def] >>
   imp_res_tac instance_def >>
-  first_x_assum(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  first_x_assum(qspec_then`[ty,Tyvar (strlit"A")]`mp_tac) >>
   simp[holSyntaxLibTheory.REV_ASSOCD] >>
   disch_then(mp_tac o SPEC interpretation) >>
   simp[] >> disch_then kall_tac >>
   EVAL_STRING_SORT >> simp[holSyntaxLibTheory.REV_ASSOCD] >>
   fs[is_std_interpretation_def,interprets_def] >>
-  first_x_assum(qspec_then`("A"=+ typesem ^tyass ^tyval ty)(K boolset)`mp_tac) >>
+  first_x_assum(qspec_then`(strlit"A"=+ typesem ^tyass ^tyval ty)(K boolset)`mp_tac) >>
   discharge_hyps >- (
     simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
     reverse(rw[mem_boolset]) >- metis_tac[] >>
@@ -336,7 +336,7 @@ val good_context_instance_equality = prove(
     match_mp_tac (UNDISCH typesem_inhabited) >>
     fs[is_valuation_def,is_interpretation_def] >>
     metis_tac[] ) >>
-  simp[combinTheory.APPLY_UPDATE_THM] >>
+  simp[combinTheory.APPLY_UPDATE_THM,mlstringTheory.implode_def] >>
   disch_then kall_tac >>
   simp[fun_to_inner_def] >>
   match_mp_tac (UNDISCH abstract_eq) >>
@@ -1162,9 +1162,9 @@ val boolean_of_eq_true = store_thm("boolean_of_eq_true",
 
 
 val bool_cert_thm = prove(
-  ``good_context mem tysig tmsig tyass tmass tyval tmval ==> 
+  ``good_context mem tysig tmsig tyass tmass tyval tmval ==>
       (wf_to_inner bool_to_inner /\
-       typesem tyass tyval (Tyapp "bool" []) = range bool_to_inner)``,
+       typesem tyass tyval (Tyapp (strlit"bool") []) = range bool_to_inner)``,
   rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def] >>
   rw[wf_to_inner_bool_to_inner,range_bool_to_inner,typesem_def]) |> UNDISCH;
 
@@ -1173,7 +1173,7 @@ val fun_cert_thm = prove(
     (wf_to_inner ty1_to_inner /\ typesem tyass tyval ty1 = range ty1_to_inner) ==>
     (wf_to_inner ty2_to_inner /\ typesem tyass tyval ty2 = range ty2_to_inner) ==>
       (wf_to_inner (fun_to_inner ty1_to_inner ty2_to_inner) /\
-       typesem tyass tyval (Tyapp "fun" [ty1; ty2]) = range (fun_to_inner ty1_to_inner ty2_to_inner))``,
+       typesem tyass tyval (Tyapp (strlit"fun") [ty1; ty2]) = range (fun_to_inner ty1_to_inner ty2_to_inner))``,
   rw[good_context_def,typesem_def,is_std_interpretation_def,is_std_type_assignment_def] >>
   rw[wf_to_inner_fun_to_inner,range_fun_to_inner]) |> UNDISCH;
 
@@ -1187,8 +1187,8 @@ val _ = Parse.overload_on("in_def",``in_def0 ^mem``)
 *)
 
 val tyvar_cert_thm = prove(
-  ``good_context mem tysig tmsig tyass tmass tyval tmval ==> 
-    wf_to_inner (to_inner (Tyvar v) : 'a -> 'U) ==> 
+  ``good_context mem tysig tmsig tyass tmass tyval tmval ==>
+    wf_to_inner (to_inner (Tyvar v) : 'a -> 'U) ==>
     tyval v = range (to_inner (Tyvar v) : 'a -> 'U) ==>
       (wf_to_inner (to_inner (Tyvar v) : 'a -> 'U) /\
        typesem tyass tyval (Tyvar v) = range (to_inner (Tyvar v) : 'a -> 'U))``,
