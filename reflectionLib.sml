@@ -3,7 +3,7 @@ local
   open HolKernel boolLib bossLib lcsymtacs listSimps stringSimps
   open miscLib miscTheory combinTheory pred_setTheory numSyntax pairSyntax stringSyntax listSyntax holSyntaxSyntax
   open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
-  open holBoolTheory
+  open holBoolTheory holConstrainedExtensionTheory
   open reflectionTheory basicReflectionLib
 
   val bool_to_inner_tm = ``bool_to_inner``
@@ -159,39 +159,86 @@ local
     mk_set : ''a list -> ''a list
 *)
 
-val update_interpretation_def = new_specification("update_interpretation_def",["update_interpretation"],
-  prove(``∃u. ∀ctxt upd i.
-            sound_update ctxt upd ∧ i models (thyof ctxt) ⇒
-            equal_on (sigof ctxt) i (u ctxt upd i) ∧
-            (u ctxt upd i) models (thyof (upd::ctxt))``,
-          use sound_update_def)
+  val update_interpretation_def = new_specification("update_interpretation_def",["update_interpretation0"],
+    prove(``∃u. ∀mem ctxt upd i.
+              sound_update0 mem ctxt upd ∧ models0 mem i (thyof ctxt) ⇒
+              equal_on (sigof ctxt) i (u mem ctxt upd i) ∧
+              models0 mem (u mem ctxt upd i) (thyof (upd::ctxt))``,
+          rw[GSYM SKOLEM_THM] >>
+          rw[RIGHT_EXISTS_IMP_THM,holExtensionTheory.sound_update_def]))
+  val _ = Parse.overload_on("update_interpretation",``update_interpretation0 ^mem``)
+  val update_interpretation_def = save_thm("update_interpretation_def",update_interpretation_def |> ISPEC mem)
 
-fun get_int th = th |> concl |> rator |> rand
+  fun cs_to_inner tys consts =
+    let
+      fun subst_to_cs s =
+        let
+          fun const_to_inner c =
+            let
+              val ic = inst s c
+            in
+              mk_comb(mk_to_inner (type_of ic), ic)
+            end
+          val inner_tys = map (mk_range o type_subst s) tys
+          val inner_consts = map const_to_inner consts
+        in
+          mk_pair(mk_list(inner_tys,universe_ty),
+                  mk_list(inner_consts,universe_ty))
+        end
+      fun subst_to_inner (s:(hol_type,hol_type)subst) =
+        let
+          fun cmp_to_P c x y = c (x,y) <> GREATER
+          val by_name =
+            cmp_to_P (inv_img_cmp (dest_vartype o #redex) String.compare)
+          val sorted_subst = sort by_name s
+          val sorted_vals = map (mk_range o #residue) sorted_subst
+        in
+          mk_list(sorted_vals,universe_ty)
+        end
+      fun foldthis (s,f) =
+        mk_icomb(combinSyntax.mk_update
+          (subst_to_inner s,
+           optionSyntax.mk_some(subst_to_cs s)),
+                 f)
+    in
+      foldl foldthis ``K NONE : 'U constraints``
+    end
+
+(*
+val tys = [mk_list_type alpha]
+val consts = [cons_tm]
+val substs = [[alpha|->numSyntax.num],[alpha|->bool]]
+val (s::_) = substs
+val (_::s::_) = substs
+cs_to_inner tys consts substs
+*)
+
+  fun get_int th = th |> concl |> rator |> rand
 
   fun build_interpretation [] tys consts =
         want:
         some_int models thyof hol_ctxt ∧ ^assums
+        define some_int by new_spec on holConsistencyTheory.hol_has_model
 
     | build_interpretation (upd::ctxt) tys consts =
         let
           val instances_to_constrain =
-            Lib.union (find_type_instances tys (#tys upd))
-                      (find_const_instances consts (#consts upd))
+            union (find_type_instances tys (#tys upd))
+                  (find_const_instances consts (#consts upd))
           val instantiated_tys =
-            concat (map (fn s => map (type_subst s) (#tys upd)))
+            concat (map (fn s => map (type_subst s) (#tys upd)) instances_to_constrain)
           val instantiated_consts =
-            concat (map (fn s => map (inst s) (#consts upd)))
+            concat (map (fn s => map (inst s) (#consts upd)) instances_to_constrain)
           val instantiated_axioms =
             concat (map (fn s => map (INST_TYPE s) (#axs upd)) instances_to_constrain)
           val new_tys =
             (* mk_set? *)concat (map base_types_of_term o concl) instantiated_axioms
           val new_consts =
             concat (map base_terms_of_term o concl) instantiated_axioms
-          val ith = build_interpretation ctxt (new_tys@tys) (new_consts@consts)
-            (* XXX: the recursive call to build_interpretation should take
-               - (tys SETMINUS instantiated_tys) UNION new_tys
-               - (consts SETMINUS instantiated_consts) UNION new_consts
-               [Note: It is *not* guaranteed that
+          val ith = build_interpretation ctxt
+            (union (set_diff tys instantiated_tys) new_tys)
+            (union (set_diff consts instantiated_consts) new_consts)
+            (* [Note: It is *not* guaranteed that
                 (instantiated_tys SUBSET tys) or the analog for consts;
                 this is because we may have been *told* to constrain e.g.
                 one of the constants of a certain instance of the update,
@@ -201,7 +248,12 @@ fun get_int th = th |> concl |> rator |> rand
           val itm = get_int (CONJUNCT1 ith)
           val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) (CONJUNCT1 ith))
           val jtm = get_int jth
-          val ktm = ``constrain_interpretation ^(upd_to_inner upd) ^(cs_to_inner instantiated_types instantiated_consts) ^jtm``
+          val inner_cs = cs_to_inner (#tys upd) (#consts upd) instances_to_constrain
+          val ktm = ``constrain_interpretation ^(upd_to_inner upd) ^inner_cs ^jtm``
+
+            concat (map base_type_assums instantiated_tys)
+
+            concat (map base_term_assums instantiated_consts)
         in
         end
 
