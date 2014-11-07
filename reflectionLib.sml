@@ -159,16 +159,6 @@ local
     mk_set : ''a list -> ''a list
 *)
 
-  val update_interpretation_def = new_specification("update_interpretation_def",["update_interpretation0"],
-    prove(``∃u. ∀mem ctxt upd i.
-              sound_update0 mem ctxt upd ∧ models0 mem i (thyof ctxt) ⇒
-              equal_on (sigof ctxt) i (u mem ctxt upd i) ∧
-              models0 mem (u mem ctxt upd i) (thyof (upd::ctxt))``,
-          rw[GSYM SKOLEM_THM] >>
-          rw[RIGHT_EXISTS_IMP_THM,holExtensionTheory.sound_update_def]))
-  val _ = Parse.overload_on("update_interpretation",``update_interpretation0 ^mem``)
-  val update_interpretation_def = save_thm("update_interpretation_def",update_interpretation_def |> ISPEC mem)
-
   fun cs_to_inner tys consts =
     let
       fun subst_to_cs s =
@@ -213,13 +203,44 @@ val (_::s::_) = substs
 cs_to_inner tys consts substs
 *)
 
+  (* TODO move *)
+  val extends_refl = store_thm("extends_refl",
+    ``∀ctxt. ctxt extends ctxt``,
+    rw[extends_def])
+
+  val hol_model_def = new_specification("hol_model_def",["hol_model0"],
+    holConsistencyTheory.hol_has_model
+    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> funpow 2 UNDISCH
+    |> Q.SPEC`hol_ctxt`
+    |> SIMP_RULE std_ss [extends_refl]
+    |> CONJUNCT2
+    |> DISCH_ALL
+    |> CONV_RULE(RAND_CONV(HO_REWR_CONV(GSYM RIGHT_EXISTS_IMP_THM)))
+    |> CONV_RULE(HO_REWR_CONV(GSYM RIGHT_EXISTS_IMP_THM))
+    |> Q.GEN`mem`
+    |> CONV_RULE(HO_REWR_CONV(SKOLEM_THM)))
+  val _ = Parse.overload_on("hol_model",``hol_model0 ^mem``)
+  val hol_model_def = save_thm("hol_model_def",
+    hol_model_def |> SPEC mem |> funpow 2 UNDISCH)
+  (* -- *)
+
   fun get_int th = th |> concl |> rator |> rand
 
   fun build_interpretation [] tys consts =
-        want:
-        some_int models thyof hol_ctxt ∧ ^assums
-        define some_int by new_spec on holConsistencyTheory.hol_has_model
+        let
+          val tyassums = concat (map base_type_assums tys)
+          val tmassums = concat (map base_term_assums consts)
+          val assums = list_mk_conj (tyassums @ tmassms)
+        in
+            want:
+            ^(concl hol_model_def) ∧ ^assums
 
+            problem: hol_model doesn't necessarily satisfy assums. need a
+            generalised version that allows constraints to be placed on select.
+            (also might need to prove anything in the assums about the actual
+            primitives)
+        end
     | build_interpretation (upd::ctxt) tys consts =
         let
           val instances_to_constrain =
