@@ -149,15 +149,207 @@ local
       fromupdate
     )
 
+  local
+    val bool_th = wf_to_inner_bool_to_inner |> UNDISCH
+    val fun_th = wf_to_inner_fun_to_inner |> UNDISCH
+  in
+    fun wf_to_inner_mk_to_inner ty =
+      case any_type_view ty of
+        BoolType => bool_th
+      | FunType(x,y) =>
+        let
+          val th1 = wf_to_inner_mk_to_inner x
+          val th2 = wf_to_inner_mk_to_inner y
+        in
+          MATCH_MP fun_th (CONJ th1 th2)
+        end
+      | BaseType _ => ASSUME ``wf_to_inner ^(mk_to_inner ty)``
+  end
 
-(*
+  local
+    val distinct_tag_bool_range = prove(
+      ``is_set_theory ^mem ⇒
+        !x. wf_to_inner ((to_inner x):'a -> 'U) ⇒
+        range ((to_inner x):'a -> 'U) ≠ range bool_to_inner``,
+      rw[] >>
+      imp_res_tac is_extensional >>
+      fs[extensional_def] >>
+      qexists_tac`to_inner x ARB` >>
+      qmatch_abbrev_tac`a ≠ b` >>
+      qsuff_tac`~b`>-metis_tac[wf_to_inner_range_thm]>>
+      simp[Abbr`a`,Abbr`b`,to_inner_def,range_bool_to_inner] >>
+      simp[tag_def]) |> UNDISCH
+
+    val distinct_tag_fun_range = prove(
+      ``is_set_theory ^mem ⇒
+        !x y z.
+        wf_to_inner ((to_inner x):'a -> 'U) ⇒
+        wf_to_inner y ⇒
+        wf_to_inner z ⇒
+        range ((to_inner x):'a -> 'U) ≠ range (fun_to_inner y z)``,
+      rw[] >>
+      imp_res_tac is_extensional >>
+      fs[extensional_def] >>
+      qexists_tac`to_inner x ARB` >>
+      qmatch_abbrev_tac`a ≠ b` >>
+      qsuff_tac`~b`>-metis_tac[wf_to_inner_range_thm]>>
+      simp[Abbr`a`,Abbr`b`,to_inner_def,range_fun_to_inner] >>
+      simp[tag_def]) |> UNDISCH
+
+    val distinct_tags = prove(
+      ``is_set_theory ^mem ⇒
+        !x y.
+        wf_to_inner ((to_inner x):'a -> 'U) ⇒
+        wf_to_inner ((to_inner y):'b -> 'U) ⇒
+        x ≠ y ⇒
+        range ((to_inner x):'a -> 'U) ≠
+        range ((to_inner y):'b -> 'U)``,
+      rw[] >>
+      imp_res_tac is_extensional >>
+      fs[extensional_def] >>
+      qexists_tac`to_inner x ARB` >>
+      qmatch_abbrev_tac`a ≠ b` >>
+      qsuff_tac`~b`>-metis_tac[wf_to_inner_range_thm]>>
+      simp[Abbr`a`,Abbr`b`] >>
+      spose_not_then strip_assume_tac >>
+      imp_res_tac wf_to_inner_finv_right >>
+      fs[to_inner_def] >>
+      metis_tac[tag_def,pairTheory.PAIR_EQ]) |> UNDISCH
+
+    val distinct_bool_fun = prove(
+      ``is_set_theory ^mem ⇒
+        !x y.
+        wf_to_inner x ⇒
+        wf_to_inner y ⇒
+        range bool_to_inner ≠ range (fun_to_inner x y )``,
+      rw[range_bool_to_inner,range_fun_to_inner] >>
+      imp_res_tac is_extensional >>
+      fs[extensional_def] >>
+      pop_assum kall_tac >>
+      rw[mem_boolset] >>
+      qexists_tac`True` >> rw[] >>
+      spose_not_then strip_assume_tac >>
+      imp_res_tac in_funspace_abstract >>
+      fs[abstract_def,true_def] >>
+      imp_res_tac is_extensional >>
+      fs[Once extensional_def] >> rfs[mem_empty] >>
+      imp_res_tac wf_to_inner_range_thm >>
+      rfs[mem_sub,mem_product] >>
+      cheat) |> UNDISCH
+
+    val distinct_fun_fun = prove(
+      ``is_set_theory ^mem ⇒
+        !d1 r1 d2 r2.
+        wf_to_inner d1 ∧
+        wf_to_inner r1 ∧
+        wf_to_inner d2 ∧
+        wf_to_inner r2 ⇒
+        pair$, (range d1) (range r1) ≠ (range d2, range r2) ⇒
+        range (fun_to_inner d1 r1) ≠ range (fun_to_inner d2 r2)``,
+      rw[range_fun_to_inner] >>
+      imp_res_tac is_extensional >>
+      pop_assum mp_tac >>
+      simp[extensional_def] >>
+      disch_then kall_tac >- (
+        cheat) >>
+      cheat) |> UNDISCH
+
+    val ERR = mk_HOL_ERR"reflectionLib""ranges_distinct"
+    val ERR_same = ERR"same_types"
+  in
+    fun ranges_distinct ty1 ty2 =
+      case (any_type_view ty1, any_type_view ty2) of
+         (BoolType, BoolType) => raise ERR_same
+      |  (BoolType, FunType (x,y)) =>
+           distinct_bool_fun
+           |> ISPECL [mk_to_inner x, mk_to_inner y]
+           |> C MP (wf_to_inner_mk_to_inner x)
+           |> C MP (wf_to_inner_mk_to_inner y)
+      |  (FunType (x,y), BoolType) =>
+           distinct_bool_fun
+           |> ISPECL [mk_to_inner x, mk_to_inner y]
+           |> C MP (wf_to_inner_mk_to_inner x)
+           |> C MP (wf_to_inner_mk_to_inner y)
+           |> GSYM
+      |  (BaseType _, FunType(x,y)) =>
+           distinct_tag_fun_range
+           |> ISPECL [type_to_deep ty1, mk_to_inner x, mk_to_inner y]
+           |> INST_TYPE[alpha|->ty1]
+           |> UNDISCH
+           |> C MP (wf_to_inner_mk_to_inner x)
+           |> C MP (wf_to_inner_mk_to_inner y)
+      |  (FunType (x,y), BaseType _) =>
+           distinct_tag_fun_range
+           |> ISPECL [type_to_deep ty2, mk_to_inner x, mk_to_inner y]
+           |> INST_TYPE[alpha|->ty2]
+           |> UNDISCH
+           |> C MP (wf_to_inner_mk_to_inner x)
+           |> C MP (wf_to_inner_mk_to_inner y)
+           |> GSYM
+      (* val (FunType (x1,y1), FunType (x2,y2)) = it *)
+      |  (FunType (x1,y1), FunType (x2,y2)) =>
+           let
+             val tys = [x1,y1,x2,y2]
+             val ranges = map mk_range tys
+             val th1 =
+               pairTheory.PAIR_EQ
+               |> EQ_IMP_RULE |> fst
+               |> CONTRAPOS
+               |> CONV_RULE(LAND_CONV(REWR_CONV(
+                    CONJUNCT1 (SPEC_ALL DE_MORGAN_THM))))
+               |> Q.GENL(rev[`x`,`y`,`a`,`b`])
+               |> ISPECL ranges
+             val th2 =
+               if x1 = x2 then
+                 if y1 = y2 then raise ERR_same
+                 else
+                   DISJ2
+                   (th1|>concl|>dest_imp|>fst|>dest_disj|>fst)
+                   (ranges_distinct y1 y2)
+               else
+                 DISJ1
+                 (ranges_distinct x1 x2)
+                 (th1|>concl|>dest_imp|>fst|>dest_disj|>snd)
+           in
+             distinct_fun_fun
+             |> ISPECL (map mk_to_inner tys)
+             |> C MP (LIST_CONJ (map wf_to_inner_mk_to_inner tys))
+             |> C MP (MP th1 th2)
+           end
+      |  (BaseType _, BoolType) =>
+           distinct_tag_bool_range
+           |> ISPEC (type_to_deep ty1)
+           |> INST_TYPE[alpha|->ty1]
+           |> UNDISCH
+      |  (BoolType, BaseType _) =>
+           distinct_tag_bool_range
+           |> ISPEC (type_to_deep ty2)
+           |> INST_TYPE[alpha|->ty2]
+           |> UNDISCH
+           |> GSYM
+      |  (BaseType _, BaseType _) =>
+           if ty1 = ty2 then raise ERR_same
+           else let
+             val tys = map type_to_deep [ty1, ty2]
+             (* TODO: purpose-built conversion rather than EVAL? *)
+             val th = EVAL(mk_eq(el 1 tys, el 2 tys)) |> EQF_ELIM
+           in
+             distinct_tags
+             |> ISPECL tys
+             |> INST_TYPE[alpha|->ty1,beta|->ty2]
+             |> funpow 2 UNDISCH
+             |> C MP th
+           end
+  end
+
+  (*
     foldl : ('a * 'b -> b) -> 'b -> 'a list -> 'b
     match_type : hol_type -> hol_type -> (hol_type,hol_type) subst
     type_subst (match_type ty1 ty2) ty1 = ty2
     match_term : term -> term -> (term,term) subst * (hol_type,hol_type) subst
     INST_TYPE : (hol_type,hol_type) subst -> thm -> thm
     mk_set : ''a list -> ''a list
-*)
+  *)
 
   fun cs_to_inner tys consts =
     let

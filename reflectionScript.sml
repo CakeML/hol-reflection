@@ -216,7 +216,7 @@ val tag_def =
 val _ = overload_on("tag",``tag0 ^mem``)
 val _ = save_thm("tag_def",tag_def)
 
-val to_inner_def = Define`
+val to_inner_def = xDefine"to_inner"`
   to_inner0 ^mem (ty:type) = (tag ty) o (@f. wf_to_inner f)`
 val _ = overload_on("to_inner",``to_inner0 ^mem``)
 
