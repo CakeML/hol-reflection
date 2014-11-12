@@ -53,7 +53,8 @@ local
   fun base_type_assums (ty : hol_type) : term list = case base_type_view ty of
       Tyapp(thy, name, args) => [``FLOOKUP tysig ^(fromMLstring name) =
                                      SOME ^(term_of_int (length args))``,
-                                 ``tyass ^(fromMLstring name) (map mk_range args) =
+                                 ``tyass ^(fromMLstring name)
+                                     ^(mk_list(map mk_range args,universe_ty)) =
                                      ^(mk_range ty)``]
     | Tyvar name             => [``tyval ^(fromMLstring name) = ^(mk_range ty)``]
 
