@@ -10,13 +10,12 @@ local
   val fun_to_inner_tm = ``fun_to_inner``
 
   val universe_ty = ``:'U``
-  val bool_ty = ``:bool``
   val type_ty = ``:type``
   fun to_inner_tm ty =
     mk_comb (
-      mk_const ("to_inner0", (universe_ty --> universe_ty --> bool_ty)
+      mk_const ("to_inner0", (universe_ty --> universe_ty --> bool)
                          --> type_ty --> ty --> universe_ty),
-      mk_var ("mem", universe_ty --> universe_ty --> bool_ty)
+      mk_var ("mem", universe_ty --> universe_ty --> bool)
     )
 
   fun mk_to_inner (ty : hol_type) = case type_view ty of
@@ -24,13 +23,11 @@ local
     | Tyapp(thy, "fun",  [ty1,ty2]) => mk_binop fun_to_inner_tm (mk_to_inner ty1, mk_to_inner ty2)
     | _                             => mk_monop (to_inner_tm ty) (type_to_deep ty)
 
-
   fun to_inner_prop (ty : hol_type) : term =
     ``wf_to_inner ^(mk_to_inner ty)``
 
   fun mk_range (ty : hol_type) : term =
     ``range ^(mk_to_inner ty)``
-
 
   datatype any_type_view =
     BoolType | FunType of hol_type * hol_type | BaseType of type_view
@@ -51,13 +48,12 @@ local
     | FunType(ty1,ty2) => base_types_of_type ty1 @ base_types_of_type ty2
 
   fun base_type_assums (ty : hol_type) : term list = case base_type_view ty of
-      Tyapp(thy, name, args) => [``FLOOKUP tysig ^(fromMLstring name) =
+      Tyapp(thy, name, args) => [``FLOOKUP tysig ^(string_to_inner name) =
                                      SOME ^(term_of_int (length args))``,
-                                 ``tyass ^(fromMLstring name)
+                                 ``tyass ^(string_to_inner name)
                                      ^(mk_list(map mk_range args,universe_ty)) =
                                      ^(mk_range ty)``]
-    | Tyvar name             => [``tyval ^(fromMLstring name) = ^(mk_range ty)``]
-
+    | Tyvar name             => [``tyval ^(string_to_inner name) = ^(mk_range ty)``]
 
   val type_assums : hol_type -> term list =
     flatten o map (fn ty => to_inner_prop ty :: base_type_assums ty) o base_types_of_type
@@ -102,14 +98,14 @@ local
     | COMB (tm1,tm2)      => base_terms_of_term tm1 @ base_terms_of_term tm2
 
   fun base_term_assums (tm : term) : term list = case dest_base_term tm of
-      VAR (name,ty)       => [``tmval (^(fromMLstring name), ^(type_to_deep ty)) = 
+      VAR (name,ty)       => [``tmval (^(string_to_inner name), ^(type_to_deep ty)) =
                                   ^(mk_to_inner ty) ^tm``]
-    | CONST {Thy,Name,Ty} => [``FLOOKUP tmsig ^(fromMLstring Name) = 
+    | CONST {Thy,Name,Ty} => [``FLOOKUP tmsig ^(string_to_inner Name) =
                                   SOME ^(type_to_deep Ty)``,
-                              ``tmass ^(fromMLstring Name) 
-                                      ^(mk_list (map mk_range 
+                              ``tmass ^(string_to_inner Name)
+                                      ^(mk_list (map mk_range
                                                    (const_tyargs Thy Name Ty),
-                                                 ``:'U``)) =
+                                                 universe_ty)) =
                                   ^(mk_to_inner Ty) ^tm``]
 
   (* TODO: Remove duplicates here and elsewhere. *)
@@ -551,12 +547,12 @@ in
     | Tyapp (_,con,args) =>
          tycon_cert_thm (* TODO: get rid of the MAP somehow *)
          |> INST_TYPE [``:'a`` |-> ty]
-	 |> INST [``con:string`` |-> fromMLstring con,
+	 |> INST [``con:string`` |-> string_to_inner con,
 		  ``args:type list`` |-> mk_list (map type_to_deep args, ``:type``)]
-    | Tyvar v => 
+    | Tyvar v =>
          tyvar_cert_thm
          |> INST_TYPE [``:'a`` |-> ty]
-         |> INST [``v:string`` |-> fromMLstring v]
+         |> INST [``v:string`` |-> string_to_inner v]
 
   fun var_to_cert v =
     let
