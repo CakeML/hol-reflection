@@ -6,6 +6,8 @@ local
   open holBoolTheory holConstrainedExtensionTheory
   open reflectionTheory basicReflectionLib
 
+  val concat = List.concat
+
   val bool_to_inner_tm = ``bool_to_inner``
   val fun_to_inner_tm = ``fun_to_inner``
 
@@ -44,7 +46,9 @@ local
 
   fun base_types_of_type (ty : hol_type) : hol_type list = case any_type_view ty of
       BoolType         => []
-    | BaseType _       => [ty]
+    | BaseType v       => ty::(case v of Tyvar _ => []
+                                       | Tyapp(_,_,args) =>
+                                           concat(map base_types_of_type args))
     | FunType(ty1,ty2) => base_types_of_type ty1 @ base_types_of_type ty2
 
   fun base_type_assums (ty : hol_type) : term list = case base_type_view ty of
@@ -61,8 +65,28 @@ local
   fun typesem_prop (ty : hol_type) : term =
     ``typesem tyass tyval ^(type_to_deep ty) = ^(mk_range ty)``
 
-  (* TODO: typesem_cert *)
-
+  local
+    val good_context = hd(hyp good_context_tyass_bool)
+    val good_context_tyass_fun_simp =
+      good_context_tyass_fun |> SIMP_RULE std_ss []
+  in
+    fun typesem_cert ty =
+      let
+        val goal = (good_context::(type_assums ty), typesem_prop ty)
+        (* set_goal goal *)
+      in
+        TAC_PROOF(goal,
+          rpt(
+            (CHANGED_TAC(REWRITE_TAC[typesem_def,listTheory.MAP,ETA_AX]))
+            ORELSE
+            (CHANGED_TAC(ASM_SIMP_TAC std_ss
+              [good_context_tyass_bool,
+               good_context_tyass_fun_simp,
+               good_context_wf_to_inner_bool_to_inner,
+               good_context_wf_to_inner_fun_to_inner]))
+            ORELSE match_mp_tac good_context_tyass_fun))
+      end
+  end
 
   fun types_of_term (tm : term) : hol_type list = case dest_term tm of
       VAR (name,ty)       => [ty]
