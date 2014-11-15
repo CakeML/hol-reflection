@@ -65,8 +65,9 @@ local
   fun typesem_prop (ty : hol_type) : term =
     ``typesem tyass tyval ^(type_to_deep ty) = ^(mk_range ty)``
 
+  val good_context = hd(hyp good_context_tyass_bool)
+
   local
-    val good_context = hd(hyp good_context_tyass_bool)
     val good_context_tyass_fun_simp =
       good_context_tyass_fun |> SIMP_RULE std_ss []
   in
@@ -103,17 +104,29 @@ local
     | COMB (tm1,tm2)      => raise Fail "dest_base_term called on combination"
     | view                => view
 
+  val generic_type = type_of o prim_mk_const
 
-  fun const_tyargs (thy : string) (name : string) (ty : hol_type) : hol_type list =
-    let val pty = type_of (first (equal name o fst o dest_const) (thy_consts thy))
-        fun str_le (x : string) (y : string) = not ((String.compare (x,y)) = GREATER)
-        fun tyvar_to_str (x : hol_type) = tyvar_to_deep (dest_vartype x)
-        fun le x y = str_le (fst x) (fst y)
-        val sub = map (fn {redex,residue} => (tyvar_to_str redex, residue))
-                      (match_type pty ty)
-     in map snd (sort le sub)
+  fun type_instance c =
+    let
+      val {Name,Thy,Ty} = dest_thy_const c
+      val Ty0 = generic_type {Name=Name,Thy=Thy}
+      val tyin0 = match_type Ty0 Ty
+      val dom = map #redex tyin0
+      fun f x = {redex = assert (not o C Lib.mem dom) x,
+                 residue = x}
+    in
+      mapfilter f (type_vars Ty0) @ tyin0
     end
 
+  local
+    fun cmp_to_P cmp x y = not(cmp(x,y)=GREATER)
+    fun tyvar_to_str (x : hol_type) = tyvar_to_deep (dest_vartype x)
+    fun to_pair {redex,residue} = (tyvar_to_str redex, residue)
+    val le = cmp_to_P (inv_img_cmp fst String.compare)
+  in
+    val const_tyargs : term -> hol_type list =
+      map snd o sort le o map to_pair o type_instance
+  end
 
   fun base_terms_of_term (tm : term) : term list = case dest_term tm of
       VAR (name,ty)       => [tm]
@@ -124,15 +137,19 @@ local
   fun base_term_assums (tm : term) : term list = case dest_base_term tm of
       VAR (name,ty)       => [``tmval (^(string_to_inner name), ^(type_to_deep ty)) =
                                   ^(mk_to_inner ty) ^tm``]
-    | CONST {Thy,Name,Ty} => [``FLOOKUP tmsig ^(string_to_inner Name) =
-                                  SOME ^(type_to_deep Ty)``,
-                              ``tmass ^(string_to_inner Name)
-                                      ^(mk_list (map mk_range
-                                                   (const_tyargs Thy Name Ty),
-                                                 universe_ty)) =
-                                  ^(mk_to_inner Ty) ^tm``]
+    | CONST {Thy,Name,Ty} =>
+      let
+        val Ty0 = type_of(prim_mk_const{Name=Name,Thy=Thy})
+        val name = string_to_inner Name
+      in
+        [``FLOOKUP tmsig ^name = SOME ^(type_to_deep Ty0)``,
+         ``tmass ^name
+                 ^(mk_list (map mk_range
+                              (const_tyargs tm),
+                            universe_ty)) =
+             ^(mk_to_inner Ty) ^tm``]
+      end
 
-  (* TODO: Remove duplicates here and elsewhere. *)
   fun term_assums (tm : term) : term list =
     flatten (map base_type_assums (base_types_of_term tm)) @
     flatten (map base_term_assums (base_terms_of_term tm))
