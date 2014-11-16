@@ -245,7 +245,6 @@ local
       | BaseType _ => ASSUME (to_inner_prop ty)
   end
 
-(*
   local
     val varth = type_ok_def |> CONJUNCT1 |> SIMP_RULE bool_ss []
     val appth = type_ok_def |> CONJUNCT2 |> SPEC_ALL |> EQ_IMP_RULE |> snd
@@ -283,31 +282,81 @@ local
                  |> UNDISCH
                  |> CONV_RULE (LAND_CONV(
                       SIMP_CONV (bool_ss++listSimps.LIST_ss) []))
-                 |> (if null ths then I else C MP (LIST_CONJ ths))
+                 |> C MP (if null ths then TRUTH else LIST_CONJ ths)
       in
         th
       end
   end
-*)
 
-(*
-  val ty = ``:'a list -> ('b -> num)``
-  type_ok_type_to_deep ty
-
-  fun term_ok_term_to_deep tm =
-    case dest_term tm of
-      VAR _ => term_ok_Var
-      term_ok_def
-*)
-
-  (*
-  val term_ok_simp =
-    holBoolSyntaxTheory.term_ok_clauses
-    |> C MATCH_MP
-        (good_context_def |> SPEC_ALL |> EQ_IMP_RULE |> fst
-           |> UNDISCH |> CONJUNCT2 |> CONJUNCT1)
-    |> SIMP_RULE std_ss []
-  *)
+  local
+    val get_rule =
+      snd o EQ_IMP_RULE o SPEC_ALL o SIMP_RULE std_ss [] o SPEC signatur
+    val varth = term_ok_def |> CONJUNCT1 |> get_rule |> Q.GEN`x`
+    val constth =
+      term_ok_def |> CONJUNCT2 |> CONJUNCT1 |> get_rule
+      |> SIMP_RULE std_ss [GSYM LEFT_FORALL_IMP_THM]
+      |> ONCE_REWRITE_RULE[CONJ_COMM]
+      |> ONCE_REWRITE_RULE[GSYM CONJ_ASSOC]
+      |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+      |> Q.GEN`name`
+      |> ADD_ASSUM good_context
+    val combth = term_ok_def |> funpow 2 CONJUNCT2 |> CONJUNCT1 |> get_rule
+                 |> SIMP_RULE std_ss [WELLTYPED_CLAUSES,GSYM AND_IMP_INTRO]
+    val absth =
+      term_ok_def |> funpow 3 CONJUNCT2 |> get_rule
+        |> SIMP_RULE std_ss [PULL_EXISTS]
+  in
+    fun term_ok_term_to_deep tm =
+      case dest_term tm of
+        VAR (x,ty) =>
+          MATCH_MP varth (type_ok_type_to_deep ty)
+          |> SPEC (string_to_inner x)
+      | CONST {Name,Thy,Ty} =>
+          let
+            val th =
+              constth
+              |> C MATCH_MP (type_ok_type_to_deep Ty)
+              |> SPEC (string_to_inner Name)
+              |> SPEC (type_to_deep (generic_type {Name=Name,Thy=Thy}))
+            val goal:goal = ([],th |> concl |> dest_imp |> fst)
+            (* set_goal goal *)
+            val th1 = TAC_PROOF(goal,
+              exists_tac (tyin_to_deep (type_instance tm)) >>
+              EVAL_TAC)
+          in
+            UNDISCH (MP th th1)
+          end
+      (* val COMB (f,x) = it *)
+      | COMB (f,x) =>
+          let
+            val th1 = term_ok_term_to_deep f
+            val th2 = term_ok_term_to_deep x
+            val th =
+              combth
+              |> C MATCH_MP th1
+              |> C MATCH_MP th2
+              |> C MATCH_MP (MATCH_MP term_ok_welltyped th1)
+              |> C MATCH_MP (MATCH_MP term_ok_welltyped th2)
+            val th1 = th |> concl |> dest_imp |> fst
+              |> ((QUANT_CONV((LAND_CONV EVAL) THENC
+                              (RAND_CONV EVAL))) THENC
+                  (SIMP_CONV (std_ss++listSimps.LIST_ss) [type_11]))
+              |> EQT_ELIM
+          in
+            MP th th1
+          end
+      | LAMB (x,b) =>
+          let
+            val th1 = term_ok_term_to_deep x
+            val th2 = term_ok_term_to_deep b
+          in
+            MATCH_MP absth
+              (LIST_CONJ
+                 [REFL(rand(concl th1)),
+                  type_ok_type_to_deep(type_of x),
+                  th2])
+          end
+  end
 
   fun termsem_cert tm =
     let
