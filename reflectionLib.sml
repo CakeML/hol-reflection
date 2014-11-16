@@ -151,8 +151,13 @@ local
       end
 
   fun term_assums (tm : term) : term list =
-    flatten (map base_type_assums (base_types_of_term tm)) @
-    flatten (map base_term_assums (base_terms_of_term tm))
+    HOLset.listItems(
+      HOLset.addList(
+        HOLset.addList(
+          Term.empty_tmset,
+          flatten (map base_type_assums (base_types_of_term tm))),
+        flatten (map base_term_assums (base_terms_of_term tm))))
+
 
   type update = {
     sound_update_thm  : thm, (* |- sound_update ctxt upd *)
