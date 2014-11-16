@@ -30,7 +30,7 @@ fun type_view (ty : hol_type) =
 val string_to_inner = mlstringSyntax.mk_strlit o fromMLstring
 
 fun type_to_deep ty = case type_view ty of
-    Tyvar name => mk_Tyvar (string_to_inner name)
+    Tyvar name => mk_Tyvar (string_to_inner (tyvar_to_deep name))
   | Tyapp (thy,name,args) =>
       mk_Tyapp(string_to_inner name, mk_list(List.map type_to_deep args, type_ty))
 
