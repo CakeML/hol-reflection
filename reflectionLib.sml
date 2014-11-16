@@ -215,6 +215,10 @@ local
       end
   end
 
+  fun termsem_prop (tm : term) : term =
+    mk_eq(mk_termsem (term_to_deep tm),
+          mk_comb(mk_to_inner(type_of tm),tm))
+
 
   type update = {
     sound_update_thm  : thm, (* |- sound_update ctxt upd *)
