@@ -158,6 +158,63 @@ local
           flatten (map base_type_assums (base_types_of_term tm))),
         flatten (map base_term_assums (base_terms_of_term tm))))
 
+  val instance_tm = Term.inst[alpha|->universe_ty]``instance``
+  fun mk_instance name ty =
+    list_mk_comb(instance_tm,[tmsig,interpretation,name,ty,tyval])
+
+  fun instance_prop (tm : term) : term = case dest_term tm of
+    CONST {Name,Thy,Ty} =>
+      mk_eq(mk_instance (string_to_inner Name) (type_to_deep Ty),
+            mk_comb(mk_to_inner Ty,tm))
+  | _ => raise Fail "instance_prop called on non-constant"
+
+  local
+    fun to_deep {redex,residue} =
+      let
+        val k = redex |> dest_vartype |> tyvar_to_deep
+                      |> string_to_inner |> mk_Tyvar
+        val v = type_to_deep residue
+      in
+        mk_pair(v,k)
+      end
+  in
+    fun tyin_to_deep tyin =
+      mk_list (map to_deep tyin,mk_prod(type_ty,type_ty))
+  end
+
+  local
+    val instance_thm =
+      instance_def |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+    val ss = std_ss ++
+      simpLib.std_conv_ss{
+        name="string_EQ_CONV",
+        pats=[``a:string = b``],
+        conv=stringLib.string_EQ_CONV}
+    val rws = [TYPE_SUBST_def,
+               listTheory.MAP,
+               holSyntaxLibTheory.REV_ASSOCD,
+               mlstringTheory.implode_def,
+               typesem_def,
+               type_11,mlstringTheory.mlstring_11]
+  in
+    fun instance_cert (tm : term) : thm =
+      let
+        val goal = (good_context::(term_assums tm),instance_prop tm)
+        val tyin = tyin_to_deep (type_instance tm)
+        (* set_goal goal *)
+      in
+        TAC_PROOF(goal,
+          first_assum(mp_tac o MATCH_MP instance_thm) >>
+          disch_then(
+            (CONV_TAC o LAND_CONV o RATOR_CONV o REWR_CONV) o
+            SIMP_RULE ss rws o
+            SPECL [interpretation,tyin]) >>
+          CONV_TAC(LAND_CONV(BETA_CONV)) >>
+          EVAL_STRING_SORT >>
+          ASM_SIMP_TAC ss rws)
+      end
+  end
+
 
   type update = {
     sound_update_thm  : thm, (* |- sound_update ctxt upd *)
