@@ -252,23 +252,27 @@ val Comb_thm = prove(
 
 val Abs_thm = prove(
   ``^good_context ⇒
-    ∀ina inb f x ty b.
-    range ina = typesem tyass tyval ty ⇒
-    range inb = typesem tyass tyval (typeof b) ⇒
+    ∀ina inb f x xty b bty.
+    typesem tyass tyval xty = range ina ⇒
+    typesem tyass tyval bty = range inb ⇒
+    (*
     wf_to_inner ina ⇒ (* these are unnecessary for this theorem *)
     wf_to_inner inb ⇒ (* but useful for the automation *)
+    *)
+    term_ok (tysig,tmsig) b ∧
+    typeof b = bty ∧
     (∀m. m <: range ina ⇒
-      termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b =
-        inb (f (finv ina m))) ⇒
-    term_ok (tysig,tmsig) b
+      termsem tmsig (tyass,tmass) (tyval,((x,xty) =+ m) tmval) b =
+        inb (f (finv ina m)))
     ⇒
-    termsem tmsig (tyass,tmass) (tyval,tmval) (Abs (Var x ty) b) =
+    termsem tmsig (tyass,tmass) (tyval,tmval) (Abs (Var x xty) b) =
       fun_to_inner ina inb f
       ``,
   rw[termsem_def,fun_to_inner_def,good_context_def] >>
   match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
   rw[] >>
   res_tac >> first_x_assum(SUBST1_TAC o SYM) >>
+  first_assum(SUBST1_TAC o SYM) >>
   match_mp_tac (UNDISCH termsem_typesem) >>
   simp[] >>
   qexists_tac`(tysig,tmsig)` >> simp[] >>

@@ -225,6 +225,9 @@ local
     mk_eq(mk_termsem (term_to_deep tm),
           mk_comb(mk_to_inner(type_of tm),tm))
 
+  (* TODO: assume good_context here, rather than using
+  good_context_is_set_theory wherever the return values of
+  wf_to_inner_mk_to_inner appear? *)
   local
     val bool_th = wf_to_inner_bool_to_inner |> UNDISCH
     val fun_th = wf_to_inner_fun_to_inner |> UNDISCH
@@ -242,6 +245,70 @@ local
       | BaseType _ => ASSUME (to_inner_prop ty)
   end
 
+(*
+  local
+    val varth = type_ok_def |> CONJUNCT1 |> SIMP_RULE bool_ss []
+    val appth = type_ok_def |> CONJUNCT2 |> SPEC_ALL |> EQ_IMP_RULE |> snd
+                |> REWRITE_RULE[ETA_AX,GSYM AND_IMP_INTRO] |> GEN_ALL |> SPEC tysig
+    val term_ok_clauses =
+      holBoolSyntaxTheory.term_ok_clauses
+      |> C MATCH_MP
+          (good_context_def |> SPEC_ALL |> EQ_IMP_RULE |> fst
+             |> UNDISCH |> CONJUNCT2 |> CONJUNCT1)
+    val boolth =
+      term_ok_clauses |> funpow 2 CONJUNCT2 |> CONJUNCT1 |> SIMP_RULE std_ss []
+    val funth =
+      term_ok_clauses |> funpow 3 CONJUNCT2 |> CONJUNCT1
+      |> EQ_IMP_RULE |> snd |> SIMP_RULE std_ss []
+  in
+    fun type_ok_type_to_deep ty = case any_type_view ty of
+      BoolType => boolth
+    (* val FunType(ty1,ty2) = it *)
+    (* val ty = ty2 *)
+    | FunType(ty1,ty2) =>
+        MATCH_MP funth
+          (CONJ (type_ok_type_to_deep ty1)
+                (type_ok_type_to_deep ty2))
+    | BaseType(Tyvar name) =>
+        varth |> SPECL [string_to_inner (tyvar_to_deep name), tysig]
+    (* val BaseType(Tyapp (thy,name,args)) = it *)
+    | BaseType(Tyapp (thy,name,args)) =>
+      let
+        val ths = map type_ok_type_to_deep args
+        val argsd = mk_list(map (rand o concl) ths, type_ty)
+        val th = SPECL [string_to_inner name, argsd] appth
+                 |> CONV_RULE (LAND_CONV(
+                      SIMP_CONV (bool_ss++listSimps.LIST_ss++numSimps.ARITH_ss)
+                      [arithmeticTheory.ADD1]))
+                 |> UNDISCH
+                 |> CONV_RULE (LAND_CONV(
+                      SIMP_CONV (bool_ss++listSimps.LIST_ss) []))
+                 |> (if null ths then I else C MP (LIST_CONJ ths))
+      in
+        th
+      end
+  end
+*)
+
+(*
+  val ty = ``:'a list -> ('b -> num)``
+  type_ok_type_to_deep ty
+
+  fun term_ok_term_to_deep tm =
+    case dest_term tm of
+      VAR _ => term_ok_Var
+      term_ok_def
+*)
+
+  (*
+  val term_ok_simp =
+    holBoolSyntaxTheory.term_ok_clauses
+    |> C MATCH_MP
+        (good_context_def |> SPEC_ALL |> EQ_IMP_RULE |> fst
+           |> UNDISCH |> CONJUNCT2 |> CONJUNCT1)
+    |> SIMP_RULE std_ss []
+  *)
+
   fun termsem_cert tm =
     let
       val goal = (good_context::(term_assums tm),termsem_prop tm)
@@ -253,6 +320,7 @@ local
           SIMP_TAC std_ss [termsem_def] >>
           ACCEPT_TAC(instance_cert tm))
       (* val COMB(t1,t2) = it *)
+      (* val tm = t1 *)
       | COMB(t1,t2) =>
         let
           val th1 = termsem_cert t1
@@ -261,16 +329,41 @@ local
           val th = MATCH_MP Comb_thm (CONJ th1 th2)
                    |> C MATCH_MP (wf_to_inner_mk_to_inner dty)
                    |> C MATCH_MP (wf_to_inner_mk_to_inner rty)
+                   |> PROVE_HYP good_context_is_set_theory
         in
           TAC_PROOF(goal, ACCEPT_TAC th)
         end
-      | LAMB(x,tm) =>
+      (* val LAMB(x,b) = it *)
+      | LAMB(x,b) =>
         let
-          val th = termsem_cert tm
+          val th =
+            Abs_thm
+            |> C MATCH_MP (typesem_cert (type_of x))
+            |> C MATCH_MP (typesem_cert (type_of b))
+          val cb = termsem_cert b
         in
-          TAC_PROOF(goal,cheat)
+          TAC_PROOF(goal,
+            match_mp_tac th >>
+            conj_tac >- (
+              ACCEPT_TAC (term_ok_term_to_deep b)) >>
+            conj_tac >- (
+              ASM_SIMP_TAC std_ss [typeof_def] ) >>
+            gen_tac >> strip_tac >>
+            CONV_TAC(RAND_CONV(RAND_CONV(BETA_CONV))) >>
+            match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
+            ASM_SIMP_TAC (std_ss++LIST_ss++STRING_ss)
+              [combinTheory.APPLY_UPDATE_THM,mlstringTheory.mlstring_11] >>
+            match_mp_tac good_context_extend_tmval >>
+            conj_tac >- first_assum ACCEPT_TAC >>
+            ASM_SIMP_TAC std_ss [typesem_def])
         end
     end
+
+(*
+  val tm = ``λx. K F``
+  termsem_cert tm
+  show_assums := true
+*)
 
   type update = {
     sound_update_thm  : thm, (* |- sound_update ctxt upd *)
