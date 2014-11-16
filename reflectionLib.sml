@@ -51,16 +51,18 @@ local
                                            flatten(map base_types_of_type args))
     | FunType(ty1,ty2) => base_types_of_type ty1 @ base_types_of_type ty2
 
-  fun base_type_assums (ty : hol_type) : term list = case base_type_view ty of
-      Tyapp(thy, name, args) => [``FLOOKUP tysig ^(string_to_inner name) =
-                                     SOME ^(term_of_int (length args))``,
-                                 ``tyass ^(string_to_inner name)
-                                     ^(mk_list(map mk_range args,universe_ty)) =
-                                     ^(mk_range ty)``]
-    | Tyvar name             => [``tyval ^(string_to_inner name) = ^(mk_range ty)``]
+  fun base_type_assums (ty : hol_type) : term list =
+    to_inner_prop ty ::
+    (case base_type_view ty of
+       Tyapp(thy, name, args) => [``FLOOKUP tysig ^(string_to_inner name) =
+                                      SOME ^(term_of_int (length args))``,
+                                  ``tyass ^(string_to_inner name)
+                                      ^(mk_list(map mk_range args,universe_ty)) =
+                                      ^(mk_range ty)``]
+     | Tyvar name             => [``tyval ^(string_to_inner name) = ^(mk_range ty)``])
 
   val type_assums : hol_type -> term list =
-    flatten o map (fn ty => to_inner_prop ty :: base_type_assums ty) o base_types_of_type
+    flatten o map base_type_assums o base_types_of_type
 
   fun typesem_prop (ty : hol_type) : term =
     ``typesem tyass tyval ^(type_to_deep ty) = ^(mk_range ty)``
