@@ -8,8 +8,6 @@ local
 
   val ERR = mk_HOL_ERR"reflectionLib"
 
-  val concat = List.concat
-
   val bool_to_inner_tm = ``bool_to_inner``
   val fun_to_inner_tm = ``fun_to_inner``
 
@@ -50,7 +48,7 @@ local
       BoolType         => []
     | BaseType v       => ty::(case v of Tyvar _ => []
                                        | Tyapp(_,_,args) =>
-                                           concat(map base_types_of_type args))
+                                           flatten(map base_types_of_type args))
     | FunType(ty1,ty2) => base_types_of_type ty1 @ base_types_of_type ty2
 
   fun base_type_assums (ty : hol_type) : term list = case base_type_view ty of
@@ -556,8 +554,8 @@ cs_to_inner tys consts substs
 
   fun build_interpretation [] tys consts =
         let
-          val tyassums = concat (map base_type_assums tys)
-          val tmassums = concat (map base_term_assums consts)
+          val tyassums = flatten (map base_type_assums tys)
+          val tmassums = flatten (map base_term_assums consts)
           val assums = list_mk_conj (tyassums @ tmassms)
         in
             want:
@@ -574,15 +572,15 @@ cs_to_inner tys consts substs
             union (find_type_instances tys (#tys upd))
                   (find_const_instances consts (#consts upd))
           val instantiated_tys =
-            concat (map (fn s => map (type_subst s) (#tys upd)) instances_to_constrain)
+            flatten (map (fn s => map (type_subst s) (#tys upd)) instances_to_constrain)
           val instantiated_consts =
-            concat (map (fn s => map (inst s) (#consts upd)) instances_to_constrain)
+            flatten (map (fn s => map (inst s) (#consts upd)) instances_to_constrain)
           val instantiated_axioms =
-            concat (map (fn s => map (INST_TYPE s) (#axs upd)) instances_to_constrain)
+            flatten (map (fn s => map (INST_TYPE s) (#axs upd)) instances_to_constrain)
           val new_tys =
-            (* mk_set? *)concat (map base_types_of_term o concl) instantiated_axioms
+            (* mk_set? *)flatten (map base_types_of_term o concl) instantiated_axioms
           val new_consts =
-            concat (map base_terms_of_term o concl) instantiated_axioms
+            flatten (map base_terms_of_term o concl) instantiated_axioms
           val ith = build_interpretation ctxt
             (union (set_diff tys instantiated_tys) new_tys)
             (union (set_diff consts instantiated_consts) new_consts)
@@ -599,9 +597,9 @@ cs_to_inner tys consts substs
           val inner_cs = cs_to_inner (#tys upd) (#consts upd) instances_to_constrain
           val ktm = ``constrain_interpretation ^(upd_to_inner upd) ^inner_cs ^jtm``
 
-            concat (map base_type_assums instantiated_tys)
+            flatten (map base_type_assums instantiated_tys)
 
-            concat (map base_term_assums instantiated_consts)
+            flatten (map base_term_assums instantiated_consts)
         in
         end
 
