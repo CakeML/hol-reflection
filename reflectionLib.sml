@@ -72,6 +72,9 @@ local
   val good_context_tyass_fun_simp =
     good_context_tyass_fun |> SIMP_RULE std_ss []
 
+  val good_context_is_set_theory =
+    good_context_def  |> SPEC_ALL |> EQ_IMP_RULE |> fst |> UNDISCH |> CONJUNCT1
+
   fun typesem_cert ty =
     let
       val goal = (good_context::(type_assums ty), typesem_prop ty)
@@ -97,7 +100,6 @@ local
 
   val base_types_of_term : term -> hol_type list =
     flatten o (map base_types_of_type) o types_of_term
-
 
   fun dest_base_term (tm : term) : lambda = case dest_term tm of
       LAMB (var,body)     => raise ERR"dest_base_term""called on lambda"
@@ -197,6 +199,8 @@ local
                typesem_def,
                good_context_tyass_bool,
                good_context_tyass_fun_simp,
+               MP wf_to_inner_bool_to_inner good_context_is_set_theory,
+               MP wf_to_inner_fun_to_inner good_context_is_set_theory,
                type_11,mlstringTheory.mlstring_11]
   in
     fun instance_cert (tm : term) : thm =
@@ -213,7 +217,7 @@ local
             SPECL [interpretation,tyin]) >>
           CONV_TAC(LAND_CONV(BETA_CONV)) >>
           EVAL_STRING_SORT >>
-          ASM_SIMP_TAC ss rws)
+          REV_FULL_SIMP_TAC ss rws)
       end
   end
 
@@ -235,7 +239,7 @@ local
         in
           MATCH_MP fun_th (CONJ th1 th2)
         end
-      | BaseType _ => ASSUME ``wf_to_inner ^(mk_to_inner ty)``
+      | BaseType _ => ASSUME (to_inner_prop ty)
   end
 
   fun termsem_cert tm =
