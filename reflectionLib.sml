@@ -69,27 +69,25 @@ local
 
   val good_context = hd(hyp good_context_tyass_bool)
 
-  local
-    val good_context_tyass_fun_simp =
-      good_context_tyass_fun |> SIMP_RULE std_ss []
-  in
-    fun typesem_cert ty =
-      let
-        val goal = (good_context::(type_assums ty), typesem_prop ty)
-        (* set_goal goal *)
-      in
-        TAC_PROOF(goal,
-          rpt(
-            (CHANGED_TAC(REWRITE_TAC[typesem_def,listTheory.MAP,ETA_AX]))
-            ORELSE
-            (CHANGED_TAC(ASM_SIMP_TAC std_ss
-              [good_context_tyass_bool,
-               good_context_tyass_fun_simp,
-               good_context_wf_to_inner_bool_to_inner,
-               good_context_wf_to_inner_fun_to_inner]))
-            ORELSE match_mp_tac good_context_tyass_fun))
-      end
-  end
+  val good_context_tyass_fun_simp =
+    good_context_tyass_fun |> SIMP_RULE std_ss []
+
+  fun typesem_cert ty =
+    let
+      val goal = (good_context::(type_assums ty), typesem_prop ty)
+      (* set_goal goal *)
+    in
+      TAC_PROOF(goal,
+        rpt(
+          (CHANGED_TAC(REWRITE_TAC[typesem_def,listTheory.MAP,ETA_AX]))
+          ORELSE
+          (CHANGED_TAC(ASM_SIMP_TAC std_ss
+            [good_context_tyass_bool,
+             good_context_tyass_fun_simp,
+             good_context_wf_to_inner_bool_to_inner,
+             good_context_wf_to_inner_fun_to_inner]))
+          ORELSE match_mp_tac good_context_tyass_fun))
+    end
 
   fun types_of_term (tm : term) : hol_type list = case dest_term tm of
       VAR (name,ty)       => [ty]
@@ -197,6 +195,8 @@ local
                holSyntaxLibTheory.REV_ASSOCD,
                mlstringTheory.implode_def,
                typesem_def,
+               good_context_tyass_bool,
+               good_context_tyass_fun_simp,
                type_11,mlstringTheory.mlstring_11]
   in
     fun instance_cert (tm : term) : thm =
@@ -221,6 +221,52 @@ local
     mk_eq(mk_termsem (term_to_deep tm),
           mk_comb(mk_to_inner(type_of tm),tm))
 
+  local
+    val bool_th = wf_to_inner_bool_to_inner |> UNDISCH
+    val fun_th = wf_to_inner_fun_to_inner |> UNDISCH
+  in
+    fun wf_to_inner_mk_to_inner ty =
+      case any_type_view ty of
+        BoolType => bool_th
+      | FunType(x,y) =>
+        let
+          val th1 = wf_to_inner_mk_to_inner x
+          val th2 = wf_to_inner_mk_to_inner y
+        in
+          MATCH_MP fun_th (CONJ th1 th2)
+        end
+      | BaseType _ => ASSUME ``wf_to_inner ^(mk_to_inner ty)``
+  end
+
+  fun termsem_cert tm =
+    let
+      val goal = (good_context::(term_assums tm),termsem_prop tm)
+      (* set_goal goal *)
+    in
+      case dest_term tm of
+        VAR _ => TAC_PROOF(goal,ASM_SIMP_TAC std_ss [termsem_def])
+      | CONST _ => TAC_PROOF(goal,
+          SIMP_TAC std_ss [termsem_def] >>
+          ACCEPT_TAC(instance_cert tm))
+      (* val COMB(t1,t2) = it *)
+      | COMB(t1,t2) =>
+        let
+          val th1 = termsem_cert t1
+          val th2 = termsem_cert t2
+          val (dty,rty) = dom_rng (type_of t1)
+          val th = MATCH_MP Comb_thm (CONJ th1 th2)
+                   |> C MATCH_MP (wf_to_inner_mk_to_inner dty)
+                   |> C MATCH_MP (wf_to_inner_mk_to_inner rty)
+        in
+          TAC_PROOF(goal, ACCEPT_TAC th)
+        end
+      | LAMB(x,tm) =>
+        let
+          val th = termsem_cert tm
+        in
+          TAC_PROOF(goal,cheat)
+        end
+    end
 
   type update = {
     sound_update_thm  : thm, (* |- sound_update ctxt upd *)
@@ -254,23 +300,6 @@ local
       []
       fromupdate
     )
-
-  local
-    val bool_th = wf_to_inner_bool_to_inner |> UNDISCH
-    val fun_th = wf_to_inner_fun_to_inner |> UNDISCH
-  in
-    fun wf_to_inner_mk_to_inner ty =
-      case any_type_view ty of
-        BoolType => bool_th
-      | FunType(x,y) =>
-        let
-          val th1 = wf_to_inner_mk_to_inner x
-          val th2 = wf_to_inner_mk_to_inner y
-        in
-          MATCH_MP fun_th (CONJ th1 th2)
-        end
-      | BaseType _ => ASSUME ``wf_to_inner ^(mk_to_inner ty)``
-  end
 
   local
     val distinct_tag_bool_range = prove(

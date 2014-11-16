@@ -232,16 +232,16 @@ val Const_thm = prove(
 
 val Comb_thm = prove(
   ``^good_context ⇒
-    fun_to_inner ina inb f = termsem ^tmsig ^interpretation ^valuation ftm ∧
-    ina x = termsem ^tmsig ^interpretation ^valuation xtm ⇒
+    termsem ^tmsig ^interpretation ^valuation ftm =
+      fun_to_inner ina inb f ∧
+    termsem ^tmsig ^interpretation ^valuation xtm = ina x ⇒
     wf_to_inner ina ⇒ wf_to_inner inb
     ⇒
-    inb (f x) =
-      termsem ^tmsig ^interpretation ^valuation (Comb ftm xtm)``,
+    termsem ^tmsig ^interpretation ^valuation (Comb ftm xtm) =
+      inb (f x)``,
   rw[good_context_def,termsem_def] >>
-  rpt(first_x_assum(SUBST1_TAC o SYM)) >>
+  first_assum(SUBST1_TAC o SYM) >>
   rw[fun_to_inner_def] >>
-  match_mp_tac EQ_SYM >>
   match_mp_tac apply_abstract_matchable >>
   simp[] >>
   rw[wf_to_inner_range_thm] >>
@@ -258,15 +258,17 @@ val Abs_thm = prove(
     wf_to_inner ina ⇒ (* these are unnecessary for this theorem *)
     wf_to_inner inb ⇒ (* but useful for the automation *)
     (∀m. m <: range ina ⇒
-      inb (f (finv ina m)) =
-        termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b) ⇒
+      termsem tmsig (tyass,tmass) (tyval,((x,ty) =+ m) tmval) b =
+        inb (f (finv ina m))) ⇒
     term_ok (tysig,tmsig) b
     ⇒
-    fun_to_inner ina inb f =
-      termsem tmsig (tyass,tmass) (tyval,tmval) (Abs (Var x ty) b)``,
+    termsem tmsig (tyass,tmass) (tyval,tmval) (Abs (Var x ty) b) =
+      fun_to_inner ina inb f
+      ``,
   rw[termsem_def,fun_to_inner_def,good_context_def] >>
   match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
   rw[] >>
+  res_tac >> first_x_assum(SUBST1_TAC o SYM) >>
   match_mp_tac (UNDISCH termsem_typesem) >>
   simp[] >>
   qexists_tac`(tysig,tmsig)` >> simp[] >>
