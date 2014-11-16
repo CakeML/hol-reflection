@@ -6,6 +6,8 @@ local
   open holBoolTheory holConstrainedExtensionTheory
   open reflectionTheory basicReflectionLib
 
+  val ERR = mk_HOL_ERR"reflectionLib"
+
   val concat = List.concat
 
   val bool_to_inner_tm = ``bool_to_inner``
@@ -35,8 +37,8 @@ local
     BoolType | FunType of hol_type * hol_type | BaseType of type_view
 
   fun base_type_view (ty : hol_type) : type_view = case type_view ty of
-      Tyapp(thy, "bool", [])        => raise Fail "base_type_view called on bool"
-    | Tyapp(thy, "fun",  [ty1,ty2]) => raise Fail "base_type_view called on funtype"
+      Tyapp(thy, "bool", [])        => raise ERR"base_type_view""called on bool"
+    | Tyapp(thy, "fun",  [ty1,ty2]) => raise ERR"base_type_view""called on funtype"
     | view                          => view
 
   fun any_type_view (ty : hol_type) : any_type_view = case type_view ty of
@@ -100,8 +102,8 @@ local
 
 
   fun dest_base_term (tm : term) : lambda = case dest_term tm of
-      LAMB (var,body)     => raise Fail "dest_base_term called on lambda"
-    | COMB (tm1,tm2)      => raise Fail "dest_base_term called on combination"
+      LAMB (var,body)     => raise ERR"dest_base_term""called on lambda"
+    | COMB (tm1,tm2)      => raise ERR"dest_base_term""called on combination"
     | view                => view
 
   val generic_type = type_of o prim_mk_const
@@ -166,7 +168,7 @@ local
     CONST {Name,Thy,Ty} =>
       mk_eq(mk_instance (string_to_inner Name) (type_to_deep Ty),
             mk_comb(mk_to_inner Ty,tm))
-  | _ => raise Fail "instance_prop called on non-constant"
+  | _ => raise ERR"instance_prop""called on non-constant"
 
   local
     fun to_deep {redex,residue} =
