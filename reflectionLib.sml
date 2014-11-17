@@ -532,6 +532,17 @@ local
       simp[pair_inj] >>
       metis_tac[is_extensional,extensional_def]) |> UNDISCH
 
+    val unequal_suff = prove(
+      ``is_set_theory ^mem ⇒
+        (∀x y a. a <: x ∧ ¬(a <: y) ⇒ P x y ∧ P y x) ⇒
+        (∀x y. x ≠ y ⇒ P x y)``,
+      rw[] >>
+      imp_res_tac is_extensional >>
+      fs[extensional_def] >>
+      pop_assum kall_tac >>
+      fs[EQ_IMP_THM] >>
+      metis_tac[]) |> UNDISCH
+
     val distinct_fun_fun = prove(
       ``is_set_theory ^mem ⇒
         !d1 r1 d2 r2.
@@ -542,12 +553,38 @@ local
         pair$, (range d1) (range r1) ≠ (range d2, range r2) ⇒
         range (fun_to_inner d1 r1) ≠ range (fun_to_inner d2 r2)``,
       rw[range_fun_to_inner] >>
+      imp_res_tac wf_to_inner_range_thm >>
+      rpt(qpat_assum`wf_to_inner X`kall_tac) >>
+      rpt(first_x_assum(qspec_then`ARB`mp_tac)) >>
+      pop_assum mp_tac >|[
+        map_every qspec_tac
+          [(`range r2`,`w`),(`range r1`,`z`),
+           (`r2 ARB`,`we`),(`r1 ARB`,`ze`),
+           (`d2 ARB`,`ye`),(`d1 ARB`,`xe`),
+           (`range d2`,`y`),(`range d1`,`x`)],
+        map_every qspec_tac
+          [(`range d2`,`w`),(`range d1`,`z`),
+           (`d2 ARB`,`we`),(`d1 ARB`,`ze`),
+           (`r2 ARB`,`ye`),(`r1 ARB`,`xe`),
+           (`range r2`,`y`),(`range r1`,`x`)]] >>
+      simp[RIGHT_FORALL_IMP_THM] >>
+      ho_match_mp_tac unequal_suff >>
+      rpt gen_tac >> strip_tac >>
+      (reverse conj_asm1_tac >- metis_tac[]) >>
+      rpt strip_tac>>
       imp_res_tac is_extensional >>
+      fs[extensional_def] >>
+      pop_assum kall_tac >>
       pop_assum mp_tac >>
-      simp[extensional_def] >>
-      disch_then kall_tac >- (
-        cheat) >>
-      cheat) |> UNDISCH
+      simp[EQ_IMP_THM] >|[
+        qexists_tac`Abstract y z (K ze)`,
+        qexists_tac`Abstract z y (K a)`] >>
+      disj1_tac >>
+      (conj_tac >- (
+         match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] )) >>
+      simp[funspace_def,relspace_def,mem_sub] >> disj1_tac >>
+      simp[mem_power,abstract_def,mem_sub,mem_product,PULL_EXISTS,pair_inj] >>
+      metis_tac[]) |> UNDISCH
 
     val ERR = mk_HOL_ERR"reflectionLib""ranges_distinct"
     val ERR_same = ERR"same_types"
