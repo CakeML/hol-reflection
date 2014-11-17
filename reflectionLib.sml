@@ -525,9 +525,12 @@ local
       fs[abstract_def,true_def] >>
       imp_res_tac is_extensional >>
       fs[Once extensional_def] >> rfs[mem_empty] >>
+      pop_assum kall_tac >>
       imp_res_tac wf_to_inner_range_thm >>
       rfs[mem_sub,mem_product] >>
-      cheat) |> UNDISCH
+      last_x_assum(qspec_then`(x ARB,f (x ARB))`mp_tac) >>
+      simp[pair_inj] >>
+      metis_tac[is_extensional,extensional_def]) |> UNDISCH
 
     val distinct_fun_fun = prove(
       ``is_set_theory ^mem ⇒
