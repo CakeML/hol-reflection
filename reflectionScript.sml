@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib Parse lcsymtacs listSimps
+open HolKernel boolLib bossLib Parse lcsymtacs listSimps countableLib countableTheory
 open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory finite_mapTheory alistTheory
 open miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolSyntaxTheory holBoolTheory holExtensionTheory holConsistencyTheory holAxiomsSyntaxTheory holAxiomsTheory
@@ -198,17 +198,120 @@ val finv_bool_to_inner_True = prove(
   metis_tac[finv_bool_to_inner_eq_true,good_context_def]) |> UNDISCH
 val _ = save_thm("finv_bool_to_inner_True",finv_bool_to_inner_True)
 
+val [count_mlstring_aux_inj_rwt] = mk_count_aux_inj_rwt[``:mlstring``]
+val [count_type_aux_inj_rwt] = mk_count_aux_inj_rwt_ttac[``:type``]
+  (SOME(WF_REL_TAC`measure type_size`>>gen_tac>>Induct>>
+        rw[type_size_def]>>res_tac>>simp[]))
+val countable_type = inj_rwt_to_countable count_type_aux_inj_rwt
+val type_rep_def = new_specification("type_rep_def",["type_rep"],
+  countable_type |> REWRITE_RULE[countable_def])
+
+val num_def = xDefine"num"`
+  (num0 ^mem (0:num) = empty mem) ∧
+  (num0 ^mem (SUC n) = num0 mem n + one mem)`
+val _ = Parse.overload_on("num",``num0 ^mem``)
+
+val num_not_one = store_thm("num_not_one",
+  ``is_set_theory ^mem ⇒ ∀n. num n ≠ One``,
+  strip_tac >> Induct >> rw[num_def] >>
+  imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+  rfs[mem_empty,mem_one,mem_upair] >>
+  `One ≠ ∅` by (
+    imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+    simp[mem_one,mem_empty] ) >>
+  fs[EQ_IMP_THM] >> metis_tac[])
+
+val num_suc_not_empty = store_thm("num_suc_not_empty",
+  ``is_set_theory ^mem ⇒ ∀n. num (SUC n) ≠ ∅``,
+  rw[num_def] >>
+  imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+  simp[mem_empty,mem_upair] >> metis_tac[])
+
+val num_inj = store_thm("num_inj",
+  ``is_set_theory ^mem ⇒
+    ∀m n. (num m = num n) ⇔ (m = n)``,
+  strip_tac >>
+  Induct >> simp[num_def] >- (
+    Cases >> simp[num_def] >> rw[] >>
+    imp_res_tac is_extensional >>
+    fs[extensional_def] >> pop_assum kall_tac >>
+    simp[mem_empty,mem_upair] >>
+    metis_tac[] ) >>
+  Cases >> rw[num_def] >- (
+    imp_res_tac is_extensional >>
+    fs[extensional_def] >> pop_assum kall_tac >>
+    simp[mem_empty,mem_upair] >>
+    metis_tac[] ) >>
+  fs[EQ_IMP_THM] >> rw[] >>
+  first_x_assum match_mp_tac >>
+  imp_res_tac is_extensional >>
+  fs[extensional_def] >> pop_assum kall_tac >>
+  rfs[mem_upair] >> metis_tac[num_not_one])
+
+val pair_not_empty = store_thm("pair_not_empty",
+  ``is_set_theory ^mem ⇒ ∀x y. (x,y) ≠ ∅``,
+  rw[] >>
+  imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+  simp[mem_empty,pair_def,mem_upair] >> metis_tac[])
+
+val pair_not_one = store_thm("pair_not_one",
+  ``is_set_theory ^mem ⇒ ∀x y. (x,y) ≠ One``,
+  rw[] >>
+  imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+  rfs[mem_one,mem_empty,mem_upair,pair_def] >> rw[] >>
+  spose_not_then strip_assume_tac >>
+  first_x_assum(qspec_then`∅`mp_tac) >> simp[] >>
+  imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+  simp[mem_empty,mem_unit,mem_upair] >>
+  metis_tac[])
+
 val tag_exists = prove(
-  ``∃tag:('U->'U->bool)->type->'U->'U. ∀mem.
-    (∀ty1 v1 ty2 v2.
-       (((ty1,v1) ≠ (ty2,v2)) ⇒ tag mem ty1 v1 ≠ tag mem ty2 v2)) ∧
-    (∀ty v. ∃u. IMAGE (tag mem ty) (ext v) = ext u) ∧
-    (∀ty v. ¬ (tag mem ty v <: boolset) ∧
-            (∀x y. ¬ (tag mem ty v <: Funspace x y)))``,
-    (* TODO:
-       possible witness: tag ty x = {{0,1,2,(rep ty, x)}}
-    *)
-  cheat)
+  ``∃tag:('U->'U->bool)->type->'U->'U.
+      ∀mem. is_set_theory mem ⇒
+        (∀ty1 v1 ty2 v2.
+           (((ty1,v1) ≠ (ty2,v2)) ⇒ tag mem ty1 v1 ≠ tag mem ty2 v2)) ∧
+        (∀ty v. ∃u. IMAGE (tag mem ty) (ext v) = ext u) ∧
+        (∀ty v. ¬ (tag mem ty v <: boolset) ∧
+                (∀x y. ¬ (tag mem ty v <: Funspace x y)))``,
+  qexists_tac`λmem ty x. Two ∪ (Unit(num (type_rep ty), x))` >>
+  gen_tac >> strip_tac >> simp[] >>
+  conj_tac >- (
+    rpt gen_tac >>
+    qmatch_abbrev_tac`p ⇒ q` >> strip_tac >>
+    qunabbrev_tac`q` >>
+    imp_res_tac is_extensional >>
+    pop_assum mp_tac >>
+    simp[extensional_def] >>
+    disch_then kall_tac >>
+    simp[mem_binary_union,mem_boolset,mem_unit] >>
+    qexists_tac`num(type_rep ty1),v1` >>
+    simp[pair_inj,num_inj] >>
+    conj_tac >- (
+      simp[true_def,false_def,pair_not_empty,pair_not_one] ) >>
+    fs[Abbr`p`] >>
+    metis_tac[type_rep_def,INJ_DEF,IN_UNIV]) >>
+  conj_tac >- (
+    rw[EXTENSION,PULL_EXISTS,ext_def] >>
+    qexists_tac`Pow (boolset ∪ Unit(num (type_rep ty)) × v) suchthat
+                λx. ∃a. a <: v ∧ x = boolset ∪ Unit (num (type_rep ty),a)` >>
+    simp[mem_sub,mem_power] >> gen_tac >>
+    reverse EQ_TAC >- metis_tac[] >> strip_tac >>
+    reverse conj_tac >- metis_tac[] >>
+    rfs[mem_binary_union,mem_unit,mem_product] >> rw[] >>
+    rw[pair_inj]) >>
+  rw[] >- (
+    simp[mem_boolset,true_def,false_def] >>
+    imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+    simp[mem_binary_union,mem_unit,mem_boolset,true_def,false_def,mem_empty,mem_one] >>
+    simp[EQ_IMP_THM] >>
+    metis_tac[pair_not_empty] ) >>
+  strip_tac >>
+  imp_res_tac (UNDISCH in_funspace_abstract) >>
+  qpat_assum`X = Y`mp_tac >>
+  imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
+  simp[EQ_IMP_THM,EXISTS_OR_THM] >> disj1_tac >>
+  srw_tac[boolSimps.DNF_ss][mem_binary_union,mem_boolset,true_def] >> disj1_tac >>
+  simp[abstract_def,mem_sub,mem_product,pair_not_empty])
 
 val tag_def =
   new_specification("tag_def",["tag0"],tag_exists)
