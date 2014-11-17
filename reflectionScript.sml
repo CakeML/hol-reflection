@@ -253,7 +253,7 @@ val Comb_thm = prove(
 val Abs_thm = prove(
   ``^good_context ⇒
     ∀ina inb f x xty b bty.
-    typesem tyass tyval xty = range ina ⇒
+    typesem tyass tyval xty = range ina ∧
     typesem tyass tyval bty = range inb ⇒
     (*
     wf_to_inner ina ⇒ (* these are unnecessary for this theorem *)

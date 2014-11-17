@@ -370,6 +370,7 @@ local
           ACCEPT_TAC(instance_cert tm))
       (* val COMB(t1,t2) = it *)
       (* val tm = t1 *)
+      (* val tm = t2 *)
       | COMB(t1,t2) =>
         let
           val th1 = termsem_cert t1
@@ -383,33 +384,43 @@ local
           TAC_PROOF(goal, ACCEPT_TAC th)
         end
       (* val LAMB(x,b) = it *)
+      (* val tm = b *)
       | LAMB(x,b) =>
         let
           val th =
-            Abs_thm
-            |> C MATCH_MP (typesem_cert (type_of x))
-            |> C MATCH_MP (typesem_cert (type_of b))
+            MATCH_MP Abs_thm
+              (CONJ (typesem_cert (type_of x))
+                    (typesem_cert (type_of b)))
           val cb = termsem_cert b
         in
           TAC_PROOF(goal,
             match_mp_tac th >>
-            conj_tac >- (
-              ACCEPT_TAC (term_ok_term_to_deep b)) >>
-            conj_tac >- (
-              ASM_SIMP_TAC std_ss [typeof_def] ) >>
+            conj_tac >- (ACCEPT_TAC (term_ok_term_to_deep b)) >>
+            conj_tac >- EVAL_TAC >>
             gen_tac >> strip_tac >>
             CONV_TAC(RAND_CONV(RAND_CONV(BETA_CONV))) >>
             match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
             ASM_SIMP_TAC (std_ss++LIST_ss++STRING_ss)
-              [combinTheory.APPLY_UPDATE_THM,mlstringTheory.mlstring_11] >>
+              [combinTheory.APPLY_UPDATE_THM,
+               mlstringTheory.mlstring_11] >>
+            TRY (
+              reverse conj_tac >- (
+                match_mp_tac (MP_CANON (GSYM wf_to_inner_finv_right)) >>
+                rpt conj_tac >> first_assum ACCEPT_TAC )) >>
             match_mp_tac good_context_extend_tmval >>
             conj_tac >- first_assum ACCEPT_TAC >>
-            ASM_SIMP_TAC std_ss [typesem_def])
+            ASM_SIMP_TAC (std_ss++LIST_ss) [typesem_def])
         end
     end
 
 (*
   val tm = ``λx. K F``
+  val tm = ``λx. K (λy. F) 3``
+  val tm = ``let x = 5 in x + y``
+  val tm = ``[x;y;[2]]``
+  val tm = ``typesem tysig tyval Bool``
+  val tm = mem
+  val tm = good_context
   termsem_cert tm
   show_assums := true
 *)
