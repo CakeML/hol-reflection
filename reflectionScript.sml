@@ -480,7 +480,6 @@ val _ = save_thms
     good_context_lookup_bool , good_context_lookup_fun ,
     good_context_extend_tmval , good_context_instance_equality ]
 
-(*
 val base_tyval_exists = prove(
   ``∃τ. ∀mem. is_set_theory mem ⇒ is_type_valuation0 mem (τ mem)``,
   rw[GSYM SKOLEM_THM,is_type_valuation_def] >>
@@ -499,8 +498,8 @@ val is_type_valuation_update_list = store_thm("is_type_valuation_update_list",
   rw[] >> metis_tac[])
 
 val inhabited_range = store_thm("inhabited_range",
-  ``∀inx. is_in inx ⇒ inhabited (range inx)``,
-  rw[] >> imp_res_tac is_in_range_thm >>
+  ``∀inx. wf_to_inner inx ⇒ inhabited (range inx)``,
+  rw[] >> imp_res_tac wf_to_inner_range_thm >>
   metis_tac[] )
 
 val init_model_def = new_specification("init_model_def",["init_model0"],
@@ -549,153 +548,153 @@ val _ = map2 (curry save_thm)
 
 val not_thm = prove(
   ``is_set_theory ^mem ⇒
-    (Abstract boolset boolset (λx. Boolean (¬finv in_bool x)) =
+    (Abstract boolset boolset (λx. Boolean (¬finv bool_to_inner x)) =
      Abstract boolset boolset (λp. Boolean (p ≠ True)))``,
   rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   simp[boolean_in_boolset] >>
   rw[boolean_def] >>
-  metis_tac[finv_in_bool_eq_true])
+  metis_tac[finv_bool_to_inner_eq_true])
 
-val in_fun_not =
-``in_fun in_bool in_bool $~``
-  |> SIMP_CONV std_ss [Once in_bool_def,in_fun_def,UNDISCH range_in_bool,UNDISCH not_thm]
+val fun_to_inner_not =
+``fun_to_inner bool_to_inner bool_to_inner $~``
+  |> SIMP_CONV std_ss [Once bool_to_inner_def,fun_to_inner_def,UNDISCH range_bool_to_inner,UNDISCH not_thm]
 
-val in_bool_false =
-  ``in_bool F``
-  |> SIMP_CONV std_ss [in_bool_def,boolean_def]
+val bool_to_inner_false =
+  ``bool_to_inner F``
+  |> SIMP_CONV std_ss [bool_to_inner_def,boolean_def]
 
-val in_bool_true =
-  ``in_bool T``
-  |> SIMP_CONV std_ss [in_bool_def,boolean_def]
+val bool_to_inner_true =
+  ``bool_to_inner T``
+  |> SIMP_CONV std_ss [bool_to_inner_def,boolean_def]
 
-val range_in_fun_ina_in_bool =
-range_in_fun |> GEN_ALL |> SPEC mem
-  |> Q.ISPECL[`in_bool`,`ina:'a -> 'U`]
-  |> SIMP_RULE std_ss [UNDISCH is_in_in_bool,GSYM AND_IMP_INTRO]
+val range_fun_to_inner_ina_bool_to_inner =
+range_fun_to_inner |> GEN_ALL |> SPEC mem
+  |> Q.ISPECL[`bool_to_inner`,`ina:'a -> 'U`]
+  |> SIMP_RULE std_ss [UNDISCH wf_to_inner_bool_to_inner,GSYM AND_IMP_INTRO]
   |> UNDISCH |> UNDISCH
 
 val forall_thm = prove(
-  ``is_set_theory ^mem ⇒ is_in ina ⇒
+  ``is_set_theory ^mem ⇒ wf_to_inner ina ⇒
     (Abstract (Funspace (range ina) boolset) boolset
        (λP. Boolean (∀x. x <: range ina ⇒ Holds P x)) =
      Abstract (Funspace (range ina) boolset) boolset
-       (λx. in_bool ($! (finv (in_fun ina in_bool) x))))``,
+       (λx. bool_to_inner ($! (finv (fun_to_inner ina bool_to_inner) x))))``,
   rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  rw[boolean_in_boolset,Once in_bool_def] >>
-  rw[Once in_bool_def] >> AP_TERM_TAC >>
-  `∃f. (x = in_fun ina Boolean (λa. (f (ina a)) = True)) ∧
+  rw[boolean_in_boolset,Once bool_to_inner_def] >>
+  rw[Once bool_to_inner_def] >> AP_TERM_TAC >>
+  `∃f. (x = fun_to_inner ina Boolean (λa. (f (ina a)) = True)) ∧
        (∀a. f (ina a) <: boolset)` by (
-    simp[UNDISCH range_in_bool,in_fun_def,GSYM in_bool_def] >>
+    simp[UNDISCH range_bool_to_inner,fun_to_inner_def,GSYM bool_to_inner_def] >>
     qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
     discharge_hyps  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
-    qexists_tac`f` >> simp[in_bool_def] >>
-    reverse conj_tac >- metis_tac[is_in_range_thm] >>
+    qexists_tac`f` >> simp[bool_to_inner_def] >>
+    reverse conj_tac >- metis_tac[wf_to_inner_range_thm] >>
     match_mp_tac (UNDISCH abstract_eq) >>
     simp[boolean_in_boolset] >> rw[] >>
     simp[boolean_def] >> rw[] >>
-    imp_res_tac is_in_finv_right >>
+    imp_res_tac wf_to_inner_finv_right >>
     metis_tac[mem_boolset] ) >>
-  Q.ISPEC_THEN`in_fun ina Boolean`mp_tac is_in_finv_left >>
-  discharge_hyps >- metis_tac[is_in_in_fun,is_in_in_bool,in_bool_def] >>
-  simp[holds_def,GSYM in_bool_def] >>
+  Q.ISPEC_THEN`fun_to_inner ina Boolean`mp_tac wf_to_inner_finv_left >>
+  discharge_hyps >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner,bool_to_inner_def] >>
+  simp[holds_def,GSYM bool_to_inner_def] >>
   disch_then kall_tac >>
   rw[EQ_IMP_THM] >- (
     first_x_assum(qspec_then`ina a`mp_tac) >>
-    discharge_hyps >- metis_tac[is_in_range_thm] >>
-    simp[in_fun_def] >>
+    discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+    simp[fun_to_inner_def] >>
     disch_then (SUBST1_TAC o SYM) >>
     match_mp_tac EQ_SYM >>
     match_mp_tac apply_abstract_matchable >>
-    simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
-    simp[in_bool_def,boolean_in_boolset] >>
-    Q.ISPEC_THEN`ina`mp_tac is_in_finv_left >> rw[] >>
+    simp[wf_to_inner_range_thm,GSYM bool_to_inner_def,range_bool_to_inner] >>
+    simp[bool_to_inner_def,boolean_in_boolset] >>
+    Q.ISPEC_THEN`ina`mp_tac wf_to_inner_finv_left >> rw[] >>
     rw[boolean_def] >>
     metis_tac[mem_boolset] ) >>
-  rw[in_fun_def] >>
+  rw[fun_to_inner_def] >>
   match_mp_tac apply_abstract_matchable >>
-  simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
-  simp[in_bool_def,boolean_in_boolset] >>
+  simp[wf_to_inner_range_thm,GSYM bool_to_inner_def,range_bool_to_inner] >>
+  simp[bool_to_inner_def,boolean_in_boolset] >>
   rw[boolean_def]) |> UNDISCH |> UNDISCH
 
-val in_fun_forall =
-  ``in_fun (in_fun ina in_bool) in_bool $!``
-  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_ina_in_bool,GSYM forall_thm]
+val fun_to_inner_forall =
+  ``fun_to_inner (fun_to_inner ina bool_to_inner) bool_to_inner $!``
+  |> SIMP_CONV std_ss [fun_to_inner_def,UNDISCH range_bool_to_inner,range_fun_to_inner_ina_bool_to_inner,GSYM forall_thm]
 
 val exists_thm = prove(
-  ``is_set_theory ^mem ⇒ is_in ina ⇒
+  ``is_set_theory ^mem ⇒ wf_to_inner ina ⇒
     (Abstract (Funspace (range ina) boolset) boolset
        (λP. Boolean (?x. x <: range ina ∧ Holds P x)) =
      Abstract (Funspace (range ina) boolset) boolset
-       (λx. in_bool ($? (finv (in_fun ina in_bool) x))))``,
+       (λx. bool_to_inner ($? (finv (fun_to_inner ina bool_to_inner) x))))``,
   rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  rw[boolean_in_boolset,Once in_bool_def] >>
-  rw[Once in_bool_def] >> AP_TERM_TAC >>
-  `∃f. (x = in_fun ina Boolean (λa. (f (ina a)) = True)) ∧
+  rw[boolean_in_boolset,Once bool_to_inner_def] >>
+  rw[Once bool_to_inner_def] >> AP_TERM_TAC >>
+  `∃f. (x = fun_to_inner ina Boolean (λa. (f (ina a)) = True)) ∧
        (∀a. f (ina a) <: boolset)` by (
-    simp[UNDISCH range_in_bool,in_fun_def,GSYM in_bool_def] >>
+    simp[UNDISCH range_bool_to_inner,fun_to_inner_def,GSYM bool_to_inner_def] >>
     qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
     discharge_hyps  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
-    qexists_tac`f` >> simp[in_bool_def] >>
-    reverse conj_tac >- metis_tac[is_in_range_thm] >>
+    qexists_tac`f` >> simp[bool_to_inner_def] >>
+    reverse conj_tac >- metis_tac[wf_to_inner_range_thm] >>
     match_mp_tac (UNDISCH abstract_eq) >>
     simp[boolean_in_boolset] >> rw[] >>
     simp[boolean_def] >> rw[] >>
-    imp_res_tac is_in_finv_right >>
+    imp_res_tac wf_to_inner_finv_right >>
     metis_tac[mem_boolset] ) >>
-  Q.ISPEC_THEN`in_fun ina Boolean`mp_tac is_in_finv_left >>
-  discharge_hyps >- metis_tac[is_in_in_fun,is_in_in_bool,in_bool_def] >>
-  simp[holds_def,GSYM in_bool_def] >>
+  Q.ISPEC_THEN`fun_to_inner ina Boolean`mp_tac wf_to_inner_finv_left >>
+  discharge_hyps >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner,bool_to_inner_def] >>
+  simp[holds_def,GSYM bool_to_inner_def] >>
   disch_then kall_tac >>
   rw[EQ_IMP_THM] >- (
     qmatch_assum_rename_tac`z <: range ina`[] >>
     qexists_tac`finv ina z` >>
     pop_assum mp_tac >>
-    simp[in_fun_def] >>
+    simp[fun_to_inner_def] >>
     disch_then (SUBST1_TAC o SYM) >>
     match_mp_tac EQ_SYM >>
     match_mp_tac apply_abstract_matchable >>
-    simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
-    simp[in_bool_def,boolean_in_boolset] >>
+    simp[wf_to_inner_range_thm,GSYM bool_to_inner_def,range_bool_to_inner] >>
+    simp[bool_to_inner_def,boolean_in_boolset] >>
     rw[boolean_def] >>
     metis_tac[mem_boolset] ) >>
-  rw[in_fun_def] >>
+  rw[fun_to_inner_def] >>
   qexists_tac`ina a` >>
-  conj_tac >- metis_tac[is_in_range_thm] >>
+  conj_tac >- metis_tac[wf_to_inner_range_thm] >>
   match_mp_tac apply_abstract_matchable >>
-  simp[is_in_range_thm,GSYM in_bool_def,range_in_bool] >>
-  simp[in_bool_def,boolean_in_boolset] >>
+  simp[wf_to_inner_range_thm,GSYM bool_to_inner_def,range_bool_to_inner] >>
+  simp[bool_to_inner_def,boolean_in_boolset] >>
   rw[boolean_def] >>
-  metis_tac[is_in_finv_left]) |> UNDISCH |> UNDISCH
+  metis_tac[wf_to_inner_finv_left]) |> UNDISCH |> UNDISCH
 
-val in_fun_exists =
-  ``in_fun (in_fun ina in_bool) in_bool $?``
-  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_ina_in_bool,GSYM exists_thm]
+val fun_to_inner_exists =
+  ``fun_to_inner (fun_to_inner ina bool_to_inner) bool_to_inner $?``
+  |> SIMP_CONV std_ss [fun_to_inner_def,UNDISCH range_bool_to_inner,range_fun_to_inner_ina_bool_to_inner,GSYM exists_thm]
 
-val range_in_fun_in_bool_in_bool =
-range_in_fun |> GEN_ALL |> SPEC mem
-  |> Q.ISPECL[`in_bool`,`in_bool`]
-  |> SIMP_RULE std_ss [UNDISCH is_in_in_bool]
+val range_fun_to_inner_bool_to_inner_bool_to_inner =
+range_fun_to_inner |> GEN_ALL |> SPEC mem
+  |> Q.ISPECL[`bool_to_inner`,`bool_to_inner`]
+  |> SIMP_RULE std_ss [UNDISCH wf_to_inner_bool_to_inner]
   |> UNDISCH
 
 val binop_thm1 = prove(
   ``is_set_theory ^mem ∧ p <: boolset ⇒
-    (Abstract boolset boolset (λx. in_bool (op (finv in_bool p) (finv in_bool x))) =
+    (Abstract boolset boolset (λx. bool_to_inner (op (finv bool_to_inner p) (finv bool_to_inner x))) =
      Abstract boolset boolset (λq. Boolean (op (p = True) (q = True))))``,
   rw[] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   rw[boolean_in_boolset] >>
-  rw[Once in_bool_def,boolean_in_boolset] >>
-  `EVERY (λz. z = True ⇔ finv in_bool z) [p;x]` by (
-    simp[] >> metis_tac[finv_in_bool_eq_true]) >>
+  rw[Once bool_to_inner_def,boolean_in_boolset] >>
+  `EVERY (λz. z = True ⇔ finv bool_to_inner z) [p;x]` by (
+    simp[] >> metis_tac[finv_bool_to_inner_eq_true]) >>
   fs[boolean_def])
 
 val binop_thm = prove(
   ``is_set_theory ^mem ⇒
     (Abstract boolset (Funspace boolset boolset)
-      (λy. Abstract boolset boolset (λx. in_bool (op (finv in_bool y) (finv in_bool x)))) =
+      (λy. Abstract boolset boolset (λx. bool_to_inner (op (finv bool_to_inner y) (finv bool_to_inner x)))) =
      Abstract boolset (Funspace boolset boolset)
       (λp. Abstract boolset boolset (λq. Boolean (op (p = True) (q = True)))))``,
   rw[] >>
@@ -704,117 +703,120 @@ val binop_thm = prove(
   match_mp_tac (UNDISCH abstract_in_funspace) >>
   rw[boolean_in_boolset])
 
-val in_fun_binop =
-  ``in_fun in_bool (in_fun in_bool in_bool) op``
-  |> SIMP_CONV std_ss [in_fun_def,UNDISCH range_in_bool,range_in_fun_in_bool_in_bool,UNDISCH binop_thm]
+val fun_to_inner_binop =
+  ``fun_to_inner bool_to_inner (fun_to_inner bool_to_inner bool_to_inner) op``
+  |> SIMP_CONV std_ss [fun_to_inner_def,UNDISCH range_bool_to_inner,range_fun_to_inner_bool_to_inner_bool_to_inner,UNDISCH binop_thm]
 
-val in_fun_select = prove(
-  ``is_set_theory ^mem ⇒ is_in ina ⇒
-    (in_fun (in_fun ina in_bool) ina $@ =
-     Abstract (range (in_fun ina in_bool)) (range ina)
+val fun_to_inner_select = prove(
+  ``is_set_theory ^mem ⇒ wf_to_inner ina ⇒
+    (fun_to_inner (fun_to_inner ina bool_to_inner) ina $@ =
+     Abstract (range (fun_to_inner ina bool_to_inner)) (range ina)
        (λp. ina (@x. Holds p (ina x))))``,
-  rw[in_fun_def] >>
+  rw[fun_to_inner_def] >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  simp[in_bool_def,boolean_in_boolset] >>
-  simp[is_in_range_thm] >>
-  simp[GSYM in_bool_def] >>
-  Q.ISPEC_THEN`in_bool`mp_tac(Q.GEN`inb`range_in_fun) >>
-  discharge_hyps >- metis_tac[is_in_in_bool] >> rw[] >>
+  simp[bool_to_inner_def,boolean_in_boolset] >>
+  simp[wf_to_inner_range_thm] >>
+  simp[GSYM bool_to_inner_def] >>
+  Q.ISPEC_THEN`bool_to_inner`mp_tac(Q.GEN`inb`range_fun_to_inner) >>
+  discharge_hyps >- metis_tac[wf_to_inner_bool_to_inner] >> rw[] >>
   AP_TERM_TAC >> AP_TERM_TAC >>
   qmatch_abbrev_tac`l = r` >>
-  qsuff_tac`in_fun ina in_bool l = in_fun ina in_bool r` >- (
-    `is_in (in_fun ina in_bool)` by metis_tac[is_in_in_fun,is_in_in_bool] >>
-    fs[is_in_def,BIJ_DEF,INJ_DEF] ) >>
-  Q.ISPEC_THEN`in_fun ina in_bool`mp_tac is_in_finv_right >>
-  discharge_hyps >- metis_tac[is_in_in_fun,is_in_in_bool] >>
-  simp[range_in_fun] >> disch_then(qspec_then`x`mp_tac) >>
+  qsuff_tac`fun_to_inner ina bool_to_inner l = fun_to_inner ina bool_to_inner r` >- (
+    `wf_to_inner (fun_to_inner ina bool_to_inner)` by metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner] >>
+    fs[wf_to_inner_def,BIJ_DEF,INJ_DEF] ) >>
+  Q.ISPEC_THEN`fun_to_inner ina bool_to_inner`mp_tac wf_to_inner_finv_right >>
+  discharge_hyps >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner] >>
+  simp[range_fun_to_inner] >> disch_then(qspec_then`x`mp_tac) >>
   discharge_hyps >- simp[] >>
   simp[Abbr`l`] >> disch_then kall_tac >>
   simp[Abbr`r`] >>
-  Q.ISPECL_THEN[`x`,`range ina`,`range in_bool`]mp_tac(UNDISCH in_funspace_abstract) >>
-  discharge_hyps >- ( metis_tac[inhabited_range,is_in_in_bool] ) >>
+  Q.ISPECL_THEN[`x`,`range ina`,`range bool_to_inner`]mp_tac(UNDISCH in_funspace_abstract) >>
+  discharge_hyps >- ( metis_tac[inhabited_range,wf_to_inner_bool_to_inner] ) >>
   rw[] >>
-  simp[in_fun_def] >>
+  simp[fun_to_inner_def] >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  simp[range_in_bool] >>
-  simp[in_bool_def,boolean_in_boolset] >>
+  simp[range_bool_to_inner] >>
+  simp[bool_to_inner_def,boolean_in_boolset] >>
   rw[holds_def] >>
-  qmatch_abbrev_tac`f x = Boolean (b = True)` >>
+  qmatch_abbrev_tac`f x = Boolean (b:'U = True)` >>
   `b = f x` by (
     simp[Abbr`b`] >>
     match_mp_tac apply_abstract_matchable >>
-    metis_tac[is_in_finv_right,range_in_bool] ) >>
+    metis_tac[wf_to_inner_finv_right,range_bool_to_inner] ) >>
   rw[boolean_def] >>
-  metis_tac[range_in_bool,mem_boolset]) |> UNDISCH
+  metis_tac[range_bool_to_inner,mem_boolset]) |> UNDISCH
 
 local
-  val dest_in_fun = dest_triop ``in_fun0`` (mk_HOL_ERR"""dest_in_fun""")
-  val range_in_fun0 =
-    range_in_fun
+  val dest_fun_to_inner = dest_triop ``fun_to_inner0`` (mk_HOL_ERR"""dest_fun_to_inner""")
+  val range_fun_to_inner0 =
+    range_fun_to_inner
     |> Q.GENL[`inb`,`ina`,`mem`]
     |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
 in
-  fun range_in_fun_conv tm =
+  fun range_fun_to_inner_conv tm =
     let
-      val in_fun_ina_inb = rand tm
-      val (mem,ina,inb) = dest_in_fun in_fun_ina_inb
-      val th = ISPECL[mem,ina,inb] range_in_fun0 |> funpow 3 UNDISCH
+      val fun_to_inner_ina_inb = rand tm
+      val (mem,ina,inb) = dest_fun_to_inner fun_to_inner_ina_inb
+      val th = ISPECL[mem,ina,inb] range_fun_to_inner0 |> funpow 3 UNDISCH
     in
       REWR_CONV th tm
     end
 end
 
-val in_fun_equals = prove(
-  ``is_set_theory ^mem ⇒ is_in ina ⇒
-    (in_fun ina (in_fun ina in_bool) $= =
+val fun_to_inner_equals = prove(
+  ``is_set_theory ^mem ⇒ wf_to_inner ina ⇒
+    (fun_to_inner ina (fun_to_inner ina bool_to_inner) $= =
      Abstract (range ina) (Funspace (range ina) boolset)
        (λx. Abstract (range ina) boolset (λy. Boolean (x = y))))``,
   rw[] >>
-  rw[in_fun_def] >>
-  assume_tac (UNDISCH is_in_in_bool) >>
-  CONV_TAC(DEPTH_CONV range_in_fun_conv) >>
-  simp[range_in_bool] >>
+  rw[fun_to_inner_def] >>
+  assume_tac (UNDISCH wf_to_inner_bool_to_inner) >>
+  CONV_TAC(DEPTH_CONV range_fun_to_inner_conv) >>
+  simp[range_bool_to_inner] >>
   match_mp_tac (UNDISCH abstract_eq) >>
   simp[] >> rw[] >>
   TRY (
     match_mp_tac (UNDISCH abstract_in_funspace) >>
-    simp[in_bool_def,boolean_in_boolset] ) >>
+    simp[bool_to_inner_def,boolean_in_boolset] ) >>
   match_mp_tac (UNDISCH abstract_eq) >>
-  simp[in_bool_def,boolean_in_boolset] >>
+  simp[bool_to_inner_def,boolean_in_boolset] >>
   rw[boolean_def] >>
-  metis_tac[is_in_finv_right]) |> funpow 2 UNDISCH
+  metis_tac[wf_to_inner_finv_right]) |> funpow 2 UNDISCH
 
 val _ = map2 (curry save_thm)
-  ["in_fun_not","in_fun_forall","in_fun_exists","in_fun_binop","in_bool_false","in_bool_true","in_fun_select","in_fun_equals"]
-  [ in_fun_not , in_fun_forall , in_fun_exists , in_fun_binop , in_bool_false , in_bool_true , in_fun_select , in_fun_equals ]
+  ["fun_to_inner_not","fun_to_inner_forall","fun_to_inner_exists","fun_to_inner_binop","bool_to_inner_false","bool_to_inner_true","fun_to_inner_select","fun_to_inner_equals"]
+  [ fun_to_inner_not , fun_to_inner_forall , fun_to_inner_exists , fun_to_inner_binop , bool_to_inner_false , bool_to_inner_true , fun_to_inner_select , fun_to_inner_equals ]
 
 val std_sig_instances = store_thm("std_sig_instances",
   ``is_std_sig sig ⇒
-    (instance (tmsof sig) i "=" (Fun ty (Fun ty Bool)) =
-       (λτ. tmaof i "=" [typesem (tyaof i) τ ty]))``,
+    (instance (tmsof sig) i (strlit"=") (Fun ty (Fun ty Bool)) =
+       (λτ. tmaof i (strlit"=") [typesem (tyaof i) τ ty]))``,
   rw[is_std_sig_def] >>
-  Q.ISPECL_THEN[`tmsof sig`,`i`,`"="`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`strlit"="`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar (strlit"A")]`mp_tac) >>
   EVAL_TAC >> simp[])
 
 val is_select_sig_def = Define`
   is_select_sig sig ⇔
   is_bool_sig sig ∧
-  (FLOOKUP (tmsof sig) "@" = SOME (Fun (Fun (Tyvar "A") Bool) (Tyvar "A")))`
+  (FLOOKUP (tmsof sig) (strlit"@") = SOME (Fun (Fun (Tyvar (strlit"A")) Bool) (Tyvar (strlit"A"))))`
 
 val select_sig_instances = store_thm("select_sig_instances",
   ``is_select_sig sig ⇒
-    (instance (tmsof sig) i "@" (Fun (Fun ty Bool) ty) =
-       (λτ. tmaof i "@" [typesem (tyaof i) τ ty]))``,
+    (instance (tmsof sig) i (strlit"@") (Fun (Fun ty Bool) ty) =
+       (λτ. tmaof i (strlit"@") [typesem (tyaof i) τ ty]))``,
   rw[is_select_sig_def] >>
-  Q.ISPECL_THEN[`tmsof sig`,`i`,`"@"`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  Q.ISPECL_THEN[`tmsof sig`,`i`,`strlit"@"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[ty,Tyvar (strlit"A")]`mp_tac) >>
   EVAL_TAC >> rw[])
+
+val bool_sig_defs = [is_true_sig_def,is_false_sig_def,is_implies_sig_def,
+  is_and_sig_def,is_or_sig_def,is_not_sig_def,is_forall_sig_def,is_exists_sig_def]
 
 val select_has_select_sig = store_thm("select_has_select_sig",
   ``is_bool_sig (sigof ctxt) ⇒ is_select_sig (sigof (mk_select_ctxt ctxt))``,
   rw[is_select_sig_def] >- (
-    fs[is_bool_sig_def,mk_select_ctxt_def,FLOOKUP_UPDATE] >>
+    fs([is_bool_sig_def,mk_select_ctxt_def,FLOOKUP_UPDATE]@bool_sig_defs) >>
     fs[is_std_sig_def,FLOOKUP_UPDATE] ) >>
   EVAL_TAC)
 
@@ -831,9 +833,9 @@ val eta_theory_ok = prove(
 
 val select_model_exists = prove(
   ``∃f. ∀mem select. is_set_theory mem ⇒ good_select select ⇒
-      subinterpretation (mk_eta_ctxt (mk_bool_ctxt init_ctxt)) (bool_model0 mem) (f mem select) ∧
+      equal_on (sigof (mk_eta_ctxt (mk_bool_ctxt init_ctxt))) (bool_model0 mem) (f mem select) ∧
       f mem select models thyof (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))) ∧
-      (tmaof (f mem select) "@" = λls.
+      (tmaof (f mem select) (strlit"@") = λls.
         Abstract (Funspace (HD ls) boolset) (HD ls)
           (λp. select (HD ls) (Holds p)))``,
   rw[GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >>
@@ -878,15 +880,25 @@ extends_theory_ok
 |> Q.SPECL[`mk_eta_ctxt (mk_bool_ctxt init_ctxt)`,`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`]
 |> SIMP_RULE std_ss [eta_theory_ok,select_extends_eta]
 
+val bool_interpretation_defs =
+  [is_true_interpretation_def,
+   is_and_interpretation_def,
+   is_implies_interpretation_def,
+   is_forall_interpretation_def,
+   is_exists_interpretation_def,
+   is_or_interpretation_def,
+   is_false_interpretation_def,
+   is_not_interpretation_def]
+
 val extends_bool_interpretation = prove(
   ``is_set_theory ^mem ⇒
     ∀model.
     is_std_interpretation model ∧
-    subinterpretation (mk_bool_ctxt init_ctxt) bool_model model ⇒
+    equal_on (sigof (mk_bool_ctxt init_ctxt)) bool_model model ⇒
     is_bool_interpretation model``,
   rw[] >>
   assume_tac bool_model_interpretation >>
-  fs[subinterpretation_def,is_bool_interpretation_def] >>
+  fs([equal_on_def,is_bool_interpretation_def]@bool_interpretation_defs) >>
   fs[term_ok_def] >>
   rpt conj_tac >>
   qmatch_abbrev_tac`tmaof model interprets name on args as val` >>
@@ -909,11 +921,9 @@ val select_bool_interpretation = prove(
   match_mp_tac (MP_CANON extends_bool_interpretation) >>
   first_assum(strip_assume_tac o MATCH_MP select_model_models) >>
   conj_tac >- fs[models_def] >>
-  match_mp_tac subinterpretation_reduce >>
+  match_mp_tac equal_on_reduce >>
   fs[mk_eta_ctxt_def] >>
-  full_simp_tac bool_ss [Once rich_listTheory.CONS_APPEND] >>
-  first_assum (match_exists_tac o concl) >>
-  simp[]) |> UNDISCH |> UNDISCH
+  qexists_tac`[]`>>simp[]) |> UNDISCH |> UNDISCH
 
 val infinity_extends_select = prove(
   ``mk_infinity_ctxt (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))) extends
@@ -948,44 +958,40 @@ val is_bool_interpretation_subinterpretation = store_thm("is_bool_interpretation
 *)
 
 val good_select_extend_base_select = store_thm("good_select_extend_base_select",
-  ``∀ina. is_in ina ⇒
+  ``∀ina. wf_to_inner ina ⇒
       ∀s. good_select s ⇒
       good_select ((range ina =+ (λp. ina (@x. p (ina x)))) s)``,
   rw[good_select_def,APPLY_UPDATE_THM] >> rw[] >>
   TRY (
     SELECT_ELIM_TAC >> simp[] >>
     qexists_tac`finv ina x` >>
-    metis_tac[is_in_finv_right] ) >>
-  metis_tac[is_in_range_thm])
+    metis_tac[wf_to_inner_finv_right] ) >>
+  metis_tac[wf_to_inner_range_thm])
 
-(* XXX: Should the second assumption (FLOOKUP) be replaced by
- * a use of "is_select_sig"? *)
 val select_instance_thm = prove(
   ``is_set_theory ^mem ⇒
-    (FLOOKUP tmsig "@" = SOME (Fun (Fun (Tyvar "A") Bool) (Tyvar "A"))) ⇒
+    is_select_sig ^signatur ⇒
     good_select select_fun ⇒
     (select_fun (range inty) = λp. inty (@x. p (inty x))) ⇒
     (typesem (tyaof (select_model select_fun)) ^tyval ty = range inty) ⇒
-    is_in inty
+    wf_to_inner inty
     ⇒
-    (instance ^tmsig (select_model select_fun)  "@" (Fun (Fun ty Bool) ty) ^tyval =
-     in_fun (in_fun inty in_bool) inty $@)``,
-  rw[] >>
-  qspecl_then[`tmsig`,`select_model select_fun`,`"@"`]mp_tac instance_def >>
+    (instance ^tmsig (select_model select_fun) (strlit "@") (Fun (Fun ty Bool) ty) ^tyval =
+     fun_to_inner (fun_to_inner inty bool_to_inner) inty $@)``,
+  rw[is_select_sig_def] >>
+  qspecl_then[`tmsig`,`select_model select_fun`,`strlit"@"`]mp_tac instance_def >>
   simp[] >>
-  disch_then(qspec_then`[ty,Tyvar "A"]`mp_tac) >>
+  disch_then(qspec_then`[ty,Tyvar (strlit"A")]`mp_tac) >>
   CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
   simp[] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
   first_assum(assume_tac o MATCH_MP select_model_models) >>
   simp[] >> pop_assum kall_tac >>
-  first_assum(mp_tac o MATCH_MP in_fun_select) >>
+  first_assum(mp_tac o MATCH_MP fun_to_inner_select) >>
   simp[] >> disch_then kall_tac >>
-  (range_in_fun |> Q.GEN`inb` |> Q.ISPEC`in_bool` |> Q.GEN`ina` |> Q.SPEC_THEN`inty`mp_tac) >>
-  simp[is_in_in_bool] >> disch_then kall_tac >>
-  simp[range_in_bool] >>
-  match_mp_tac (UNDISCH abstract_eq) >>
-  simp[] >> rw[]) |> funpow 2 UNDISCH
+  (range_fun_to_inner |> Q.GEN`inb` |> Q.ISPEC`bool_to_inner` |> Q.GEN`ina` |> Q.SPEC_THEN`inty`mp_tac) >>
+  simp[wf_to_inner_bool_to_inner] >> disch_then kall_tac >>
+  simp[range_bool_to_inner]) |> funpow 2 UNDISCH
 
 val _ = map2 (curry save_thm)
   ["select_theory_ok","select_extends_bool","select_bool_interpretation","select_model_models","select_instance_thm","extends_bool_interpretation"]
@@ -994,15 +1000,15 @@ val _ = map2 (curry save_thm)
 val is_infinity_sig_def = Define`
   is_infinity_sig sig ⇔
   is_select_sig sig ∧
-  (FLOOKUP (tysof sig) "ind" = SOME 0) ∧
-  (FLOOKUP (tmsof sig) "ONTO" = SOME (Fun (Fun (Tyvar "A") (Tyvar "B")) Bool)) ∧
-  (FLOOKUP (tmsof sig) "ONE_ONE" = SOME (Fun (Fun (Tyvar "A") (Tyvar "B")) Bool))`
+  (FLOOKUP (tysof sig) (strlit"ind") = SOME 0) ∧
+  (FLOOKUP (tmsof sig) (strlit"ONTO") = SOME (Fun (Fun (Tyvar (strlit"A")) (Tyvar (strlit"B"))) Bool)) ∧
+  (FLOOKUP (tmsof sig) (strlit"ONE_ONE") = SOME (Fun (Fun (Tyvar (strlit"A")) (Tyvar (strlit"B"))) Bool))`
 
 val infinity_has_infinity_sig = store_thm("infinity_has_infinity_sig",
   ``is_select_sig (sigof ctxt) ⇒ is_infinity_sig (sigof (mk_infinity_ctxt ctxt))``,
   rw[is_infinity_sig_def] >- (
     fs[is_select_sig_def,mk_infinity_ctxt_def,FLOOKUP_UPDATE] >>
-    fs[is_bool_sig_def,is_std_sig_def,FLOOKUP_UPDATE]) >>
+    fs([is_bool_sig_def,is_std_sig_def,FLOOKUP_UPDATE]@bool_sig_defs)) >>
   EVAL_TAC)
 
 val is_infinity_sig_hol_ctxt = store_thm("is_infinity_sig_hol_ctxt",
@@ -1018,19 +1024,128 @@ val is_infinity_sig_hol_ctxt = store_thm("is_infinity_sig_hol_ctxt",
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
 
-val is_in_in_ind_implies_infinite = store_thm("is_in_in_ind_implies_infinite",
-  ``is_in (in_ind:ind->'U) ⇒ is_infinite ^mem (range in_ind)``,
+val wf_to_inner_ind_to_inner_implies_infinite = store_thm("wf_to_inner_ind_to_inner_implies_infinite",
+  ``wf_to_inner (ind_to_inner:ind->'U) ⇒ is_infinite ^mem (range ind_to_inner)``,
   rw[] >>
-  imp_res_tac is_in_bij_thm >>
+  imp_res_tac wf_to_inner_bij_thm >>
   rw[is_infinite_def] >>
-  `ext (range in_ind) = IMAGE in_ind UNIV` by (
+  `ext (range ind_to_inner) = IMAGE ind_to_inner UNIV` by (
     fs[EXTENSION,BIJ_DEF,INJ_DEF,SURJ_DEF,ext_def] >>
-    metis_tac[is_in_range_thm]) >>
+    metis_tac[wf_to_inner_range_thm]) >>
   fs[ext_def] >>
   match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
   conj_tac >- ( fs[BIJ_DEF,INJ_DEF] ) >>
   match_mp_tac (snd(EQ_IMP_RULE INFINITE_UNIV)) >>
   metis_tac[INFINITY_AX,ONE_ONE_DEF,ONTO_DEF])
+
+val hol_model_exists = prove(
+  ``∃i. ∀^mem select ind_to_inner.
+        is_set_theory ^mem ∧ good_select select ∧ wf_to_inner (ind_to_inner:ind->'U) ⇒
+        i mem select ind_to_inner models (thyof hol_ctxt) ∧
+        equal_on (sigof (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))))
+          (select_model select) (i mem select ind_to_inner) ∧
+        (tyaof (i mem select ind_to_inner) (strlit"ind") [] = range ind_to_inner)``,
+  simp[GSYM SKOLEM_THM] >>
+  simp[RIGHT_EXISTS_IMP_THM] >> rpt strip_tac >>
+  mp_tac (UNDISCH infinity_has_model_gen) >>
+  disch_then(qspec_then`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- ACCEPT_TAC select_theory_ok >>
+    EVAL_TAC ) >>
+  disch_then(qspecl_then[`select_model select`,`range ind_to_inner`]mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- (
+      Q.SPEC_THEN`select`(ACCEPT_TAC o CONJUNCT1 o CONJUNCT2 o UNDISCH)
+      select_model_models ) >>
+    simp[UNDISCH wf_to_inner_ind_to_inner_implies_infinite] >>
+    assume_tac select_bool_interpretation >>
+    fs[is_bool_interpretation_def] ) >>
+  disch_then(qx_choose_then`i`strip_assume_tac) >>
+  fs[GSYM hol_ctxt_def,GSYM fhol_ctxt_def] >>
+  qexists_tac`i` >> simp[])
+
+val hol_model_def = new_specification("hol_model_def",["hol_model0"],hol_model_exists)
+val _ = overload_on("hol_model",``hol_model0 ^mem``)
+val hol_model_models = SPEC mem hol_model_def |> SPEC_ALL |>
+  SIMP_RULE bool_ss [GSYM AND_IMP_INTRO] |> funpow 3 UNDISCH
+val _ = save_thm("hol_model_models",hol_model_models)
+
+val hol_bool_interpretation = prove(
+  ``is_set_theory ^mem ⇒
+    good_select select ⇒
+    wf_to_inner ind_to_inner ⇒
+    is_bool_interpretation (hol_model select ind_to_inner)``,
+  rw[] >>
+  strip_assume_tac hol_model_models >>
+  match_mp_tac (MP_CANON extends_bool_interpretation) >>
+  conj_tac >- fs[models_def] >>
+  qspec_then`select`(mp_tac o CONJUNCT1 o UNDISCH)select_model_models >>
+  strip_tac >>
+  fs[equal_on_def,type_ok_def,term_ok_def] >>
+  conj_tac  >- (
+    rpt gen_tac >>
+    rpt(first_x_assum(qspecl_then[`name`,`args`]mp_tac)) >>
+    CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV EVAL))) >> strip_tac >>
+    CONV_TAC(LAND_CONV(LAND_CONV EVAL)) >> strip_tac >>
+    CONV_TAC(LAND_CONV EVAL) >>
+    rw[] >> fs[] >> rfs[] >>
+    fs[LENGTH_NIL_SYM] >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac EQ_TRANS >>
+    first_assum(match_exists_tac o concl o SYM) >> simp[] >>
+    first_x_assum (match_mp_tac o GSYM) >>
+    EVAL_TAC >> fs[] ) >>
+  rpt gen_tac >>
+  rpt(first_x_assum(qspecl_then[`name`,`ty`]mp_tac)) >>
+  CONV_TAC(LAND_CONV(LAND_CONV(EVAL))) >> strip_tac >>
+  CONV_TAC(LAND_CONV(EVAL)) >> strip_tac >>
+  CONV_TAC(LAND_CONV EVAL) >>
+  rw[] >> fs[] >> rfs[] >> fs[LENGTH_NIL_SYM] >>
+  metis_tac[]) |> funpow 3 UNDISCH
+val _ = save_thm("hol_bool_interpretation",hol_bool_interpretation)
+
+(*
+val interpretations1 = bool_interpretations hol_bool_interpretation
+val equality_thm0 = CONJUNCT1 (funpow 0 CONJUNCT2 interpretations1)
+val truth_thm0    = CONJUNCT1 (funpow 1 CONJUNCT2 interpretations1)
+val and_thm0      = CONJUNCT1 (funpow 2 CONJUNCT2 interpretations1)
+val implies_thm0  = CONJUNCT1 (funpow 3 CONJUNCT2 interpretations1)
+val forall_thm0   = CONJUNCT1 (funpow 4 CONJUNCT2 interpretations1)
+val exists_thm0   = CONJUNCT1 (funpow 5 CONJUNCT2 interpretations1)
+val or_thm0       = CONJUNCT1 (funpow 6 CONJUNCT2 interpretations1)
+val falsity_thm0  = CONJUNCT1 (funpow 7 CONJUNCT2 interpretations1)
+val not_thm0      =           (funpow 8 CONJUNCT2 interpretations1)
+
+val equality_thm =
+  equality_thm0 |> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM fun_to_inner_equals)))
+val truth_thm =
+  truth_thm0 |> CONV_RULE(REWR_CONV is_true_interpretation_def)
+  |> CONV_RULE(RAND_CONV(REWR_CONV(SYM bool_to_inner_true)))
+val and_thm =
+  and_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
+val implies_thm =
+  implies_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
+val forall_thm =
+  forall_thm0|> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM fun_to_inner_forall)))
+val exists_thm =
+  exists_thm0|> Q.SPEC`range ina`
+  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM fun_to_inner_exists)))
+val or_thm =
+  or_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
+val falsity_thm =
+  falsity_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM bool_to_inner_false)))
+val not_thm =
+  not_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_not)))
+
+val _ = map2 (curry save_thm)
+  ["equality_thm","truth_thm","and_thm","implies_thm","forall_thm","exists_thm","or_thm","falsity_thm","not_thm"]
+  [ equality_thm , truth_thm , and_thm , implies_thm , forall_thm , exists_thm , or_thm , falsity_thm , not_thm ]
+*)
 
 val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
   ``is_set_theory ^mem ⇒
@@ -1058,112 +1173,7 @@ val constrained_term_valuation_exists = store_thm("constrained_term_valuation_ex
   fs[MEM_MAP,Once FORALL_PROD] >>
   rw[] >> metis_tac[])
 
-val hol_model_exists = prove(
-  ``∃i. ∀^mem select in_ind.
-        is_set_theory ^mem ∧ good_select select ∧ is_in (in_ind:ind->'U) ⇒
-        i mem select in_ind models (thyof hol_ctxt) ∧
-        subinterpretation (mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt)))
-          (select_model select) (i mem select in_ind) ∧
-        (tyaof (i mem select in_ind) "ind" [] = range in_ind)``,
-  simp[GSYM SKOLEM_THM] >>
-  simp[RIGHT_EXISTS_IMP_THM] >> rpt strip_tac >>
-  mp_tac (UNDISCH infinity_has_model_gen) >>
-  disch_then(qspec_then`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`mp_tac) >>
-  discharge_hyps >- (
-    conj_tac >- ACCEPT_TAC select_theory_ok >>
-    EVAL_TAC ) >>
-  disch_then(qspecl_then[`select_model select`,`range in_ind`]mp_tac) >>
-  discharge_hyps >- (
-    conj_tac >- (
-      Q.SPEC_THEN`select`(ACCEPT_TAC o CONJUNCT1 o CONJUNCT2 o UNDISCH)
-      select_model_models ) >>
-    simp[UNDISCH is_in_in_ind_implies_infinite] >>
-    assume_tac select_bool_interpretation >>
-    fs[is_bool_interpretation_def] ) >>
-  disch_then(qx_choose_then`i`strip_assume_tac) >>
-  fs[GSYM hol_ctxt_def,GSYM fhol_ctxt_def] >>
-  qexists_tac`i` >> simp[])
-
-val hol_model_def = new_specification("hol_model_def",["hol_model0"],hol_model_exists)
-val _ = overload_on("hol_model",``hol_model0 ^mem``)
-val hol_model_models = SPEC mem hol_model_def |> SPEC_ALL |>
-  SIMP_RULE bool_ss [GSYM AND_IMP_INTRO] |> funpow 3 UNDISCH
-val _ = save_thm("hol_model_models",hol_model_models)
-
-val hol_bool_interpretation = prove(
-  ``is_set_theory ^mem ⇒
-    good_select select ⇒
-    is_in in_ind ⇒
-    is_bool_interpretation (hol_model select in_ind)``,
-  rw[] >>
-  strip_assume_tac hol_model_models >>
-  match_mp_tac (MP_CANON extends_bool_interpretation) >>
-  conj_tac >- fs[models_def] >>
-  qspec_then`select`(mp_tac o CONJUNCT1 o UNDISCH)select_model_models >>
-  strip_tac >>
-  fs[subinterpretation_def,type_ok_def,term_ok_def] >>
-  conj_tac  >- (
-    rpt gen_tac >>
-    rpt(first_x_assum(qspecl_then[`name`,`args`]mp_tac)) >>
-    CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV EVAL))) >> strip_tac >>
-    CONV_TAC(LAND_CONV(LAND_CONV EVAL)) >> strip_tac >>
-    CONV_TAC(LAND_CONV EVAL) >>
-    rw[] >> fs[] >> rfs[] >>
-    fs[LENGTH_NIL_SYM] >>
-    match_mp_tac EQ_SYM >>
-    match_mp_tac EQ_TRANS >>
-    first_assum(match_exists_tac o concl o SYM) >> simp[] >>
-    first_x_assum (match_mp_tac o GSYM) >>
-    EVAL_TAC >> fs[] ) >>
-  rpt gen_tac >>
-  rpt(first_x_assum(qspecl_then[`name`,`ty`]mp_tac)) >>
-  CONV_TAC(LAND_CONV(LAND_CONV(EVAL))) >> strip_tac >>
-  CONV_TAC(LAND_CONV(EVAL)) >> strip_tac >>
-  CONV_TAC(LAND_CONV EVAL) >>
-  rw[] >> fs[] >> rfs[] >> fs[LENGTH_NIL_SYM] >>
-  metis_tac[]) |> funpow 3 UNDISCH
-val _ = save_thm("hol_bool_interpretation",hol_bool_interpretation)
-
-val interpretations1 = bool_interpretations hol_bool_interpretation
-val equality_thm0 = CONJUNCT1 (funpow 0 CONJUNCT2 interpretations1)
-val truth_thm0    = CONJUNCT1 (funpow 1 CONJUNCT2 interpretations1)
-val and_thm0      = CONJUNCT1 (funpow 2 CONJUNCT2 interpretations1)
-val implies_thm0  = CONJUNCT1 (funpow 3 CONJUNCT2 interpretations1)
-val forall_thm0   = CONJUNCT1 (funpow 4 CONJUNCT2 interpretations1)
-val exists_thm0   = CONJUNCT1 (funpow 5 CONJUNCT2 interpretations1)
-val or_thm0       = CONJUNCT1 (funpow 6 CONJUNCT2 interpretations1)
-val falsity_thm0  = CONJUNCT1 (funpow 7 CONJUNCT2 interpretations1)
-val not_thm0      =           (funpow 8 CONJUNCT2 interpretations1)
-
-val equality_thm =
-  equality_thm0 |> Q.SPEC`range ina`
-  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
-  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_equals)))
-val truth_thm =
-  truth_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_true)))
-val and_thm =
-  and_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
-val implies_thm =
-  implies_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
-val forall_thm =
-  forall_thm0|> Q.SPEC`range ina`
-  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
-  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_forall)))
-val exists_thm =
-  exists_thm0|> Q.SPEC`range ina`
-  |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
-  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM in_fun_exists)))
-val or_thm =
-  or_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_binop)))
-val falsity_thm =
-  falsity_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_bool_false)))
-val not_thm =
-  not_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM in_fun_not)))
-
-val _ = map2 (curry save_thm)
-  ["equality_thm","truth_thm","and_thm","implies_thm","forall_thm","exists_thm","or_thm","falsity_thm","not_thm"]
-  [ equality_thm , truth_thm , and_thm , implies_thm , forall_thm , exists_thm , or_thm , falsity_thm , not_thm ]
-
+(*
 (* TODO: move *)
 val bool_sig_quant_instances = store_thm("bool_sig_quant_instances",
   ``is_bool_sig sig ⇒
@@ -1268,7 +1278,6 @@ val boolean_of_eq_true = store_thm("boolean_of_eq_true",
   rw[boolean_def] >> rw[] >>
   metis_tac[mem_boolset])
 *)
-
 
 val bool_cert_thm = prove(
   ``good_context mem tysig tmsig tyass tmass tyval tmval ==>
