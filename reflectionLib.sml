@@ -727,28 +727,6 @@ val (_::s::_) = substs
 cs_to_inner tys consts substs
 *)
 
-  (* TODO move *)
-  val extends_refl = store_thm("extends_refl",
-    ``∀ctxt. ctxt extends ctxt``,
-    rw[extends_def])
-
-  val hol_model_def = new_specification("hol_model_def",["hol_model0"],
-    holConsistencyTheory.hol_has_model
-    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-    |> funpow 2 UNDISCH
-    |> Q.SPEC`hol_ctxt`
-    |> SIMP_RULE std_ss [extends_refl]
-    |> CONJUNCT2
-    |> DISCH_ALL
-    |> CONV_RULE(RAND_CONV(HO_REWR_CONV(GSYM RIGHT_EXISTS_IMP_THM)))
-    |> CONV_RULE(HO_REWR_CONV(GSYM RIGHT_EXISTS_IMP_THM))
-    |> Q.GEN`mem`
-    |> CONV_RULE(HO_REWR_CONV(SKOLEM_THM)))
-  val _ = Parse.overload_on("hol_model",``hol_model0 ^mem``)
-  val hol_model_def = save_thm("hol_model_def",
-    hol_model_def |> SPEC mem |> funpow 2 UNDISCH)
-  (* -- *)
-
   fun get_int th = th |> concl |> rator |> rand
 
   fun build_interpretation [] tys consts =
