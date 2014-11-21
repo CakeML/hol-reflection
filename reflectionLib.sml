@@ -120,8 +120,9 @@ local
       mapfilter f (type_vars Ty0) @ tyin0
     end
 
+  fun cmp_to_P c x y = c (x,y) <> GREATER
+
   local
-    fun cmp_to_P cmp x y = not(cmp(x,y)=GREATER)
     fun tyvar_to_str (x : hol_type) = tyvar_to_deep (dest_vartype x)
     fun to_pair {redex,residue} = (tyvar_to_str redex, residue)
     val le = cmp_to_P (inv_img_cmp fst String.compare)
@@ -682,41 +683,88 @@ local
     INST_TYPE : (hol_type,hol_type) subst -> thm -> thm
     mk_set : ''a list -> ''a list
   *)
-
-  fun cs_to_inner tys consts =
-    let
-      fun subst_to_cs s =
-        let
-          fun const_to_inner c =
-            let
-              val ic = inst s c
-            in
-              mk_comb(mk_to_inner (type_of ic), ic)
-            end
-          val inner_tys = map (mk_range o type_subst s) tys
-          val inner_consts = map const_to_inner consts
-        in
-          mk_pair(mk_list(inner_tys,universe_ty),
-                  mk_list(inner_consts,universe_ty))
-        end
-      fun subst_to_inner (s:(hol_type,hol_type)subst) =
-        let
-          fun cmp_to_P c x y = c (x,y) <> GREATER
-          val by_name =
-            cmp_to_P (inv_img_cmp (dest_vartype o #redex) String.compare)
-          val sorted_subst = sort by_name s
-          val sorted_vals = map (mk_range o #residue) sorted_subst
-        in
-          mk_list(sorted_vals,universe_ty)
-        end
-      fun foldthis (s,f) =
-        mk_icomb(combinSyntax.mk_update
-          (subst_to_inner s,
-           optionSyntax.mk_some(subst_to_cs s)),
-                 f)
-    in
-      foldl foldthis ``K NONE : 'U constraints``
-    end
+  local
+    val [if_T_thm,if_F_thm] = SPEC_ALL COND_CLAUSES |> CONJUNCTS
+    val TEST_CONV = RATOR_CONV o RATOR_CONV o RAND_CONV
+    val lists_unequal_th =
+      listTheory.LIST_EQ_REWRITE |> SPEC_ALL
+      |> EQ_IMP_RULE |> fst |> CONTRAPOS
+      |> SIMP_RULE (std_ss++boolSimps.DNF_ss) []
+      |> CONJUNCT2 |> Q.GENL[`l2`,`l1`]
+    val EVAL_LENGTH = computeLib.CBV_CONV (listSimps.list_compset())
+    val EVAL_EL = EVAL_LENGTH
+  in
+    fun cs_to_inner tys consts =
+      let
+        fun subst_to_cs s =
+          let
+            fun const_to_inner c =
+              let
+                val ic = inst s c
+              in
+                mk_comb(mk_to_inner (type_of ic), ic)
+              end
+            val inner_tys = map (mk_range o type_subst s) tys
+            val inner_consts = map const_to_inner consts
+          in
+            mk_pair(mk_list(inner_tys,universe_ty),
+                    mk_list(inner_consts,universe_ty))
+          end
+        fun subst_to_sorted_types (s:(hol_type,hol_type)subst) =
+          let
+            val by_name =
+              cmp_to_P (inv_img_cmp (dest_vartype o #redex) String.compare)
+            val sorted_subst = sort by_name s
+          in
+            map #residue sorted_subst
+          end
+        fun foldthis (s,(f,ths)) =
+          let
+            val tys = subst_to_sorted_types s
+            val instance = mk_list(map mk_range tys,universe_ty)
+            val result = optionSyntax.mk_some (subst_to_cs s)
+            val new_map = combinSyntax.mk_update (instance, result)
+            val new_f = mk_icomb(new_map, f)
+            val th =
+              combinTheory.APPLY_UPDATE_THM
+              |> ISPECL [f,instance,result,instance]
+              |> CONV_RULE(RAND_CONV(
+                   TEST_CONV(REWR_CONV(EQT_INTRO(REFL instance)))
+                   THENC REWR_CONV if_T_thm))
+            (* val (tys0,th0)::_ = ths *)
+            fun update (tys0,th0) =
+              let
+                val notinstance = th0 |> concl |> lhs |> rand
+                val typairs = zip tys tys0
+                val i = index (not o op=) typairs
+                val rth = uncurry ranges_distinct (List.nth(typairs,i))
+                val notinstanceth =
+                  lists_unequal_th
+                  |> ISPECL [instance,notinstance,numSyntax.term_of_int i]
+                  |> CONV_RULE(LAND_CONV(LAND_CONV EVAL_LENGTH THENC
+                                         RAND_CONV(EVAL_EL THENC
+                                                   REWR_CONV(EQT_INTRO rth))))
+                  |> C MP (CONJ TRUTH TRUTH)
+                val uth0 =
+                  combinTheory.APPLY_UPDATE_THM
+                  |> ISPECL [f,instance,result,notinstance]
+                  |> CONV_RULE(RAND_CONV(
+                       TEST_CONV(REWR_CONV(EQF_INTRO notinstanceth))
+                       THENC REWR_CONV if_F_thm))
+              in
+                (tys0,TRANS uth0 th0)
+              end
+            val updated_ths = map update ths
+          in
+            (new_f,((tys,th)::updated_ths))
+          end
+        val (csi,tysths) =
+          foldl foldthis (``K NONE : 'U constraints``,
+                          []:(hol_type list * thm) list)
+      in
+        (csi,tysths)
+      end
+  end
 
 (*
 val tys = [mk_list_type alpha]
@@ -724,7 +772,41 @@ val consts = [cons_tm]
 val substs = [[alpha|->numSyntax.num],[alpha|->bool]]
 val (s::_) = substs
 val (_::s::_) = substs
-cs_to_inner tys consts substs
+val (csi, ths) = cs_to_inner tys consts substs
+val (ty1,th1) = hd ths
+val (ty2,th2) = hd (tl ths)
+rand(lhs (concl th1))
+rand(lhs (concl th2))
+aconv (rator (lhs (concl th2))) csi
+aconv (rator (lhs (concl th1))) csi
+val (f,ths) = it
+
+val tys = [mk_prod(alpha,beta),finite_mapSyntax.mk_fmap_ty(alpha,beta)]
+val consts = [comma_tm,finite_mapSyntax.fempty_t]
+val substs = [[alpha|->numSyntax.num,beta|->bool],
+              [alpha|->bool,beta|->beta],
+              [alpha|->bool,beta|->bool]]
+val (csi,ths) = cs_to_inner tys consts substs
+val [(ty1,th1),(ty2,th2),(ty3,th3)] = ths
+th2
+*)
+
+(*
+  fun make_cs_assums upd substs int0 =
+    let
+      val tys = #tys upd val consts = #consts upd
+      val (csi,tysths) = cs_to_inner tys consts substs
+      val int = ``constrain_interpretation ^(upd_to_inner upd) ^csi ^int0``
+      val tya = ``tyaof ^int``
+      val tma = ``tmaof ^int``
+      fun mapthis (tys,th) =
+        let
+          val (tyl,tml) = dest_pair (optionSyntax.dest_some (rhs (concl th)))
+          tyass
+      dest_type``:'U constraints``
+      constrain_interpretation_def
+      constrain_assignment_def
+    in
 *)
 
   fun get_int th = th |> concl |> rator |> rand
@@ -733,7 +815,7 @@ cs_to_inner tys consts substs
         let
           val tyassums = flatten (map base_type_assums tys)
           val tmassums = flatten (map base_term_assums consts)
-          val assums = list_mk_conj (tyassums @ tmassms)
+          val assums = list_mk_conj (tyassums @ tmassums)
         in
             want:
             ^(concl hol_model_def) ∧ ^assums
@@ -771,8 +853,8 @@ cs_to_inner tys consts substs
           val itm = get_int (CONJUNCT1 ith)
           val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) (CONJUNCT1 ith))
           val jtm = get_int jth
-          val inner_cs = cs_to_inner (#tys upd) (#consts upd) instances_to_constrain
-          val ktm = ``constrain_interpretation ^(upd_to_inner upd) ^inner_cs ^jtm``
+          val (inner_cs,tyths) =
+            cs_to_inner (#tys upd) (#consts upd) instances_to_constrain
 
             flatten (map base_type_assums instantiated_tys)
 
