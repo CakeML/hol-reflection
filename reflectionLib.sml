@@ -758,11 +758,9 @@ local
           in
             (new_f,((tys,th)::updated_ths))
           end
-        val (csi,tysths) =
-          foldl foldthis (``K NONE : 'U constraints``,
-                          []:(hol_type list * thm) list)
       in
-        (csi,tysths)
+        foldl foldthis (``K NONE : 'U constraints``,
+                        []:(hol_type list * thm) list)
       end
   end
 
