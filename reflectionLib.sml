@@ -838,6 +838,39 @@ th2
      [alpha|->``:'x``,beta|->``:'y``]]
 
   val int0 = ``hol_model select ind_to_inner``
+
+  val ctxt = ``^inner_upd::hol_ctxt``
+  val pred_tm = ``λp. ∃x y. p = λa b. (a=x) ∧ (b=y)``
+  val pred_inner = term_to_deep pred_tm
+  val inner_upd = ``TypeDefn (strlit"prod") ^pred_inner (strlit"ABS_prod") (strlit"REP_prod")``
+  val sound_update_thm = prove(
+    ``is_set_theory ^mem ⇒
+      sound_update ^ctxt ^inner_upd``,
+    strip_tac >>
+    ho_match_mp_tac (UNDISCH holExtensionTheory.new_type_definition_correct) >>
+    cheat) |> UNDISCH
+  val constrainable_thm = prove(
+    ``constrainable_update ^inner_upd``,
+    REWRITE_TAC[constrainable_update_def] >>
+    cheat )
+  val updates_thm2 = prove(
+    ``^inner_upd updates ^ctxt``,
+    cheat)
+  val theory_ok_thm2 =
+    MATCH_MP (MATCH_MP updates_theory_ok updates_thm) theory_ok_thm
+  val upd:update = {
+      sound_update_thm  = sound_update_thm,
+      constrainable_thm = constrainable_thm,
+      updates_thm = updates_thm2,
+      theory_ok_thm = theory_ok_thm2,
+      tys = [``:('a,'b)prod``],
+      consts = [``ABS_prod``,``REP_prod``],
+      (* TODO: axs may need tweaking to match the inner *)
+      axs = CONJUNCTS pairTheory.ABS_REP_prod }
+
+   (* TODO: build_interpretation should have provided this (interpreting K) *)
+   val int0 = int0
+
 *)
 
   fun upd_to_inner (upd:update) = #constrainable_thm upd |> concl |> rand
@@ -863,14 +896,26 @@ th2
       match_mp_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
       simp[MAP_ZIP,MEM_ZIP] >>
       qexists_tac`n`>>simp[EL_MAP])
-  (*
-    ``i < LENGTH (consts_of_upd upd) ∧
-      EL i (consts_of_upd upd) = (name,ty0) ∧
-      result = EL i results ∧
-      csi instance = SOME(w,results)
-      ⇒
-      tmaof (constrain_interpretation upd csi int0) name instance = result``,
-   *)
+
+  val tyaof_constrain_interpretation_lemma = prove(
+    ``(csi inst = SOME(results,w)) ⇒
+      ALL_DISTINCT (MAP FST (types_of_upd upd)) ⇒
+      (LENGTH (types_of_upd upd) = LENGTH results)
+      ⇒ LIST_REL (λname result.
+          tyaof (constrain_interpretation upd csi int0) name inst = result)
+        (MAP FST (types_of_upd upd)) results``,
+      rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+      Cases_on`int0`>>
+      rw[EL_MAP,constrain_interpretation_def,constrain_assignment_def] >>
+      BasicProvers.CASE_TAC >- (
+        imp_res_tac alistTheory.ALOOKUP_FAILS >>
+        rfs[MEM_ZIP] >>
+        metis_tac[EL_MAP] ) >>
+      qsuff_tac`SOME x = SOME (EL n results)`>-rw[]>>
+      pop_assum(SUBST1_TAC o SYM) >>
+      match_mp_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
+      simp[MAP_ZIP,MEM_ZIP] >>
+      qexists_tac`n`>>simp[EL_MAP])
 
   local
     val cons_lemma = last(CONJUNCTS LIST_REL_def) |> EQ_IMP_RULE |> fst
@@ -911,13 +956,23 @@ th2
           val lem4 = lem3 |> CONV_RULE(RATOR_CONV(RAND_CONV EVAL))
           val lem5 = lem4 |> Q.GEN`int0` |> SPEC int0
           val tmths = split_LIST_REL lem5
-          val tyths = [] (* TODO *)
+          (* --- *)
+          val lemma = MATCH_MP tyaof_constrain_interpretation_lemma th
+          val alldistinct = MATCH_MP updates_upd_ALL_DISTINCT updates_thm |> CONJUNCT2
+          val lem2 = MATCH_MP lemma alldistinct
+          (* TODO: finer conversions than the EVALs below *)
+          val lem3 = CONV_RULE(LAND_CONV EVAL) lem2 |> C MP TRUTH
+          val lem4 = lem3 |> CONV_RULE(RATOR_CONV(RAND_CONV EVAL))
+          val lem5 = lem4 |> Q.GEN`int0` |> SPEC int0
+          val tyths = split_LIST_REL lem5
         in
           tyths@tmths
         end
     in
       flatten (map mapthis tysths)
     end
+
+  make_cs_assums upd substs int0
 
   fun get_int th = th |> concl |> rator |> rand
 
