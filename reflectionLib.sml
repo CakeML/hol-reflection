@@ -293,6 +293,7 @@ local
     val get_rule =
       snd o EQ_IMP_RULE o SPEC_ALL o SIMP_RULE std_ss [] o SPEC signatur
     val varth = term_ok_def |> CONJUNCT1 |> get_rule |> Q.GEN`x`
+      |> ADD_ASSUM good_context
     val constth =
       term_ok_def |> CONJUNCT2 |> CONJUNCT1 |> get_rule
       |> SIMP_RULE std_ss [GSYM LEFT_FORALL_IMP_THM]
@@ -309,6 +310,7 @@ local
   in
     fun term_ok_term_to_deep tm =
       case dest_term tm of
+      (* val VAR (x,ty) = it *)
         VAR (x,ty) =>
           MATCH_MP varth (type_ok_type_to_deep ty)
           |> SPEC (string_to_inner x)
