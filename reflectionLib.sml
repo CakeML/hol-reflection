@@ -977,63 +977,165 @@ th2
           tyths@tmths
         end
     in
-      flatten (map mapthis tysths)
+      (int, flatten (map mapthis tysths))
     end
-
-  make_cs_assums upd substs int0
 
   fun get_int th = th |> concl |> rator |> rand
 
+  (*
+    val tys:hol_type list = []
+    val consts = map (C inst combinSyntax.K_tm) substs
+
+    val tys =
+        (set_diff (union tys new_tys) instantiated_tys)
+    val consts =
+        (set_diff (union consts new_consts) instantiated_consts)
+    val mth = hol_model_def |> SPEC mem |> SPEC_ALL |>
+              REWRITE_RULE[GSYM AND_IMP_INTRO] |>
+              funpow 3 UNDISCH |> CONJUNCT1
+    val ith = CONJ mth (prove(assums,cheat))
+
+    in hol_ctxt:
+    NewAxiom × 3
+    NewConst × 1 (select)
+    NewType × 1 (ind)
+    ConstDef × 10
+      (true, false, implies, and, or, not, forall, exists, one_one, onto)
+
+    val consts = [T,inst[alpha|->numSyntax.num]``$!``]
+    val tys:hol_type list = []
+  *)
+
+  val axiom_simplifier = prove(
+    ``p ∧ (termsem tmsig i v t = bool_to_inner p) ⇒
+      (termsem tmsig i v t = True)``,
+    rpt strip_tac >>
+    pop_assum(SUBST1_TAC) >>
+    rw[bool_to_inner_def,boolean_def])
+
+  val base_valuation_def = new_specification("base_valuation_def",
+    ["base_valuation0"],
+    prove(``∃v0. ∀mem tysig δ. is_set_theory mem ∧
+      is_type_assignment0 mem tysig δ ⇒
+      is_valuation0 mem tysig δ (v0 mem tysig δ)``,
+      rw[GSYM SKOLEM_THM] >>
+      metis_tac[valuation_exists]))
+  val _ = overload_on("base_valuation",``base_valuation0 ^mem``)
+
+  val base_tyval_def = xDefine"base_tyval"`
+    base_tyval0 ^mem tysig δ = tyvof(base_valuation tysig δ)`
+  val _ = overload_on("base_tyval",``base_tyval0 ^mem``)
+
+  val base_tmval_def = xDefine"base_tmval"`
+    base_tmval0 ^mem tysig δ = tmvof(base_valuation tysig δ)`
+  val _ = overload_on("base_tmval",``base_tmval0 ^mem``)
+
+  val theory_ok_hol_ctxt =
+      hol_theory_ok |> REWRITE_RULE[
+        GSYM holConsistencyTheory.hol_ctxt_def,
+        GSYM holConsistencyTheory.fhol_ctxt_def]
+
+  val good_context_base_case = prove(
+    ``is_set_theory ^mem
+      ⇒ wf_to_inner ind_to_inner
+      ⇒ good_select select
+      ⇒
+      good_context mem (tysof hol_ctxt) (tmsof hol_ctxt)
+        (tyaof (hol_model select ind_to_inner))
+        (tmaof (hol_model select ind_to_inner))
+        (base_tyval (tysof hol_ctxt) (tyaof (hol_model select ind_to_inner)))
+        (base_tmval (tysof hol_ctxt) (tyaof (hol_model select ind_to_inner)))``,
+      ntac 3 strip_tac >>
+      simp[good_context_def] >>
+      conj_tac >- (
+        mp_tac(MATCH_MP theory_ok_sig theory_ok_hol_ctxt) >>
+        simp[] ) >>
+      conj_asm1_tac >- (
+        imp_res_tac hol_model_def >>
+        fs[models_def]) >>
+      conj_tac >- (
+        imp_res_tac hol_model_def >>
+        fs[models_def]) >>
+      simp[base_tyval_def,base_tmval_def] >>
+      match_mp_tac base_valuation_def >>
+      fs[is_interpretation_def]) |> funpow 2 UNDISCH
+
   fun build_interpretation [] tys consts =
-        let
-          val tyassums = flatten (map base_type_assums tys)
-          val tmassums = flatten (map base_term_assums consts)
-          val assums = list_mk_conj (tyassums @ tmassums)
-        in
-            want:
-            ^(concl hol_model_def) ∧ ^assums
+    let
+      val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
+      val hypotheses =
+        [``wf_to_inner (ind_to_inner:ind -> 'U)``,
+         ``is_set_theory ^mem``]
+      val tyassums = flatten (map base_type_assums tys)
+      val tmassums = flatten (map base_term_assums consts)
+      val assums0 = list_mk_conj (tyassums @ tmassums)
+      (* TODO: need to choose select according to constraints *)
+      val int = ``hol_model base_select ind_to_inner``
+      val gcth =
+        MATCH_MP good_context_base_case gsbs
+      val args = snd(strip_comb(concl gcth))
+      val s = [tysig |-> el 2 args,
+               tmsig |-> el 3 args,
+               tyass |-> el 4 args,
+               tmass |-> el 5 args,
+               tyval |-> el 6 args]
+      val assums = subst s assums0
+      val th =
+        MATCH_MP hol_model_def
+          (LIST_CONJ [ASSUME (el 2 hypotheses),
+                      gsbs,
+                      ASSUME (el 1 hypotheses)])
+        |> CONJUNCT1
+      val assumsth = prove(assums,cheat)
+    in
+      LIST_CONJ [gcth,th,assumsth]
+    end
+| build_interpretation (upd::ctxt) tys consts =
+    let
+      val instances_to_constrain =
+        union (find_type_instances tys (#tys upd))
+              (find_const_instances consts (#consts upd))
+      val instantiated_tys =
+        flatten (map (fn s => map (type_subst s) (#tys upd)) instances_to_constrain)
+      val instantiated_consts =
+        flatten (map (fn s => map (inst s) (#consts upd)) instances_to_constrain)
+      val instantiated_axioms =
+        flatten (map (fn s => map (INST_TYPE s) (#axs upd)) instances_to_constrain)
+      val new_tys =
+        mk_set(flatten (map (base_types_of_term o concl) instantiated_axioms))
+      val new_consts =
+        mk_set(flatten (map (base_terms_of_term o concl) instantiated_axioms))
+      val ith = build_interpretation ctxt
+        (set_diff (union tys new_tys) instantiated_tys)
+        (set_diff (union consts new_consts) instantiated_consts)
+        (* [Note: It is *not* guaranteed that
+            (instantiated_tys SUBSET tys) or the analog for consts;
+            this is because we may have been *told* to constrain e.g.
+            one of the constants of a certain instance of the update,
+            but this means that we need to constrain *all* of the
+            constants of that update]
+         *)
+      val itm = get_int (CONJUNCT1 ith)
+      val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) (CONJUNCT1 ith))
+      val jtm = get_int (CONJUNCT2 jth)
+      val (ktm,cs_assums) = make_cs_assums upd instances_to_constrain jtm
+      (*
+        need to show ktm satisfies all: CONJUNCT2 ith
+        use these to do so:
+        constrain_interpretation_equal_on
+        CONJUNCT1 jth
+      *)
 
-            problem: hol_model doesn't necessarily satisfy assums. need a
-            generalised version that allows constraints to be placed on select.
-            (also might need to prove anything in the assums about the actual
-            primitives)
-        end
-    | build_interpretation (upd::ctxt) tys consts =
-        let
-          val instances_to_constrain =
-            union (find_type_instances tys (#tys upd))
-                  (find_const_instances consts (#consts upd))
-          val instantiated_tys =
-            flatten (map (fn s => map (type_subst s) (#tys upd)) instances_to_constrain)
-          val instantiated_consts =
-            flatten (map (fn s => map (inst s) (#consts upd)) instances_to_constrain)
-          val instantiated_axioms =
-            flatten (map (fn s => map (INST_TYPE s) (#axs upd)) instances_to_constrain)
-          val new_tys =
-            (* mk_set? *)flatten (map base_types_of_term o concl) instantiated_axioms
-          val new_consts =
-            flatten (map base_terms_of_term o concl) instantiated_axioms
-          val ith = build_interpretation ctxt
-            (union (set_diff tys instantiated_tys) new_tys)
-            (union (set_diff consts instantiated_consts) new_consts)
-            (* [Note: It is *not* guaranteed that
-                (instantiated_tys SUBSET tys) or the analog for consts;
-                this is because we may have been *told* to constrain e.g.
-                one of the constants of a certain instance of the update,
-                but this means that we need to constrain *all* of the
-                constants of that update]
-             *)
-          val itm = get_int (CONJUNCT1 ith)
-          val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) (CONJUNCT1 ith))
-          val jtm = get_int jth
-          val (inner_cs,tyths) =
-            cs_to_inner (#tys upd) (#consts upd) instances_to_constrain
 
-            flatten (map base_type_assums instantiated_tys)
+      val deep_axioms0 = map (termsem_cert o concl) instantiated_axioms
+      val deep_axioms = map
+        (fn (p,q) => MATCH_MP  axiom_simplifier (CONJ p q))
+        (zip instantiated_axioms deep_axioms0)
+      ktm
+      cs_assums
 
-            flatten (map base_term_assums instantiated_consts)
-        in
-        end
+    in
+    end
 
 (*
   sound_update ctxt upd ⇔
