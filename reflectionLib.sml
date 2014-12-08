@@ -409,9 +409,15 @@ local
             TRY (
               reverse conj_tac >- (
                 match_mp_tac (MP_CANON (GSYM wf_to_inner_finv_right)) >>
-                rpt conj_tac >> first_assum ACCEPT_TAC )) >>
+                rpt conj_tac >>
+                TRY(first_assum ACCEPT_TAC) >>
+                imp_res_tac (DISCH_ALL good_context_is_set_theory) >>
+                (fn (g as (asl,w)) =>
+                  ACCEPT_TAC(wf_to_inner_mk_to_inner
+                    (fst(dom_rng(type_of(rand w))))) g))) >>
             match_mp_tac good_context_extend_tmval >>
-            conj_tac >- first_assum ACCEPT_TAC >>
+            (conj_tac >- first_assum ACCEPT_TAC) >>
+            imp_res_tac (DISCH_ALL good_context_tyass_bool) >>
             ASM_SIMP_TAC (std_ss++LIST_ss) [typesem_def])
         end
     end
