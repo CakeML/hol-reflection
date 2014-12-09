@@ -948,6 +948,25 @@ th2
     val tys:hol_type list = []
   *)
 
+  local
+    val base_case = prove(``∀z. (IS_SOME (K NONE z) ⇔ MEM z [])``,rw[])
+    val step_case = prove(``∀f z k v ls.
+      (IS_SOME (f z) ⇔ MEM z ls) ⇒
+        (IS_SOME ((k =+ SOME v) f z) ⇔ MEM z (k::ls))``,
+      rw[combinTheory.APPLY_UPDATE_THM])
+  in
+    fun updates_equal_some_cases z cs =
+      INST_TYPE [beta|->optionSyntax.dest_option(type_of(rand cs))] (ISPEC z base_case) handle HOL_ERR _ =>
+      let
+        val ((k,sv),f) = combinSyntax.dest_update_comb cs
+        val v = optionSyntax.dest_some sv
+        val th = updates_equal_some_cases z f
+        val ls = th |> concl |> rhs |> listSyntax.dest_mem |> snd
+      in
+        MP (ISPECL [f,z,k,v,ls] step_case) th
+      end
+  end
+
   fun build_interpretation [] tys consts =
     let
       val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
