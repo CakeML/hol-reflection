@@ -914,7 +914,7 @@ val extends_bool_interpretation = prove(
   qmatch_abbrev_tac`tmaof model interprets name on args as val` >>
   first_x_assum(qspec_then`name`mp_tac) >>
   qunabbrev_tac`name` >>
-  CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV EVAL))) >>
+  CONV_TAC(LAND_CONV(LAND_CONV EVAL)) >>
   simp[Abbr`args`,Abbr`val`,type_ok_def,FLOOKUP_UPDATE] >>
   fs[interprets_def] >> rw[] >>
   TRY( first_x_assum match_mp_tac >>
@@ -1094,20 +1094,18 @@ val hol_bool_interpretation = prove(
   fs[equal_on_def,type_ok_def,term_ok_def] >>
   conj_tac  >- (
     rpt gen_tac >>
-    rpt(first_x_assum(qspecl_then[`name`,`args`]mp_tac)) >>
-    CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV EVAL))) >> strip_tac >>
+    rpt(first_x_assum(qspec_then`name`mp_tac)) >>
     CONV_TAC(LAND_CONV(LAND_CONV EVAL)) >> strip_tac >>
-    CONV_TAC(LAND_CONV EVAL) >>
-    rw[] >> fs[] >> rfs[] >>
-    fs[LENGTH_NIL_SYM] >>
-    match_mp_tac EQ_SYM >>
-    match_mp_tac EQ_TRANS >>
-    first_assum(match_exists_tac o concl o SYM) >> simp[] >>
-    first_x_assum (match_mp_tac o GSYM) >>
-    EVAL_TAC >> fs[] ) >>
+    CONV_TAC(LAND_CONV(LAND_CONV EVAL)) >> strip_tac >>
+    CONV_TAC(LAND_CONV EVAL) >> strip_tac >>
+    CONV_TAC(LAND_CONV EVAL) >> strip_tac >>
+    CONV_TAC(LAND_CONV EVAL) >> strip_tac >>
+    rw[] >> fs[] >> rfs[]) >>
   rpt gen_tac >>
-  rpt(first_x_assum(qspecl_then[`name`,`ty`]mp_tac)) >>
+  rpt(first_x_assum(qspec_then`name`mp_tac)) >>
   CONV_TAC(LAND_CONV(LAND_CONV(EVAL))) >> strip_tac >>
+  CONV_TAC(LAND_CONV(EVAL)) >> strip_tac >>
+  CONV_TAC(LAND_CONV(EVAL)) >> strip_tac >>
   CONV_TAC(LAND_CONV(EVAL)) >> strip_tac >>
   CONV_TAC(LAND_CONV EVAL) >>
   rw[] >> fs[] >> rfs[] >> fs[LENGTH_NIL_SYM] >>
@@ -1224,7 +1222,7 @@ val update_interpretation_def = save_thm("update_interpretation_def",update_inte
 val extend_type_assignment = store_thm("extend_type_assignment",
   ``∀tysig δ v δ'.
     is_valuation tysig δ v ∧
-    (∀name args. type_ok tysig (Tyapp name args) ⇒ δ' name = δ name)
+    (∀name. name ∈ FDOM tysig ⇒ δ' name = δ name)
     ⇒ is_valuation tysig δ' v``,
   rw[is_valuation_def,is_term_valuation_def] >>
   metis_tac[typesem_sig])
@@ -1233,7 +1231,7 @@ val update_valuation_def = new_specification("update_valuation_def",["update_val
   prove(``∃v. ∀mem ctxt upd δ0 δ v0.
                is_set_theory mem ∧ upd updates ctxt ∧
                is_valuation0 mem (tysof ctxt) δ0 v0 ∧
-               (∀name args. type_ok (tysof ctxt) (Tyapp name args) ⇒ δ name = δ0 name) ∧
+               (∀name. name ∈ FDOM (tysof ctxt) ⇒ δ name = δ0 name) ∧
                is_type_assignment (tysof (upd::ctxt)) δ
                ⇒
                is_valuation0 mem (tysof (upd::ctxt)) δ (v mem ctxt upd δ0 δ v0) ∧

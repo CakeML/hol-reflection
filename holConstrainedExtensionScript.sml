@@ -335,7 +335,8 @@ val constrain_interpretation_equal_on = store_thm("constrain_interpretation_equa
   fs[LET_THM,LIST_REL_EL_EQN] >>
   fs[ZIP_MAP,MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
   imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
-  TRY(PairCases_on`p`>>fs[] >> metis_tac[]))
+  PairCases_on`p`>>fs[] >>rw[]>>
+  Cases_on`y`>>fs[]>>metis_tac[])
 
 val valid_constraints_def = xDefine"valid_constraints"`
   valid_constraints0 ^mem ctxt upd cs i ⇔
@@ -483,6 +484,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
           imp_res_tac MEM_ZIP_MEM_MAP >>
           rfs[] >>
           PairCases_on`p`>>fs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+          Cases_on`y`>>fs[]>>
           metis_tac[] ) >>
         strip_tac >>
         imp_res_tac ALOOKUP_MEM >>
