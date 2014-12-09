@@ -1082,12 +1082,11 @@ th2
         SOME th =>
           th |> UNDISCH |> C MATCH_MP (LIST_CONJ [uth,eqth,isvalth,istyath])
       | NONE =>
-        let
-          val th = MATCH_MP tyval_extend_thm ia
-        in
+      case total (MATCH_MP tyval_extend_thm) ia of
+        SOME th =>
           th |> C MATCH_MP (LIST_CONJ [uth,eqth,isvalth,istyath])
           |> UNDISCH |> prove_hyps_by EVAL_TAC |> UNDISCH
-        end
+      | NONE => assert (can (match_term``wf_to_inner X`` o concl)) ia
   end
 
   val wf_to_inner_can_be_tagged = store_thm("wf_to_inner_can_be_tagged",
