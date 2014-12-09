@@ -967,6 +967,93 @@ th2
       end
   end
 
+  (* TODO: miscLib.prove_hyps_by is wrong: it needs to call PROVE_HYP multiple times *)
+
+  local
+    val tysig_extend_thm = prove(
+      ``(FLOOKUP (tysof (sigof ctxt)) name = SOME arity) ⇒ upd updates ctxt ⇒
+        (FLOOKUP (tysof (sigof (upd::ctxt))) name = SOME arity)``,
+      rw[finite_mapTheory.FLOOKUP_FUNION] >>
+      BasicProvers.CASE_TAC >>
+      imp_res_tac alistTheory.ALOOKUP_MEM  >>
+      imp_res_tac updates_upd_DISJOINT >>
+      fs[IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+      metis_tac[])
+
+    val tmsig_extend_thm = prove(
+      ``(FLOOKUP (tmsof (sigof ctxt)) name = SOME ty) ⇒ upd updates ctxt ⇒
+        (FLOOKUP (tmsof (sigof (upd::ctxt))) name = SOME ty)``,
+      rw[finite_mapTheory.FLOOKUP_FUNION] >>
+      BasicProvers.CASE_TAC >>
+      imp_res_tac alistTheory.ALOOKUP_MEM  >>
+      imp_res_tac updates_upd_DISJOINT >>
+      fs[IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+      metis_tac[])
+
+    val tyass_extend_thm = prove(
+      ``(tyaof i name args = ty) ⇒
+         equal_on sig i i' ⇒ name ∈ FDOM (tysof sig) ⇒
+        (tyaof i' name args = ty)``,
+      rw[equal_on_def] >> metis_tac[])
+
+    val tmass_extend_thm = prove(
+      ``(tmaof i name args = m) ⇒
+        equal_on sig i i' ⇒ name ∈ FDOM (tmsof sig) ⇒
+        (tmaof i' name args = m)``,
+      rw[equal_on_def] >> metis_tac[])
+
+    val tyval_extend_thm = prove(
+      ``(tyvof v name = ty) ⇒
+        is_set_theory ^mem ⇒
+        upd updates ctxt ∧ equal_on (sigof ctxt) i i' ∧
+        is_valuation (tysof ctxt) (tyaof i) v ∧
+        is_type_assignment (tysof (upd::ctxt)) (tyaof i') ⇒
+        (tyvof (update_valuation ctxt upd (tyaof i) (tyaof i') v) name = ty)``,
+      rw[equal_on_def] >>
+      qspecl_then[`ctxt`,`upd`,`tyaof i`,`tyaof i'`,`v`]mp_tac update_valuation_def >>
+      simp[])
+
+    val tmval_extend_thm = prove(
+      ``(tmvof v (name,ty) = m) ⇒
+        upd updates ctxt ∧ equal_on (sigof ctxt) i i' ∧
+        is_valuation (tysof ctxt) (tyaof i) v ∧
+        is_type_assignment (tysof (upd::ctxt)) (tyaof i') ⇒
+        type_ok (tysof ctxt) ty ⇒
+        is_set_theory ^mem ⇒
+        (tmvof (update_valuation ctxt upd (tyaof i) (tyaof i') v) (name,ty) = m)``,
+      rw[equal_on_def] >>
+      qspecl_then[`ctxt`,`upd`,`tyaof i`,`tyaof i'`,`v`]mp_tac update_valuation_def >>
+      simp[])
+  in
+    fun make_k_assum uth eqth isvalth istyath ia =
+      case total (MATCH_MP tysig_extend_thm) ia of
+        SOME th => MATCH_MP th uth
+      | NONE =>
+      case total (MATCH_MP tmsig_extend_thm) ia of
+        SOME th => MATCH_MP th uth
+      | NONE =>
+      case total (MATCH_MP tyass_extend_thm) ia of
+        SOME th =>
+            prove_hyps_by EVAL_TAC
+              (UNDISCH(MATCH_MP th eqth))
+      | NONE =>
+      case total (MATCH_MP tmass_extend_thm) ia of
+        SOME th =>
+            prove_hyps_by EVAL_TAC
+              (UNDISCH(MATCH_MP th eqth))
+      | NONE =>
+      case total (MATCH_MP tyval_extend_thm) ia of
+        SOME th =>
+          th |> UNDISCH |> C MATCH_MP (LIST_CONJ [uth,eqth,isvalth,istyath])
+      | NONE =>
+        let
+          val th = MATCH_MP tyval_extend_thm ia
+        in
+          th |> C MATCH_MP (LIST_CONJ [uth,eqth,isvalth,istyath])
+          |> UNDISCH |> prove_hyps_by EVAL_TAC |> UNDISCH
+        end
+  end
+
   fun build_interpretation [] tys consts =
     let
       val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
