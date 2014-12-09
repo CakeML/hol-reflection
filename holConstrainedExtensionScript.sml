@@ -284,11 +284,38 @@ val well_formed_constraints_def = xDefine"well_formed_constraints"`
             tmvs (MAP SND (consts_of_upd upd))`
 val _ = Parse.overload_on("well_formed_constraints",``well_formed_constraints0 ^mem``)
 
+val well_formed_constraints_implies_lengths = store_thm("well_formed_constraints_implies_lengths",
+  ``is_set_theory ^mem ⇒
+    well_formed_constraints upd cs δ ⇒
+    (∀vs tyvs tmvs.
+      (cs vs = SOME (tyvs,tmvs)) ⇒
+      (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
+      (LENGTH tmvs = LENGTH (consts_of_upd upd)))``,
+  rw[well_formed_constraints_def] >> res_tac >>
+  fs[LET_THM] >>
+  qmatch_assum_abbrev_tac`LENGTH vars = LENGTH args` >>
+  first_x_assum(qspec_then`args`mp_tac) >> simp[] >>
+  first_x_assum(qspec_then`K boolset =++ ZIP(MAP implode vars,args)`mp_tac) >>
+  discharge_hyps >- (
+    conj_tac >- (
+      match_mp_tac is_type_valuation_UPDATE_LIST >>
+      simp[EVERY_MEM,is_type_valuation_def] >>
+      conj_tac >- metis_tac[setSpecTheory.boolean_in_boolset] >>
+      simp[MEM_ZIP,PULL_EXISTS] >>
+      fs[EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
+    match_mp_tac MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same >>
+    simp[Abbr`vars`] ) >>
+  simp[LIST_REL_EL_EQN])
+
 val constrain_interpretation_equal_on = store_thm("constrain_interpretation_equal_on",
   ``is_set_theory ^mem ⇒
     ∀upd cs i ctxt.
       constrainable_update upd ∧
-      well_formed_constraints upd cs (tyaof i) ∧ upd updates ctxt ∧ ctxt extends init_ctxt
+      (∀vs tyvs tmvs.
+        (cs vs = SOME (tyvs,tmvs)) ⇒
+        (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
+        (LENGTH tmvs = LENGTH (consts_of_upd upd))) ∧
+      upd updates ctxt ∧ ctxt extends init_ctxt
       ⇒
       equal_on (sigof ctxt) i (constrain_interpretation upd cs i)``,
   rw[] >> Cases_on`i` >>
@@ -308,20 +335,7 @@ val constrain_interpretation_equal_on = store_thm("constrain_interpretation_equa
   fs[LET_THM,LIST_REL_EL_EQN] >>
   fs[ZIP_MAP,MEM_MAP,PULL_EXISTS,FORALL_PROD] >>
   imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
-  TRY(PairCases_on`p`>>fs[] >> metis_tac[]) >>
-  qmatch_assum_abbrev_tac`LENGTH vars = LENGTH args` >>
-  first_x_assum(qspec_then`args`mp_tac) >> simp[] >> strip_tac >>
-  first_x_assum(qspec_then`K boolset =++ ZIP(MAP implode vars,args)`mp_tac) >>
-  discharge_hyps >- (
-    conj_tac >- (
-      match_mp_tac is_type_valuation_UPDATE_LIST >>
-      simp[EVERY_MEM,is_type_valuation_def] >>
-      conj_tac >- metis_tac[setSpecTheory.boolean_in_boolset] >>
-      simp[MEM_ZIP,PULL_EXISTS] >>
-      fs[EVERY_MEM,MEM_EL,PULL_EXISTS]) >>
-    match_mp_tac MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same >>
-    simp[Abbr`vars`] ) >>
-  rw[] >> fs[MEM_MAP,EXISTS_PROD] >> metis_tac[])
+  TRY(PairCases_on`p`>>fs[] >> metis_tac[]))
 
 val valid_constraints_def = xDefine"valid_constraints"`
   valid_constraints0 ^mem ctxt upd cs i ⇔
@@ -658,7 +672,9 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     qexists_tac`i` >> simp[] >> fs[] >>
     conj_tac >- (
       match_mp_tac (UNDISCH constrain_interpretation_equal_on) >>
-      simp[] ) >>
+      simp[] >>
+      imp_res_tac well_formed_constraints_implies_lengths >>
+      metis_tac[]) >>
     fs[satisfies_def] >> rw[] >>
     qmatch_assum_abbrev_tac`tmsof ctxt ⊑ tmsig` >>
     qmatch_assum_abbrev_tac`tysof ctxt ⊑ tysig` >>
