@@ -372,6 +372,25 @@ val termsem_constrain_interpretation_NONE = prove(
   simp[termsem_def]
 *)
 
+val constrain_tyass_is_type_assignment = store_thm("constrain_tyass_is_type_assignment",
+  ``∀upd cs δ. is_type_assignment tysig δ ∧
+               (∀vs tyvs tmvs.
+                 (cs vs = SOME (tyvs,tmvs)) ⇒
+                   EVERY inhabited tyvs ∧
+                   (LENGTH tyvs = LENGTH (types_of_upd upd))) ⇒
+               is_type_assignment tysig (constrain_tyass cs upd δ)``,
+  fs[is_type_assignment_def,FEVERY_ALL_FLOOKUP] >> rw[] >>
+  res_tac >> rw[constrain_assignment_def] >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  BasicProvers.CASE_TAC >- metis_tac[] >>
+  qmatch_assum_rename_tac`cs ls = SOME p`[]>>
+  PairCases_on`p`>>res_tac>>
+  imp_res_tac ALOOKUP_MEM>>
+  rfs[ZIP_MAP,MEM_MAP] >>
+  rfs[EVERY_MEM,MEM_ZIP] >>
+  metis_tac[MEM_EL])
+
+(* TODO: use constrain_tyass_is_type_assignment below rather than reproving it inline *)
 val add_constraints_thm = store_thm("add_constraints_thm",
   ``is_set_theory ^mem ⇒
     ∀i upd ctxt cs.
