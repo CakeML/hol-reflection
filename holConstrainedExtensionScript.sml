@@ -54,18 +54,6 @@ val STRING_SORT_SET_TO_LIST_set_tvars = store_thm("STRING_SORT_SET_TO_LIST_set_t
 
 (* -- *)
 
-(* maybe move *)
-val update_interpretation_def = new_specification("update_interpretation_def",["update_interpretation0"],
-  prove(``∃u. ∀mem ctxt upd i.
-            sound_update0 mem ctxt upd ∧ models0 mem i (thyof ctxt) ⇒
-            equal_on (sigof ctxt) i (u mem ctxt upd i) ∧
-            models0 mem (u mem ctxt upd i) (thyof (upd::ctxt))``,
-        rw[GSYM SKOLEM_THM] >>
-        rw[RIGHT_EXISTS_IMP_THM,holExtensionTheory.sound_update_def]))
-val _ = Parse.overload_on("update_interpretation",``update_interpretation0 ^mem``)
-val update_interpretation_def = save_thm("update_interpretation_def",update_interpretation_def |> ISPEC mem)
-(* -- *)
-
 val types_in_def = Define`
   types_in (Var x ty) = {ty} ∧
   types_in (Const c ty) = {ty} ∧

@@ -2,6 +2,7 @@ open HolKernel boolLib bossLib Parse lcsymtacs listSimps countableLib countableT
 open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory finite_mapTheory alistTheory
 open miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolSyntaxTheory holBoolTheory holExtensionTheory holConsistencyTheory holAxiomsSyntaxTheory holAxiomsTheory
+open holConstrainedExtensionTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
@@ -23,13 +24,22 @@ val mp_lemma = store_thm("mp_lemma",
   metis_tac[])
 
 val good_context_def = Define`
-  good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval ^tmval ⇔
+  good_context ^mem (^tysig,^tmsig) (^tyass,^tmass) (^tyval,^tmval) ⇔
     is_set_theory ^mem ∧
     is_std_sig ^signatur ∧
     is_interpretation ^signatur ^interpretation ∧
     is_std_interpretation ^interpretation ∧
     is_valuation ^tysig ^tyass ^valuation`
 val good_context = good_context_def |> concl |> strip_forall |> snd |> lhs
+
+val good_context_unpaired = store_thm("good_context_unpaired",
+  ``good_context mem sig i v ⇔
+    is_set_theory mem ∧
+    is_std_sig sig ∧
+    is_interpretation sig i ∧
+    is_std_interpretation i ∧
+    is_valuation (tysof sig) (tyaof i) v``,
+  map_every PairCases_on[`sig`,`i`,`v`]>>rw[good_context_def])
 
 val finv_def = Define`
   finv f x = @y. f y = x`
@@ -416,7 +426,7 @@ val good_context_lookup_fun = prove(
 val good_context_extend_tmval = prove(
   ``^good_context ∧
      m <: typesem ^tyass ^tyval ty ⇒
-     good_context ^mem ^tysig ^tmsig ^tyass ^tmass ^tyval (((x,ty) =+ m) ^tmval)``,
+     good_context ^mem (^tysig,^tmsig) (^tyass,^tmass) (^tyval,(((x,ty) =+ m) ^tmval))``,
   rw[good_context_def,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> rw[])
 
@@ -1104,6 +1114,180 @@ val hol_bool_interpretation = prove(
   metis_tac[]) |> funpow 3 UNDISCH
 val _ = save_thm("hol_bool_interpretation",hol_bool_interpretation)
 
+val tmaof_constrain_interpretation_lemma = store_thm("tmaof_constrain_interpretation_lemma",
+  ``(csi inst = SOME(w,results)) ⇒
+    ALL_DISTINCT (MAP FST (consts_of_upd upd)) ⇒
+    (LENGTH (consts_of_upd upd) = LENGTH results)
+    ⇒ LIST_REL (λname result.
+        tmaof (constrain_interpretation upd csi int0) name inst = result)
+      (MAP FST (consts_of_upd upd)) results``,
+    rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+    Cases_on`int0`>>
+    rw[EL_MAP,constrain_interpretation_def,constrain_assignment_def] >>
+    BasicProvers.CASE_TAC >- (
+      imp_res_tac alistTheory.ALOOKUP_FAILS >>
+      rfs[MEM_ZIP] >>
+      metis_tac[EL_MAP] ) >>
+    qsuff_tac`SOME x = SOME (EL n results)`>-rw[]>>
+    pop_assum(SUBST1_TAC o SYM) >>
+    match_mp_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
+    simp[MAP_ZIP,MEM_ZIP] >>
+    qexists_tac`n`>>simp[EL_MAP])
+
+val tyaof_constrain_interpretation_lemma = store_thm("tyaof_constrain_interpretation_lemma",
+  ``(csi inst = SOME(results,w)) ⇒
+    ALL_DISTINCT (MAP FST (types_of_upd upd)) ⇒
+    (LENGTH (types_of_upd upd) = LENGTH results)
+    ⇒ LIST_REL (λname result.
+        tyaof (constrain_interpretation upd csi int0) name inst = result)
+      (MAP FST (types_of_upd upd)) results``,
+    rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+    Cases_on`int0`>>
+    rw[EL_MAP,constrain_interpretation_def,constrain_assignment_def] >>
+    BasicProvers.CASE_TAC >- (
+      imp_res_tac alistTheory.ALOOKUP_FAILS >>
+      rfs[MEM_ZIP] >>
+      metis_tac[EL_MAP] ) >>
+    qsuff_tac`SOME x = SOME (EL n results)`>-rw[]>>
+    pop_assum(SUBST1_TAC o SYM) >>
+    match_mp_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
+    simp[MAP_ZIP,MEM_ZIP] >>
+    qexists_tac`n`>>simp[EL_MAP])
+
+val updates_upd_ALL_DISTINCT = store_thm("updates_upd_ALL_DISTINCT",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      ALL_DISTINCT (MAP FST (consts_of_upd upd)) ∧
+      ALL_DISTINCT (MAP FST (types_of_upd upd))``,
+  ho_match_mp_tac updates_ind >> rw[] >>
+  rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
+
+val updates_upd_DISJOINT = store_thm("updates_upd_DISJOINT",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      DISJOINT (set (MAP FST (types_of_upd upd))) (set (MAP FST (type_list ctxt))) ∧
+      DISJOINT (set (MAP FST (consts_of_upd upd))) (set (MAP FST (const_list ctxt)))``,
+  ho_match_mp_tac updates_ind >> rw[IN_DISJOINT,MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS,LET_THM] >>
+  metis_tac[])
+
+val axiom_simplifier = store_thm("axiom_simplifier",
+  ``p ∧ (termsem tmsig i v t = bool_to_inner p) ⇒
+    (termsem tmsig i v t = True)``,
+  rpt strip_tac >>
+  pop_assum(SUBST1_TAC) >>
+  rw[bool_to_inner_def,boolean_def])
+
+val base_valuation_def = new_specification("base_valuation_def",
+  ["base_valuation0"],
+  prove(``∃v0. ∀mem tysig δ. is_set_theory mem ∧
+    is_type_assignment0 mem tysig δ ⇒
+    is_valuation0 mem tysig δ (v0 mem tysig δ)``,
+    rw[GSYM SKOLEM_THM] >>
+    metis_tac[valuation_exists]))
+val _ = overload_on("base_valuation",``base_valuation0 ^mem``)
+
+val theory_ok_hol_ctxt = save_thm("theory_ok_hol_ctxt",
+  hol_theory_ok |> REWRITE_RULE[
+    GSYM holConsistencyTheory.hol_ctxt_def,
+    GSYM holConsistencyTheory.fhol_ctxt_def])
+
+val good_context_base_case = prove(
+  ``is_set_theory ^mem
+    ⇒ wf_to_inner ind_to_inner
+    ⇒ good_select select
+    ⇒
+    good_context mem (sigof hol_ctxt) (hol_model select ind_to_inner)
+      (base_valuation (tysof hol_ctxt) (tyaof (hol_model select ind_to_inner)))``,
+    ntac 3 strip_tac >>
+    simp[good_context_unpaired] >>
+    conj_tac >- (
+      mp_tac(MATCH_MP theory_ok_sig theory_ok_hol_ctxt) >>
+      simp[] ) >>
+    conj_asm1_tac >- (
+      imp_res_tac hol_model_def >>
+      fs[models_def]) >>
+    conj_tac >- (
+      imp_res_tac hol_model_def >>
+      fs[models_def]) >>
+    match_mp_tac base_valuation_def >>
+    fs[is_interpretation_def]) |> funpow 2 UNDISCH
+val _ = save_thm("good_context_base_case",good_context_base_case)
+
+val update_interpretation_def = new_specification("update_interpretation_def",["update_interpretation0"],
+  prove(``∃u. ∀mem ctxt upd i.
+            sound_update0 mem ctxt upd ∧ models0 mem i (thyof ctxt) ⇒
+            equal_on (sigof ctxt) i (u mem ctxt upd i) ∧
+            models0 mem (u mem ctxt upd i) (thyof (upd::ctxt))``,
+        rw[GSYM SKOLEM_THM] >>
+        rw[RIGHT_EXISTS_IMP_THM,holExtensionTheory.sound_update_def]))
+val _ = Parse.overload_on("update_interpretation",``update_interpretation0 ^mem``)
+val update_interpretation_def = save_thm("update_interpretation_def",update_interpretation_def |> ISPEC mem)
+
+val extend_type_assignment = store_thm("extend_type_assignment",
+  ``∀tysig δ v δ'.
+    is_valuation tysig δ v ∧
+    (∀name args. type_ok tysig (Tyapp name args) ⇒ δ' name = δ name)
+    ⇒ is_valuation tysig δ' v``,
+  rw[is_valuation_def,is_term_valuation_def] >>
+  metis_tac[typesem_sig])
+
+val update_valuation_def = new_specification("update_valuation_def",["update_valuation0"],
+  prove(``∃v. ∀mem ctxt upd δ0 δ v0.
+               is_set_theory mem ∧ upd updates ctxt ∧
+               is_valuation0 mem (tysof ctxt) δ0 v0 ∧
+               (∀name args. type_ok (tysof ctxt) (Tyapp name args) ⇒ δ name = δ0 name) ∧
+               is_type_assignment (tysof (upd::ctxt)) δ
+               ⇒
+               is_valuation0 mem (tysof (upd::ctxt)) δ (v mem ctxt upd δ0 δ v0) ∧
+               tyvof (v mem ctxt upd δ0 δ v0) = tyvof v0 ∧
+               ∀x ty. type_ok (tysof ctxt) ty ⇒ tmvof v0 (x,ty) = tmvof (v mem ctxt upd δ0 δ v0) (x,ty)``,
+    rw[GSYM SKOLEM_THM] >>
+    rw[RIGHT_EXISTS_IMP_THM] >>
+    imp_res_tac extend_type_assignment >>
+    match_mp_tac (UNDISCH extend_valuation_exists) >>
+    simp[] >>
+    match_mp_tac (CONJUNCT2 SUBMAP_FUNION_ID) >>
+    simp[] >>
+    metis_tac[updates_upd_DISJOINT]))
+val _ = Parse.overload_on("update_valuation",``update_valuation0 ^mem``)
+val update_valuation_def = save_thm("update_valuation_def",update_valuation_def |> ISPEC mem)
+
+val good_context_extend = store_thm("good_context_extend",
+  ``∀mem upd ctxt i v.
+    good_context mem (sigof ctxt) i v ∧
+    upd updates ctxt ∧ sound_update ctxt upd ∧
+    i models thyof ctxt
+    ⇒
+    good_context mem (sigof (upd::ctxt)) (update_interpretation ctxt upd i)
+      (update_valuation ctxt upd (tyaof i) (tyaof (update_interpretation ctxt upd i)) v)``,
+  rpt gen_tac >>
+  PairCases_on`i` >>
+  PairCases_on`v` >>
+  rw[good_context_def] >>
+  imp_res_tac update_interpretation_def >>
+  Q.PAT_ABBREV_TAC`δ = tyaof (update_interpretation X Y Z)` >>
+  qspecl_then[`ctxt`,`upd`,`i0`,`δ`,`v0,v1`]mp_tac update_valuation_def >>
+  simp[] >>
+  discharge_hyps >- (
+    conj_tac >- ( fs[equal_on_def] ) >>
+    fs[models_def,is_interpretation_def] ) >>
+  rw[] >>
+  qmatch_abbrev_tac`good_context mem sig2 i2 v2` >>
+  `∃i3 i4. i2 = (i3,i4) ∧ ∃v3 v4. v2 = (v3,v4)` by metis_tac[pair_CASES] >>
+  simp[good_context_def,Abbr`sig2`] >>
+  fs[Abbr`i2`,Abbr`v2`,Abbr`δ`] >>
+  conj_tac >- (
+    qspecl_then[`ctxt`,`upd::ctxt`]mp_tac is_std_sig_extends >>
+    simp[extends_def] ) >>
+  fs[models_def])
+
+val hol_extends_init = store_thm("hol_extends_init",
+  ``hol_ctxt extends init_ctxt``,
+  metis_tac[holConsistencyTheory.hol_extends_bool,holBoolSyntaxTheory.bool_extends_init,extends_trans])
+
+val updates_extends_trans = store_thm("updates_extends_trans",
+  ``upd updates ctxt ∧ ctxt extends ctxt0 ⇒ upd::ctxt extends ctxt0``,
+  rw[extends_def] >>
+  rw[Once relationTheory.RTC_CASES1])
+
 (*
 val interpretations1 = bool_interpretations hol_bool_interpretation
 val equality_thm0 = CONJUNCT1 (funpow 0 CONJUNCT2 interpretations1)
@@ -1280,14 +1464,14 @@ val boolean_of_eq_true = store_thm("boolean_of_eq_true",
 *)
 
 val bool_cert_thm = prove(
-  ``good_context mem tysig tmsig tyass tmass tyval tmval ==>
+  ``^good_context ==>
       (wf_to_inner bool_to_inner /\
        typesem tyass tyval (Tyapp (strlit"bool") []) = range bool_to_inner)``,
   rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def] >>
   rw[wf_to_inner_bool_to_inner,range_bool_to_inner,typesem_def]) |> UNDISCH;
 
 val fun_cert_thm = prove(
-  ``good_context mem tysig tmsig tyass tmass tyval tmval ==>
+  ``^good_context ==>
     (wf_to_inner ty1_to_inner /\ typesem tyass tyval ty1 = range ty1_to_inner) ==>
     (wf_to_inner ty2_to_inner /\ typesem tyass tyval ty2 = range ty2_to_inner) ==>
       (wf_to_inner (fun_to_inner ty1_to_inner ty2_to_inner) /\
@@ -1305,7 +1489,7 @@ val _ = Parse.overload_on("in_def",``in_def0 ^mem``)
 *)
 
 val tyvar_cert_thm = prove(
-  ``good_context mem tysig tmsig tyass tmass tyval tmval ==>
+  ``^good_context ==>
     wf_to_inner (to_inner (Tyvar v) : 'a -> 'U) ==>
     tyval v = range (to_inner (Tyvar v) : 'a -> 'U) ==>
       (wf_to_inner (to_inner (Tyvar v) : 'a -> 'U) /\
@@ -1313,7 +1497,7 @@ val tyvar_cert_thm = prove(
   rw[typesem_def]) |> UNDISCH |> UNDISCH |> UNDISCH;
 
 val tycon_cert_thm = prove(
-  ``good_context mem tysig tmsig tyass tmass tyval tmval ==>
+  ``^good_context ==>
     wf_to_inner (to_inner (Tyapp con args) : 'a -> 'U) ==>
     tyass con (MAP (typesem tyass tyval) args) = range (to_inner (Tyapp con args) : 'a -> 'U) ==>
       (wf_to_inner (to_inner (Tyapp con args) : 'a -> 'U) /\

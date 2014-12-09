@@ -438,7 +438,7 @@ local
     sound_update_thm  : thm, (* |- sound_update ctxt upd *)
     constrainable_thm : thm, (* |- constrainable_update upd *)
     updates_thm : thm, (* |- upd updates ctxt *)
-    theory_ok_thm : thm, (* |- theory_ok (thyof ctxt) *)
+    extends_init_thm : thm, (* |- ctxt extends init_ctxt *)
     tys : hol_type list,
     consts : term list,
     axs : thm list }
@@ -829,10 +829,7 @@ th2
       sound_update_thm  = sound_update_thm,
       constrainable_thm = constrainable_thm,
       updates_thm = updates_thm,
-      theory_ok_thm =
-        hol_theory_ok
-        |> REWRITE_RULE[GSYM holConsistencyTheory.fhol_ctxt_def,
-                        GSYM holConsistencyTheory.hol_ctxt_def],
+      extends_init_thm = hol_extends_init,
       tys = [],
       consts = [``K``],
       axs = [combinTheory.K_DEF] }
@@ -864,13 +861,13 @@ th2
   val updates_thm2 = prove(
     ``^inner_upd updates ^ctxt``,
     cheat)
-  val theory_ok_thm2 =
-    MATCH_MP (MATCH_MP updates_theory_ok updates_thm) theory_ok_thm
+  val extends_init_thm2 =
+    MATCH_MP updates_extends_trans (CONJ updates_thm hol_extends_init)
   val upd:update = {
       sound_update_thm  = sound_update_thm,
       constrainable_thm = constrainable_thm,
       updates_thm = updates_thm2,
-      theory_ok_thm = theory_ok_thm2,
+      extends_init_thm = extends_init_thm2,
       tys = [``:('a,'b)prod``],
       consts = [``ABS_prod``,``REP_prod``],
       (* TODO: axs may need tweaking to match the inner *)
@@ -883,50 +880,8 @@ th2
 
   fun upd_to_inner (upd:update) = #constrainable_thm upd |> concl |> rand
 
-  open listTheory pairTheory
-
-  val tmaof_constrain_interpretation_lemma = prove(
-    ``(csi inst = SOME(w,results)) ⇒
-      ALL_DISTINCT (MAP FST (consts_of_upd upd)) ⇒
-      (LENGTH (consts_of_upd upd) = LENGTH results)
-      ⇒ LIST_REL (λname result.
-          tmaof (constrain_interpretation upd csi int0) name inst = result)
-        (MAP FST (consts_of_upd upd)) results``,
-      rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
-      Cases_on`int0`>>
-      rw[EL_MAP,constrain_interpretation_def,constrain_assignment_def] >>
-      BasicProvers.CASE_TAC >- (
-        imp_res_tac alistTheory.ALOOKUP_FAILS >>
-        rfs[MEM_ZIP] >>
-        metis_tac[EL_MAP] ) >>
-      qsuff_tac`SOME x = SOME (EL n results)`>-rw[]>>
-      pop_assum(SUBST1_TAC o SYM) >>
-      match_mp_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
-      simp[MAP_ZIP,MEM_ZIP] >>
-      qexists_tac`n`>>simp[EL_MAP])
-
-  val tyaof_constrain_interpretation_lemma = prove(
-    ``(csi inst = SOME(results,w)) ⇒
-      ALL_DISTINCT (MAP FST (types_of_upd upd)) ⇒
-      (LENGTH (types_of_upd upd) = LENGTH results)
-      ⇒ LIST_REL (λname result.
-          tyaof (constrain_interpretation upd csi int0) name inst = result)
-        (MAP FST (types_of_upd upd)) results``,
-      rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
-      Cases_on`int0`>>
-      rw[EL_MAP,constrain_interpretation_def,constrain_assignment_def] >>
-      BasicProvers.CASE_TAC >- (
-        imp_res_tac alistTheory.ALOOKUP_FAILS >>
-        rfs[MEM_ZIP] >>
-        metis_tac[EL_MAP] ) >>
-      qsuff_tac`SOME x = SOME (EL n results)`>-rw[]>>
-      pop_assum(SUBST1_TAC o SYM) >>
-      match_mp_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
-      simp[MAP_ZIP,MEM_ZIP] >>
-      qexists_tac`n`>>simp[EL_MAP])
-
   local
-    val cons_lemma = last(CONJUNCTS LIST_REL_def) |> EQ_IMP_RULE |> fst
+    val cons_lemma = last(CONJUNCTS listTheory.LIST_REL_def) |> EQ_IMP_RULE |> fst
     val betarule = CONV_RULE (RATOR_CONV BETA_CONV THENC BETA_CONV)
   in
     fun split_LIST_REL th =
@@ -937,18 +892,11 @@ th2
       end handle HOL_ERR _ => []
   end
 
-  val updates_upd_ALL_DISTINCT = store_thm("updates_upd_ALL_DISTINCT",
-    ``∀upd ctxt. upd updates ctxt ⇒
-        ALL_DISTINCT (MAP FST (consts_of_upd upd)) ∧
-        ALL_DISTINCT (MAP FST (types_of_upd upd))``,
-    ho_match_mp_tac updates_ind >> rw[] >>
-    rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
-
   fun make_cs_assums upd substs int0 =
     let
       val tys = #tys upd val consts = #consts upd
       val updates_thm = #updates_thm upd
-      val theory_ok_thm = #theory_ok_thm upd
+      val theory_ok_thm = MATCH_MP (MATCH_MP extends_theory_ok (#extends_init_thm upd)) init_theory_ok
       val (csi,tysths) = cs_to_inner tys consts substs
       val int = ``constrain_interpretation ^(upd_to_inner upd) ^csi ^int0``
       val tya = ``tyaof ^int``
@@ -986,6 +934,7 @@ th2
     val tys:hol_type list = []
     val consts = map (C inst combinSyntax.K_tm) substs
 
+    val ctxt:update list = []
     val tys =
         (set_diff (union tys new_tys) instantiated_tys)
     val consts =
@@ -1006,60 +955,6 @@ th2
     val tys:hol_type list = []
   *)
 
-  val axiom_simplifier = prove(
-    ``p ∧ (termsem tmsig i v t = bool_to_inner p) ⇒
-      (termsem tmsig i v t = True)``,
-    rpt strip_tac >>
-    pop_assum(SUBST1_TAC) >>
-    rw[bool_to_inner_def,boolean_def])
-
-  val base_valuation_def = new_specification("base_valuation_def",
-    ["base_valuation0"],
-    prove(``∃v0. ∀mem tysig δ. is_set_theory mem ∧
-      is_type_assignment0 mem tysig δ ⇒
-      is_valuation0 mem tysig δ (v0 mem tysig δ)``,
-      rw[GSYM SKOLEM_THM] >>
-      metis_tac[valuation_exists]))
-  val _ = overload_on("base_valuation",``base_valuation0 ^mem``)
-
-  val base_tyval_def = xDefine"base_tyval"`
-    base_tyval0 ^mem tysig δ = tyvof(base_valuation tysig δ)`
-  val _ = overload_on("base_tyval",``base_tyval0 ^mem``)
-
-  val base_tmval_def = xDefine"base_tmval"`
-    base_tmval0 ^mem tysig δ = tmvof(base_valuation tysig δ)`
-  val _ = overload_on("base_tmval",``base_tmval0 ^mem``)
-
-  val theory_ok_hol_ctxt =
-      hol_theory_ok |> REWRITE_RULE[
-        GSYM holConsistencyTheory.hol_ctxt_def,
-        GSYM holConsistencyTheory.fhol_ctxt_def]
-
-  val good_context_base_case = prove(
-    ``is_set_theory ^mem
-      ⇒ wf_to_inner ind_to_inner
-      ⇒ good_select select
-      ⇒
-      good_context mem (tysof hol_ctxt) (tmsof hol_ctxt)
-        (tyaof (hol_model select ind_to_inner))
-        (tmaof (hol_model select ind_to_inner))
-        (base_tyval (tysof hol_ctxt) (tyaof (hol_model select ind_to_inner)))
-        (base_tmval (tysof hol_ctxt) (tyaof (hol_model select ind_to_inner)))``,
-      ntac 3 strip_tac >>
-      simp[good_context_def] >>
-      conj_tac >- (
-        mp_tac(MATCH_MP theory_ok_sig theory_ok_hol_ctxt) >>
-        simp[] ) >>
-      conj_asm1_tac >- (
-        imp_res_tac hol_model_def >>
-        fs[models_def]) >>
-      conj_tac >- (
-        imp_res_tac hol_model_def >>
-        fs[models_def]) >>
-      simp[base_tyval_def,base_tmval_def] >>
-      match_mp_tac base_valuation_def >>
-      fs[is_interpretation_def]) |> funpow 2 UNDISCH
-
   fun build_interpretation [] tys consts =
     let
       val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
@@ -1074,11 +969,11 @@ th2
       val gcth =
         MATCH_MP good_context_base_case gsbs
       val args = snd(strip_comb(concl gcth))
-      val s = [tysig |-> el 2 args,
-               tmsig |-> el 3 args,
-               tyass |-> el 4 args,
-               tmass |-> el 5 args,
-               tyval |-> el 6 args]
+      val s = [tysig |-> ``tysof ^(el 2 args)``,
+               tmsig |-> ``tmsof ^(el 2 args)``,
+               tyass |-> ``tyaof ^(el 3 args)``,
+               tmass |-> ``tmaof ^(el 3 args)``,
+               tyval |-> ``tyvof ^(el 4 args)``]
       val assums = subst s assums0
       val th =
         MATCH_MP hol_model_def
@@ -1115,14 +1010,26 @@ th2
             but this means that we need to constrain *all* of the
             constants of that update]
          *)
-      val itm = get_int (CONJUNCT1 ith)
-      val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) (CONJUNCT1 ith))
-      val jtm = get_int (CONJUNCT2 jth)
+      val good_context_i = CONJUNCT1 ith
+      val i_models = CONJUNCT1 (CONJUNCT2 ith)
+      val itm = get_int i_models
+      val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) i_models)
+      val (j_equals_on_i,j_models) = CONJ_PAIR jth
+      val jtm = get_int j_models
+      val good_context_j = MATCH_MP good_context_extend
+        (LIST_CONJ [good_context_i, #updates_thm upd, #sound_update_thm upd, i_models])
       val (ktm,cs_assums) = make_cs_assums upd instances_to_constrain jtm
+      val well_formed_constraints_thm = ???
+      val k_equals_on_j =
+        MATCH_MP constrain_interpretation_equal_on
+          (LIST_CONJ [#constrainable_thm upd,
+                      well_formed_constraints_thm,
+                      #updates_thm upd,
+                      #extends_init_thm upd])
+
       (*
-        need to show ktm satisfies all: CONJUNCT2 ith
+        need to show ktm satisfies all: CONJUNCT2 (CONJUNCT2 ith)
         use these to do so:
-        constrain_interpretation_equal_on
         CONJUNCT1 jth
       *)
 
