@@ -873,6 +873,39 @@ th2
       (* TODO: axs may need tweaking to match the inner *)
       axs = CONJUNCTS pairTheory.ABS_REP_prod }
 
+  val ctxt = ``hol_ctxt``
+  val pred_tm = ``λp. ∃x y. p = λa b. (a=x) ∧ (b=y)``
+  val pred_inner = term_to_deep pred_tm
+  val inner_upd = ``TypeDefn (strlit"prod") ^pred_inner (strlit"ABS_prod") (strlit"REP_prod")``
+  val sound_update_thm = prove(
+    ``is_set_theory ^mem ⇒
+      sound_update ^ctxt ^inner_upd``,
+    strip_tac >>
+    ho_match_mp_tac (UNDISCH holExtensionTheory.new_type_definition_correct) >>
+    cheat) |> UNDISCH
+  val constrainable_thm = prove(
+    ``constrainable_update ^inner_upd``,
+    REWRITE_TAC[constrainable_update_def] >>
+    cheat )
+  val updates_thm2 = prove(
+    ``^inner_upd updates ^ctxt``,
+    cheat)
+  val extends_init_thm2 = hol_extends_init
+  val upd:update = {
+      sound_update_thm  = sound_update_thm,
+      constrainable_thm = constrainable_thm,
+      updates_thm = updates_thm2,
+      extends_init_thm = extends_init_thm2,
+      tys = [``:('a,'b)prod``],
+      consts = [``ABS_prod``,``REP_prod``],
+      (* TODO: axs may need tweaking to match the inner *)
+      axs = CONJUNCTS pairTheory.ABS_REP_prod }
+
+   val substs = [[alpha|->bool,beta|->alpha],[alpha|->alpha,beta|->(bool-->bool)]]
+   val consts =  map (C inst ``ABS_prod``) substs
+   val tys = [``:'a#bool``]
+   val ctxt:update list = []
+
    (* TODO: build_interpretation should have provided this (interpreting K) *)
    val int0 = int0
 
