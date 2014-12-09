@@ -685,14 +685,6 @@ local
            end
   end
 
-  (*
-    foldl : ('a * 'b -> b) -> 'b -> 'a list -> 'b
-    match_type : hol_type -> hol_type -> (hol_type,hol_type) subst
-    type_subst (match_type ty1 ty2) ty1 = ty2
-    match_term : term -> term -> (term,term) subst * (hol_type,hol_type) subst
-    INST_TYPE : (hol_type,hol_type) subst -> thm -> thm
-    mk_set : ''a list -> ''a list
-  *)
   local
     val [if_T_thm,if_F_thm] = SPEC_ALL COND_CLAUSES |> CONJUNCTS
     val TEST_CONV = RATOR_CONV o RATOR_CONV o RAND_CONV
@@ -730,8 +722,8 @@ local
           end
         fun foldthis (s,(f,ths)) =
           let
-            val tys = subst_to_sorted_types s
-            val instance = mk_list(map mk_range tys,universe_ty)
+            val instance_tys = subst_to_sorted_types s
+            val instance = mk_list(map mk_range instance_tys,universe_ty)
             val result = optionSyntax.mk_some (subst_to_cs s)
             val new_map = combinSyntax.mk_update (instance, result)
             val new_f = mk_icomb(new_map, f)
@@ -742,10 +734,10 @@ local
                    TEST_CONV(REWR_CONV(EQT_INTRO(REFL instance)))
                    THENC REWR_CONV if_T_thm))
             (* val (tys0,th0)::_ = ths *)
-            fun update (tys0,th0) =
+            fun update (instance_tys0,th0) =
               let
                 val notinstance = th0 |> concl |> lhs |> rand
-                val typairs = zip tys tys0
+                val typairs = zip instance_tys instance_tys0
                 val i = index (not o op=) typairs
                 val rth = uncurry ranges_distinct (List.nth(typairs,i))
                 val notinstanceth =
@@ -762,11 +754,11 @@ local
                        TEST_CONV(REWR_CONV(EQF_INTRO notinstanceth))
                        THENC REWR_CONV if_F_thm))
               in
-                (tys0,TRANS uth0 th0)
+                (instance_tys0,TRANS uth0 th0)
               end
             val updated_ths = map update ths
           in
-            (new_f,((tys,th)::updated_ths))
+            (new_f,((instance_tys,th)::updated_ths))
           end
       in
         foldl foldthis (``K NONE : 'U constraints``,
@@ -841,6 +833,11 @@ th2
   val substs =
     [[alpha|->bool,beta|->bool],
      [alpha|->``:'x``,beta|->``:'y``]]
+  (* for build interpretation: *)
+  val ctxt:update list = []
+  val tys:hol_type list = []
+  val consts = map (C inst combinSyntax.K_tm) substs
+  (* -- *)
 
   val int0 = ``hol_model select ind_to_inner``
 
@@ -931,10 +928,6 @@ th2
   fun get_int th = th |> concl |> rator |> rand
 
   (*
-    val tys:hol_type list = []
-    val consts = map (C inst combinSyntax.K_tm) substs
-
-    val ctxt:update list = []
     val tys =
         (set_diff (union tys new_tys) instantiated_tys)
     val consts =
