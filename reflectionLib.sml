@@ -108,16 +108,22 @@ local
 
   val generic_type = type_of o prim_mk_const
 
-  fun type_instance c =
+  fun complete_match_type Ty0 Ty =
     let
-      val {Name,Thy,Ty} = dest_thy_const c
-      val Ty0 = generic_type {Name=Name,Thy=Thy}
       val tyin0 = match_type Ty0 Ty
       val dom = map #redex tyin0
       fun f x = {redex = assert (not o C Lib.mem dom) x,
                  residue = x}
     in
       mapfilter f (type_vars Ty0) @ tyin0
+    end
+
+  fun type_instance c =
+    let
+      val {Name,Thy,Ty} = dest_thy_const c
+      val Ty0 = generic_type {Name=Name,Thy=Thy}
+    in
+      complete_match_type Ty0 Ty
     end
 
   fun cmp_to_P c x y = c (x,y) <> GREATER
@@ -448,7 +454,7 @@ local
     foldl
       (fn (ty1,acc) =>
         foldl (fn (ty2,acc) =>
-                    case total (match_type ty1) ty2 of NONE => acc
+                    case total (complete_subst ty1) ty2 of NONE => acc
                       | SOME s => s::acc)
                  acc
                  toconstrain)
@@ -456,18 +462,15 @@ local
       fromupdate
     )
 
-  fun find_const_instances toconstrain fromupdate =
-    mk_set (
-    foldl
-      (fn (tm1,acc) =>
-        foldl (fn (tm2,acc) =>
-                    case total (match_term tm1) tm2 of NONE => acc
-                      | SOME (_,s) => s::acc)
-                 acc
-                 toconstrain)
-      []
-      fromupdate
-    )
+  (*
+    val fromupdate = #consts upd
+   *)
+  fun find_const_instances consts fromupdate =
+    let
+      val consts1 = filter (fn tm => exists (same_const tm) fromupdate) consts
+    in
+      mk_set(map type_instance consts1)
+    end
 
   local
     val distinct_tag_bool_range = prove(
