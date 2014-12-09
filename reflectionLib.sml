@@ -925,6 +925,10 @@ th2
       end handle HOL_ERR _ => []
   end
 
+  (*
+    val substs = instances_to_constrain
+    val int0 = jtm
+   *)
   fun make_cs_assums upd substs int0 =
     let
       val tys = #tys upd val consts = #consts upd
@@ -1002,6 +1006,81 @@ th2
         MP (ISPECL [f,z,k,v,ls] step_case) th
       end
   end
+
+  val IS_SOME_cs_thm = prove(
+    ``(∀vs tyvs tmvs. (cs vs = SOME (tyvs,tmvs)) ⇒ P vs tyvs tmvs) ⇔
+      (∀vs. IS_SOME (cs vs) ⇒ P vs (FST (THE (cs vs))) (SND (THE (cs vs))))``,
+    rw[IS_SOME_EXISTS,PULL_EXISTS,pairTheory.FORALL_PROD])
+
+  val remove_inhabited_assumption_thm = prove(
+    ``∀cs upd.
+      (∀vs tyvs tmvs.
+         (cs vs = SOME (tyvs,tmvs)) ⇒
+         EVERY inhabited tyvs ∧
+         (* EVERY inhabited vs ∧ *)
+         (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
+         (LENGTH tmvs = LENGTH (consts_of_upd upd)))
+      ⇒
+      (∀vs tyvs tmvs.
+         (cs vs = SOME (tyvs,tmvs)) ⇒
+         (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
+         (LENGTH tmvs = LENGTH (consts_of_upd upd)))``,
+  rw[] >> metis_tac[])
+
+  fun join_EVERY P =
+    let
+      val nilth = listTheory.EVERY_DEF |> CONJUNCT1 |> ISPEC P |> EQT_ELIM
+      val consth = listTheory.EVERY_DEF |> CONJUNCT2 |> ISPEC P |> SPEC_ALL |> EQ_IMP_RULE |> snd
+                   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+      fun f [] = nilth
+        | f (t::ts) = MATCH_MP (MATCH_MP consth t) (f ts)
+    in
+      f
+    end
+  val inhabited_tm = ``inhabited``
+  val inhabited_eta = prove(``inhabited x ⇔ (λs. inhabited s) x``,rw[])
+  fun EVERY_range_inhabited tys =
+    join_EVERY inhabited_tm (map (
+      CONV_RULE(REWR_CONV(inhabited_eta))
+        o MATCH_MP inhabited_range o wf_to_inner_mk_to_inner) tys)
+
+  val is_set_theory_mem = ``is_set_theory ^mem``
+
+  fun prove_almost_well_formed_constraints cs inner_upd =
+    let
+      val g =
+        ISPECL [cs,inner_upd] remove_inhabited_assumption_thm
+        |> concl |> dest_imp |> fst
+      val goal = ([is_set_theory_mem],g)
+      val (z,tm) = dest_forall g
+      val th0 = updates_equal_some_cases z cs
+      (* set_goal goal *)
+      val th = TAC_PROOF(goal,
+        CONV_TAC(HO_REWR_CONV IS_SOME_cs_thm) >>
+        CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV th0))) >>
+        rw[combinTheory.APPLY_UPDATE_THM] >>
+        rw[EVERY_MEM] >>
+        match_mp_tac inhabited_range >>
+        (fn g as (asl,w) => ACCEPT_TAC (wf_to_inner_mk_to_inner (fst(dom_rng(type_of(rand w))))) g)
+        val (asl,w) = top_goal()
+
+        )
+    in
+      th
+    end
+
+  fun prove_lengths_match_thm cs inner_upd =
+    MATCH_MP remove_inhabited_assumption_thm
+      (prove_almost_well_formed_constraints cs inner_upd)
+
+  (*
+  val IN_FDOM_implies_type_ok = store_thm("IN_FDOM_implies_type_ok",
+    ``name ∈ FDOM tysig ⇒ ∃args. type_ok tysig (Tyapp name args)``,
+    rw[type_ok_def,finite_mapTheory.FLOOKUP_DEF] >>
+    qexists_tac`GENLIST (K (Tyvar ARB)) (tysig ' name)` >>
+    rw[listTheory.EVERY_MEM,listTheory.MEM_GENLIST] >>
+    rw[type_ok_def])
+  *)
 
   (* TODO: miscLib.prove_hyps_by is wrong: it needs to call PROVE_HYP multiple times *)
 
@@ -1179,6 +1258,7 @@ th2
     in
       LIST_CONJ [gcth,th,assumsth]
     end
+
 | build_interpretation (upd::ctxt) tys consts =
     let
       val instances_to_constrain =
@@ -1218,6 +1298,7 @@ th2
         (LIST_CONJ [good_context_i, #updates_thm upd, #sound_update_thm upd, i_models])
       val (ktm,cs_assums) = make_cs_assums upd instances_to_constrain jtm
       val cs = ktm |> rator |> rand
+
       val lengths_match = prove_lengths_match_thm cs (upd_to_inner upd)
       val k_equal_on_j =
         MATCH_MP (UNDISCH constrain_interpretation_equal_on)
