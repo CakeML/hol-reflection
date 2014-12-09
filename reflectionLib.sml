@@ -1090,6 +1090,66 @@ th2
         end
   end
 
+  val wf_to_inner_can_be_tagged = store_thm("wf_to_inner_can_be_tagged",
+    ``is_set_theory ^mem ⇒
+      ∀f t. wf_to_inner f ⇒ wf_to_inner (tag t o f)``,
+    rw[] >>
+    imp_res_tac tag_def >>
+    fs[wf_to_inner_def] >>
+    ntac 2 (pop_assum kall_tac) >>
+    first_x_assum(qspecl_then[`x`,`t`]strip_assume_tac) >>
+    qexists_tac`u` >>
+    match_mp_tac BIJ_COMPOSE >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fs[ext_def] >>
+    fs[GSYM IMAGE_SURJ] >>
+    simp[BIJ_DEF,INJ_DEF] >>
+    fs[SURJ_DEF] >>
+    metis_tac[])
+
+  val wf_to_inner_defined_type = save_thm("wf_to_inner_defined_type",
+    prove(
+    ``is_set_theory ^mem ⇒
+      ∀abs rep.
+      (∀a:α. abs ((rep a):β) = a) ⇒
+      ∀tya tyb_to_inner.
+      wf_to_inner (tyb_to_inner:β -> 'U) ⇒
+      wf_to_inner ((to_inner tya):α -> 'U)``,
+    rw[] >>
+    pop_assum(fn th =>
+      assume_tac th >>
+      strip_assume_tac (SIMP_RULE std_ss [wf_to_inner_def] th)) >>
+    pop_assum(strip_assume_tac o SIMP_RULE std_ss [BIJ_IFF_INV]) >>
+    simp[to_inner_def] >>
+    SELECT_ELIM_TAC >>
+    conj_tac >- (
+      qexists_tac`tyb_to_inner o rep` >>
+      simp[wf_to_inner_def] >>
+      qexists_tac`x suchthat (λb. g b = rep (abs (g b)))` >>
+      simp[BIJ_IFF_INV] >> fs[] >>
+      simp[mem_sub] >>
+      qexists_tac`abs o g` >>
+      simp[] >>
+      metis_tac[] ) >>
+    match_mp_tac wf_to_inner_can_be_tagged >>
+    rw[]) |> UNDISCH)
+
+  (*
+    val assums = i_wf_to_inners
+    val ax = el 3 instantiated_axioms
+  *)
+
+  fun make_wf_to_inner_th assums ax =
+    let
+      val th = MATCH_MP wf_to_inner_defined_type ax
+      val abs = rator(lhs(snd(dest_forall(concl ax))))
+      val (b,a) = dom_rng(type_of abs)
+      val th1 = SPECL [type_to_deep a, mk_to_inner b] th
+      val th2 = MATCH_MP th1 (wf_to_inner_mk_to_inner b)
+    in
+      foldl (uncurry PROVE_HYP) th2 assums
+    end
+
   fun build_interpretation [] tys consts =
     let
       val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
@@ -1148,6 +1208,10 @@ th2
       val good_context_i = CONJUNCT1 ith
       val i_models = CONJUNCT1 (CONJUNCT2 ith)
       val itm = get_int i_models
+      val i_assums = CONJUNCT2(CONJUNCT2 ith)
+      val i_wf_to_inners = filter(can(match_term``wf_to_inner X``) o concl)(CONJUNCTS i_assums)
+      val wf_to_inner_ths = if null (#tys upd) then [] else
+        mapfilter (make_wf_to_inner_th i_wf_to_inners) instantiated_axioms
       val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) i_models)
       val (j_equal_on_i,j_models) = CONJ_PAIR jth
       val jtm = get_int j_models
@@ -1164,7 +1228,6 @@ th2
                       #extends_init_thm upd])
         |> SPEC jtm
       val k_equal_on_i = MATCH_MP equal_on_trans (CONJ j_equal_on_i k_equal_on_j)
-      val i_assums = CONJUNCT2(CONJUNCT2 ith)
       val istyath =
         let
           val th1 = good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 3
