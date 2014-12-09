@@ -1113,34 +1113,45 @@ th2
       val i_models = CONJUNCT1 (CONJUNCT2 ith)
       val itm = get_int i_models
       val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) i_models)
-      val (j_equals_on_i,j_models) = CONJ_PAIR jth
+      val (j_equal_on_i,j_models) = CONJ_PAIR jth
       val jtm = get_int j_models
       val good_context_j = MATCH_MP good_context_extend
         (LIST_CONJ [good_context_i, #updates_thm upd, #sound_update_thm upd, i_models])
       val (ktm,cs_assums) = make_cs_assums upd instances_to_constrain jtm
-      val well_formed_constraints_thm = ???
-      val k_equals_on_j =
-        MATCH_MP constrain_interpretation_equal_on
+      val cs = ktm |> rator |> rand
+      val lengths_match = prove_lengths_match_thm cs (upd_to_inner upd)
+      val k_equal_on_j =
+        MATCH_MP (UNDISCH constrain_interpretation_equal_on)
           (LIST_CONJ [#constrainable_thm upd,
-                      well_formed_constraints_thm,
+                      lengths_match,
                       #updates_thm upd,
                       #extends_init_thm upd])
-
+        |> SPEC jtm
+      val k_equal_on_i = MATCH_MP equal_on_trans (CONJ j_equal_on_i k_equal_on_j)
+      val i_assums = CONJUNCT2(CONJUNCT2 ith)
+      val istyath =
+        let
+          val th1 = good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 3
+                    |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT1
+          val th2 = ???
+        in
+          MATCH_MP constrain_tyass_is_type_assignment
+                   (CONJ th1 th2)
+        end
+      val isvalth = ???
+      val k_assums = map
+        (make_k_assum (#updates_thm upd) k_equal_on_i istyath isvalth)
+        (CONJUNCTS i_assums)
       (*
-        need to show ktm satisfies all: CONJUNCT2 (CONJUNCT2 ith)
-        use these to do so:
-        CONJUNCT1 jth
-      *)
-
-
       val deep_axioms0 = map (termsem_cert o concl) instantiated_axioms
       val deep_axioms = map
         (fn (p,q) => MATCH_MP  axiom_simplifier (CONJ p q))
         (zip instantiated_axioms deep_axioms0)
       ktm
       cs_assums
-
+      *)
     in
+      TRUTH
     end
 
 (*
