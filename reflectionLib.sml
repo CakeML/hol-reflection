@@ -454,7 +454,7 @@ local
     foldl
       (fn (ty1,acc) =>
         foldl (fn (ty2,acc) =>
-                    case total (complete_subst ty1) ty2 of NONE => acc
+                    case total (complete_match_type ty1) ty2 of NONE => acc
                       | SOME s => s::acc)
                  acc
                  toconstrain)
