@@ -270,6 +270,80 @@ val tyvars_of_upd_def = new_specification("tyvars_of_upd_def",["tyvars_of_upd"],
   |> GEN_ALL
   |> CONV_RULE(HO_REWR_CONV SKOLEM_THM))
 
+val tyvars_of_TypeDefn = store_thm("tyvars_of_TypeDefn",
+  ``TypeDefn name pred abs rep updates ctxt ∧ is_std_sig (sigof ctxt) ⇒
+    (tyvars_of_upd (TypeDefn name pred abs rep) = set(tvars pred))``,
+  strip_tac >> imp_res_tac TypeDefn_constrainable >>
+  imp_res_tac tyvars_of_upd_def >>
+  pop_assum kall_tac >>
+  fs[LET_THM] >>
+  fs[updates_cases] >>
+  imp_res_tac proves_term_ok >> fs[] >>
+  fs[Once has_type_cases] >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  simp[tyvars_def] >>
+  simp[SET_EQ_SUBSET] >>
+  reverse conj_tac >- (
+    simp[SUBSET_DEF,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,tyvars_def,
+         mlstringTheory.implode_explode]) >>
+  conj_tac >- (
+    imp_res_tac tyvars_typeof_subset_tvars >> fs[tyvars_def] ) >>
+  simp[SUBSET_DEF,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,tyvars_def,
+       mlstringTheory.implode_explode])
+
+val tvars_VSUBST_same_type = store_thm("tvars_VSUBST_same_type",
+  ``∀tm ilist.
+      welltyped tm ∧
+      EVERY (λ(x,y). ∃n n' ty. (x = Const n ty ∨ x = Var n' ty) ∧ (y = Var n ty)) ilist ⇒
+      tvars (VSUBST ilist tm) = tvars tm``,
+  ho_match_mp_tac term_induction >>
+  conj_tac >- (
+    rw[tvars_def,VSUBST_def] >>
+    rw[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >> rw[tvars_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[EVERY_MEM,MEM_MAP,EXISTS_PROD] >>
+    res_tac >> fs[] >> simp[tvars_def] ) >>
+  conj_tac >- rw[VSUBST_def,tvars_def] >>
+  conj_tac >- rw[VSUBST_def,tvars_def] >>
+  rw[] >> fs[] >>
+  rw[tvars_def] >>
+  rw[VSUBST_def] >>
+  rw[tvars_def,Abbr`z`] >- (
+    fs[tvars_def] >>
+    AP_TERM_TAC >>
+    first_x_assum match_mp_tac >>
+    simp[Abbr`ilist''`,Abbr`ilist'`,EVERY_FILTER] >>
+    fs[EVERY_MEM] ) >>
+  simp[Abbr`t'`] >>
+  AP_TERM_TAC >>
+  first_x_assum match_mp_tac >>
+  simp[Abbr`ilist'`,EVERY_FILTER] >>
+  fs[EVERY_MEM])
+
+val ConstSpec_constrainable = store_thm("ConstSpec_constrainable",
+  ``welltyped prop ∧ EVERY (λ(x,t). set (tyvars (typeof t)) = set (tvars prop)) eqs ⇒
+    constrainable_update (ConstSpec eqs prop)``,
+  strip_tac >>
+  rw[constrainable_update_def,LET_THM,conexts_of_upd_def,EVERY_MAP,UNCURRY,EVERY_MEM,
+     FORALL_PROD,EXISTS_PROD,MEM_MAP] >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  res_tac >>
+  pop_assum(SUBST1_TAC) >>
+  AP_TERM_TAC >>
+  match_mp_tac tvars_VSUBST_same_type >>
+  simp[EVERY_MAP,UNCURRY])
+
+val tyvars_of_ConstSpec = store_thm("tyvars_of_ConstSpec",
+  ``welltyped prop ∧ constrainable_update (ConstSpec eqs prop) ⇒
+    tyvars_of_upd (ConstSpec eqs prop) = set(tvars prop)``,
+  rw[] >> imp_res_tac tyvars_of_upd_def >>
+  pop_assum kall_tac >>
+  fs[conexts_of_upd_def,LET_THM] >>
+  AP_TERM_TAC >>
+  match_mp_tac tvars_VSUBST_same_type >>
+  simp[EVERY_MAP,UNCURRY])
+
 val well_formed_constraints_def = xDefine"well_formed_constraints"`
   well_formed_constraints0 ^mem upd cs δ ⇔
     ∀vs tyvs tmvs.
