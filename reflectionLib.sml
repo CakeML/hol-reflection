@@ -51,11 +51,18 @@ local
                                            flatten(map base_types_of_type args))
     | FunType(ty1,ty2) => base_types_of_type ty1 @ base_types_of_type ty2
 
+  fun tysig_prop tysig ty =
+    let
+      val (name,args) = dest_type ty
+    in
+       ``FLOOKUP ^tysig ^(string_to_inner name) =
+           SOME ^(term_of_int (length args))``
+    end
+
   fun base_type_assums (ty : hol_type) : term list =
     to_inner_prop ty ::
     (case base_type_view ty of
-       Tyapp(thy, name, args) => [``FLOOKUP tysig ^(string_to_inner name) =
-                                      SOME ^(term_of_int (length args))``,
+       Tyapp(thy, name, args) => [tysig_prop tysig ty,
                                   ``tyass ^(string_to_inner name)
                                       ^(mk_list(map mk_range args,universe_ty)) =
                                       ^(mk_range ty)``]
@@ -143,21 +150,24 @@ local
     | LAMB (var,body)     => filter (not o equal var) (base_terms_of_term body)
     | COMB (tm1,tm2)      => base_terms_of_term tm1 @ base_terms_of_term tm2
 
+  fun tmsig_prop tmsig c =
+    let
+      val {Thy,Name,Ty} =  dest_thy_const c
+      val Ty0 = type_of(prim_mk_const{Name=Name,Thy=Thy})
+    in
+      ``FLOOKUP ^tmsig ^(string_to_inner Name) = SOME ^(type_to_deep Ty0)``
+    end
+
   fun base_term_assums (tm : term) : term list = case dest_base_term tm of
       VAR (name,ty)       => [``tmval (^(string_to_inner name), ^(type_to_deep ty)) =
                                   ^(mk_to_inner ty) ^tm``]
     | CONST {Thy,Name,Ty} =>
-      let
-        val Ty0 = type_of(prim_mk_const{Name=Name,Thy=Thy})
-        val name = string_to_inner Name
-      in
-        [``FLOOKUP tmsig ^name = SOME ^(type_to_deep Ty0)``,
-         ``tmass ^name
-                 ^(mk_list (map mk_range
-                              (const_tyargs tm),
-                            universe_ty)) =
-             ^(mk_to_inner Ty) ^tm``]
-      end
+      [tmsig_prop tmsig tm,
+       ``tmass ^(string_to_inner Name)
+               ^(mk_list (map mk_range
+                            (const_tyargs tm),
+                          universe_ty)) =
+           ^(mk_to_inner Ty) ^tm``]
 
   fun term_assums (tm : term) : term list =
     HOLset.listItems(
@@ -1198,7 +1208,7 @@ local
           |> C MATCH_MP eqth
           |> C MATCH_MP isvalth
           |> C MATCH_MP istyath
-      | NONE =>
+      | NONE => (* TODO: tmval_extend_thm is probably never used *)
       case total (MATCH_MP tmval_extend_thm) ia of
         SOME th =>
           th |> SPEC mem |> C MATCH_MP (LIST_CONJ [uth,eqth,isvalth,istyath])
@@ -1336,6 +1346,11 @@ local
       val jtm = get_int j_models
       val good_context_j = MATCH_MP good_context_extend
         (LIST_CONJ [good_context_i, #updates_thm upd, #sound_update_thm upd, i_models])
+      val new_sig = good_context_j |> concl |> strip_comb |> snd |> el 2
+      val sig_ths =
+          map (fn gtm => prove(gtm,EVAL_TAC))
+            ((map (tmsig_prop ``tmsof ^new_sig``) instantiated_consts) @
+             (map (tysig_prop ``tysof ^new_sig``) instantiated_tys))
       val (ktm,cs_assums,cs_rws) = make_cs_assums upd instances_to_constrain jtm
       val cs = ktm |> rator |> rand
       val z = genvar(listSyntax.mk_list_type universe_ty)
