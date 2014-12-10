@@ -74,18 +74,25 @@ local
   fun typesem_prop (ty : hol_type) : term =
     ``typesem tyass tyval ^(type_to_deep ty) = ^(mk_range ty)``
 
-  val good_context = hd(hyp good_context_tyass_bool)
-  val is_valuation = Abs_thm |> hyp |> el 2
-
-  val good_context_tyass_fun_simp =
-    good_context_tyass_fun |> SIMP_RULE std_ss []
-
   val good_context_is_set_theory =
     good_context_def  |> SPEC_ALL |> EQ_IMP_RULE |> fst |> UNDISCH |> CONJUNCT1
 
-  fun typesem_cert ty =
+  val good_context_is_std_type_assignment =
+    good_context_def  |> SPEC_ALL |> EQ_IMP_RULE |> fst |> UNDISCH
+    |> CONJUNCTS |> last |> REWRITE_RULE[is_std_interpretation_def]
+    |> CONJUNCT1
+
+  val good_context = hd(hyp good_context_is_set_theory)
+  val is_valuation = Abs_thm |> hyp |> el 2
+
+  val tyass_fun_simp =
+    tyass_fun_thm |> SIMP_RULE std_ss []
+
+  val [is_set_theory_mem, is_std_type_assignment] = hyp tyass_bool_thm
+
+  fun prim_typesem_cert ty =
     let
-      val goal = (good_context::(type_assums ty), typesem_prop ty)
+      val goal = (is_set_theory_mem::is_std_type_assignment::(type_assums ty), typesem_prop ty)
       (* set_goal goal *)
     in
       TAC_PROOF(goal,
@@ -93,12 +100,16 @@ local
           (CHANGED_TAC(REWRITE_TAC[typesem_def,listTheory.MAP,ETA_AX]))
           ORELSE
           (CHANGED_TAC(ASM_SIMP_TAC std_ss
-            [good_context_tyass_bool,
-             good_context_tyass_fun_simp,
-             good_context_wf_to_inner_bool_to_inner,
-             good_context_wf_to_inner_fun_to_inner]))
-          ORELSE match_mp_tac good_context_tyass_fun))
+            [tyass_bool_thm,
+             tyass_fun_simp,
+             wf_to_inner_bool_to_inner,
+             wf_to_inner_fun_to_inner]))
+          ORELSE match_mp_tac tyass_fun_thm))
     end
+
+  fun typesem_cert ty =
+    PROVE_HYP good_context_is_std_type_assignment
+      (PROVE_HYP good_context_is_set_theory (prim_typesem_cert ty))
 
   fun types_of_term (tm : term) : hol_type list = case dest_term tm of
       VAR (name,ty)       => [ty]
@@ -201,6 +212,13 @@ local
     fun tyin_to_deep tyin =
       mk_list (map to_deep tyin,mk_prod(type_ty,type_ty))
   end
+
+
+  val good_context_tyass_bool =
+    foldl (uncurry PROVE_HYP) tyass_bool_thm [good_context_is_set_theory,good_context_is_std_type_assignment]
+
+  val good_context_tyass_fun_simp =
+    foldl (uncurry PROVE_HYP) tyass_fun_simp [good_context_is_set_theory,good_context_is_std_type_assignment]
 
   local
     val instance_thm =
@@ -913,9 +931,9 @@ local
         (* TODO: axs may need tweaking to match the inner *)
         axs = CONJUNCTS pairTheory.ABS_REP_prod }
 
-     val substs = [[alpha|->bool,beta|->alpha],[alpha|->alpha,beta|->(bool-->bool)]]
+     val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
      val consts =  map (C inst ``ABS_prod``) substs
-     val tys = [``:'a#bool``]
+     val tys = [``:'c#bool``]
      val ctxt:update list = []
 
      (* TODO: build_interpretation should have provided this (interpreting K) *)
@@ -1039,7 +1057,6 @@ local
          (LENGTH tmvs = LENGTH (consts_of_upd upd)))``,
   rw[] >> metis_tac[])
 
-  val is_set_theory_mem = ``is_set_theory ^mem``
 *)
 
   fun join_EVERY P =
@@ -1086,14 +1103,16 @@ local
         (cs vs = SOME (tyvs,tmvs)) ⇒
         (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
         (LENGTH tmvs = LENGTH (consts_of_upd upd))) ⇒
-      (∀vs. IS_SOME (cs vs) ⇒ EVERY inhabited (FST (THE (cs vs)))) ⇒
+      (∀vs. IS_SOME (cs vs) ⇒
+              EVERY inhabited vs ∧
+              EVERY inhabited (FST (THE (cs vs)))) ⇒
       (∀vs tyvs tmvs.
         (cs vs = SOME (tyvs,tmvs)) ⇒
         EVERY (λs. inhabited s) tyvs ∧
         (LENGTH tyvs = LENGTH (types_of_upd upd)))``,
       rw[IS_SOME_EXISTS,PULL_EXISTS] >> res_tac >> fs[])
 
-  fun prove_inhabited_tyvs_thm hyps instantiated_tys cs cs_cases cs_rws wf_to_inners =
+  fun prove_inhabited_thm hyps instantiated_tys cs cs_cases cs_rws wf_to_inners =
     let
       val gtm =
         length_thm_to_lengths_and_inhabited_thm
@@ -1105,15 +1124,156 @@ local
       val () = pairLib.add_pair_compset c
       val eth = EVERY_range_inhabited instantiated_tys
       val eth1 = foldl (uncurry PROVE_HYP) eth wf_to_inners
+      val vtys = cs_cases |> SPEC_ALL |> concl |> rand |> listSyntax.dest_mem |> snd
+                 |> listSyntax.dest_list |> fst |> map (fst o listSyntax.dest_list)
+                 |> flatten |> map (fst o dom_rng o type_of o rand)
+                 |> mk_set
+      val vth = EVERY_range_inhabited vtys
+      val vth1 = foldl (uncurry PROVE_HYP) vth wf_to_inners
       val th = TAC_PROOF(goal,
         CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV cs_cases))) >>
         CONV_TAC(HO_REWR_CONV(GSYM listTheory.EVERY_MEM)) >>
         CONV_TAC(computeLib.CBV_CONV c) >>
         REWRITE_TAC cs_rws >>
         CONV_TAC(computeLib.CBV_CONV c) >>
-        mp_tac eth1 >>
+        mp_tac eth1 >> mp_tac vth1 >>
         CONV_TAC(computeLib.CBV_CONV c) >>
         PROVE_TAC[])
+    in
+      th
+    end
+
+  val to_well_formed_constraints_thm = prove(
+    ``∀upd cs δ.
+      (∀vs tyvs tmvs.
+        (cs vs = SOME (tyvs,tmvs)) ⇒
+        (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
+        (LENGTH tmvs = LENGTH (consts_of_upd upd))) ⇒
+      (∀vs. IS_SOME (cs vs) ⇒
+              EVERY inhabited vs ∧
+              EVERY inhabited (FST (THE (cs vs)))) ⇒
+        (∀vs. IS_SOME (cs vs) ⇒
+              (LENGTH (tyvars_of_upd upd) = LENGTH vs) ∧
+            ∀τ. is_type_valuation τ ∧ (MAP τ (tyvars_of_upd upd) = vs) ⇒
+                LIST_REL
+                  (λv ty. v <: typesem (constrain_tyass cs upd δ) τ ty)
+                  (SND(THE (cs vs)))
+                  (MAP SND (consts_of_upd upd)))
+       ⇒ well_formed_constraints upd cs δ``,
+     rw[well_formed_constraints_def,IS_SOME_EXISTS,PULL_EXISTS,LET_THM] >>
+     res_tac >> fs[])
+
+  val tyaof_constrain_interpretation = prove(
+    ``∀upd cs i.
+        tyaof (constrain_interpretation upd cs i) =
+        constrain_tyass cs upd (tyaof i)``,
+     rw[] >> PairCases_on`i` >> rw[constrain_interpretation_def])
+
+  fun prove_constrained_consts_in_type_thm
+        hyps inner_upd cs cs_cases jtm
+        tyvars_of_upd_rw k_is_std_type_assignment all_assums new_sig =
+    let
+      val gtm =
+        to_well_formed_constraints_thm
+        |> ISPECL [inner_upd,cs,``tyaof ^jtm``] |> concl
+        |> dest_imp |> snd
+        |> dest_imp |> snd
+        |> dest_imp |> fst
+      val goal = (hyps,gtm)
+      val c = listLib.list_compset()
+      val () = optionLib.OPTION_rws c
+      val () = pairLib.add_pair_compset c
+      val () = computeLib.add_thms[listTheory.LIST_REL_def] c
+      fun EVAL_vars tm =
+        EVAL (assert (can (match_term``mlstring_sort X``)) tm)
+      fun EVAL_consts_of_upd tm =
+        EVAL (assert (can (match_term``consts_of_upd X``)) tm)
+      (* set_goal goal *)
+      val tyval_vars = filter (can (match_term``wf_to_inner (to_inner (Tyvar X))``)) (map concl all_assums)
+      val tyval1 = foldl (fn (x,tyval) =>
+          let
+            val k = x |> funpow 3 rand
+            val v = ``range (^(rand x))``
+          in
+              mk_comb(combinSyntax.mk_update(k,v),tyval)
+          end) tyval tyval_vars
+      val tyval1_thms = map (fn x =>
+          let
+            val k = x |> funpow 3 rand
+            val v = ``range (^(rand x))``
+          in
+            prove(mk_eq(mk_comb(tyval1,k),v),rw[combinTheory.APPLY_UPDATE_THM])
+          end) tyval_vars
+      fun typesem_tac find_to_inner (g as (asl,w)) =
+        let
+          val th1 = prim_typesem_cert (fst(dom_rng(type_of(find_to_inner w))))
+          val th2 = INST[tyass |-> rand(concl k_is_std_type_assignment ),
+                         tyval |-> tyval1,
+                         tysig |-> ``tysof ^new_sig``] th1
+          val th3 = foldl (uncurry PROVE_HYP) th2 (k_is_std_type_assignment::(tyval1_thms@all_assums))
+        in
+          mp_tac th3 g
+        end
+      fun mk_tyin_tac (g as (asl,w)) =
+        let
+          val tasms = filter (can (match_term``τ (strlit x) = z``)) asl
+          fun mapthis tm =
+            let
+              val (l,r) = dest_eq tm
+             in
+               mk_pair(type_to_deep(fst(dom_rng(type_of (rand r)))),
+                       mk_Tyvar(rand l))
+             end
+          val tyin = listSyntax.mk_list(map mapthis tasms, pairSyntax.mk_prod(type_ty,type_ty))
+          val args = w |> rand |> strip_comb |> snd
+          val delta = el 1 args
+          val tau = el 2 args
+          val ty = el 3 args
+          val tau' = ``λx. typesem ^delta ^tyval1 (TYPE_SUBST ^tyin (Tyvar x))``
+        in
+          mp_tac (ISPECL [delta,tau,ty,tau'] typesem_tyvars) g
+        end
+      fun wf_to_inner_mk_to_inner_tac (g as (asl,w)) =
+        let
+          val th = wf_to_inner_mk_to_inner (fst(dom_rng(type_of(rand w))))
+          val th2 = foldl (uncurry PROVE_HYP) th all_assums
+        in
+          ACCEPT_TAC th2 g
+        end
+      val th = TAC_PROOF(goal,
+        CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV cs_cases))) >>
+        CONV_TAC(HO_REWR_CONV(GSYM listTheory.EVERY_MEM)) >>
+        CONV_TAC(computeLib.CBV_CONV c) >>
+        REWRITE_TAC cs_rws >>
+        CONV_TAC(computeLib.CBV_CONV c) >>
+        REWRITE_TAC [tyvars_of_upd_rw] >>
+        CONV_TAC(DEPTH_CONV EVAL_vars) >>
+        CONV_TAC(computeLib.CBV_CONV c) >>
+        CONV_TAC(DEPTH_CONV EVAL_consts_of_upd) >>
+        CONV_TAC(computeLib.CBV_CONV c) >>
+        rpt conj_tac >>
+        gen_tac >>
+        strip_tac >>
+        rpt conj_tac >>
+        mk_tyin_tac >>
+        (discharge_hyps >- (
+           gen_tac >>
+           CONV_TAC(LAND_CONV EVAL) >>
+           SIMP_TAC bool_ss [] >>
+           CONV_TAC(RAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
+           strip_tac >> BasicProvers.VAR_EQ_TAC >>
+           CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
+           first_x_assum(CONV_TAC o RAND_CONV o REWR_CONV) >>
+           typesem_tac (rand o rand) >>
+           REWRITE_TAC[tyaof_constrain_interpretation])) >>
+        disch_then(CHANGED_TAC o SUBST1_TAC o SYM) >>
+        CONV_TAC(RAND_CONV(REWR_CONV(GSYM typesem_TYPE_SUBST))) >>
+        CONV_TAC(RAND_CONV(RAND_CONV(EVAL))) >>
+        typesem_tac (rator o rand o rator) >>
+        REWRITE_TAC[tyaof_constrain_interpretation] >>
+        disch_then(CHANGED_TAC o SUBST1_TAC) >>
+        match_mp_tac wf_to_inner_range_thm >>
+        wf_to_inner_mk_to_inner_tac)
     in
       th
     end
@@ -1239,6 +1399,26 @@ local
       foldl (uncurry PROVE_HYP) th2 assums
     end
 
+  (* TODO: move*)
+  val is_std_interpretation_equal_on = store_thm("is_std_interpretation_equal_on",
+    ``is_std_interpretation i ∧ equal_on sig i i' ∧ is_std_sig sig ⇒
+      is_std_interpretation i'``,
+    rw[is_std_interpretation_def] >- (
+      fs[is_std_type_assignment_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF] ) >>
+    fs[interprets_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF])
+
+(*
+  val good_context_constrain = store_thm("good_context_constrain",
+    ``good_context mem sig i ⇒
+      good_context mem sig (constrain_interpretation upd cs i)``,
+    reverse(rw[good_context_unpaired]) >- (
+      match_mp_tac is_std_interpretation_equal_on >>
+      rw[]
+
+    PairCases_on`i`>>
+    rw[good_context_unpaired,constrain_interpretation_def]
+*)
+
   fun build_interpretation [] tys consts =
     let
       val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
@@ -1328,23 +1508,66 @@ local
                       #extends_init_thm upd])
         |> SPEC jtm
       val k_equal_on_i = MATCH_MP equal_on_trans (CONJ j_equal_on_i k_equal_on_j)
+      val [_,is_std_sig_thm,j_is_int,j_is_std] =
+        good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS
+      val jistma = j_is_int |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT1
+      val inhabited_thm = prove_inhabited_thm hyps instantiated_tys cs cs_cases cs_rws wf_to_inners
       val istyath =
         let
-          val th1 = good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 3
-                    |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT1
           val th2 =
             MATCH_MP
               (MATCH_MP (ISPEC cs length_thm_to_lengths_and_inhabited_thm) lengths_match)
-              (prove_inhabited_tyvs_thm hyps instantiated_tys cs cs_cases cs_rws wf_to_inners)
+              inhabited_thm
         in
           MATCH_MP constrain_tyass_is_type_assignment
-                   (CONJ th1 th2)
+                   (CONJ jistma th2)
         end
       val k_assums = map
         (make_k_assum (#updates_thm upd) k_equal_on_i istyath)
         (CONJUNCTS i_assums)
-      val k_models = TRUTH
+      val old_sig_is_std = good_context_i |> REWRITE_RULE[good_context_unpaired] |> CONJUNCT2 |> CONJUNCT1
+      val k_is_std = MATCH_MP is_std_interpretation_equal_on
+                       (LIST_CONJ [j_is_std,k_equal_on_j,old_sig_is_std])
+      val tyvars_of_upd_rw =
+        MATCH_MP tyvars_of_TypeDefn
+          (CONJ (#updates_thm upd) old_sig_is_std)
+        handle HOL_ERR _ => (* TODO *) tyvars_of_ConstSpec
+      val k_is_std_type_assignment =
+        k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
+      val all_assums = new_wf_to_inners@sig_ths@cs_assums@k_assums
+      val constrained_consts_in_type_thm =
+        prove_constrained_consts_in_type_thm hyps inner_upd cs cs_cases jtm
+          tyvars_of_upd_rw k_is_std_type_assignment all_assums new_sig
+
+        well_formed_constraints_def
+
+      val istmath =
+        MATCH_MP (UNDISCH constrain_tmass_is_term_assignment)
+          (LIST_CONJ [jistma,
+                      j_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1,
+                      k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1,
+                      #constrainable_thm upd,
+                      well_formed_constraints_thm,
+                      #updates_thm upd,
+                      #extends_init_thm upd])
+      val k_is_int =
+        EQ_MP
+          (SYM(SPECL[mem,new_sig,ktm]is_interpretation_def))
+          (CONJ istyath (
+      val good_context_k =
+        EQ_MP
+          (SYM(SPECL[mem,new_sig,ktm] (Q.GENL[`i`,`sig`,`mem`]good_context_unpaired)))
+          (LIST_CONJ
+            [good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 1,
+             good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 2,
+             good_context_unpaired
+
+
+        TAC_PROOF(list_mk_comb(``good_context``,[mem,
+        TRUTH
+      *)
       val good_context_k = TRUTH
+      val k_models = TRUTH
       (*
       val is_std_sig_thm =
       good_context_j
@@ -1380,7 +1603,7 @@ local
       cs_assums
       *)
     in
-      LIST_CONJ (good_context_k::k_models::(new_wf_to_inners@sig_ths@cs_assums@k_assums))
+      LIST_CONJ (good_context_k::k_models::all_assums)
     end
 
 (*

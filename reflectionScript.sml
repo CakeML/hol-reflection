@@ -397,22 +397,16 @@ val save_thms = map2 (curry save_thm)
 val _ = save_thms ["Var_thm","Const_thm","Comb_thm","Abs_thm"]
                   [ Var_thm , Const_thm , Comb_thm , Abs_thm ]
 
-val good_context_wf_to_inner_bool_to_inner = prove(mk_imp(good_context,rand(concl(wf_to_inner_bool_to_inner))),
-  rw[good_context_def,wf_to_inner_bool_to_inner]) |> UNDISCH
+val tyass_bool_thm = prove(
+  ``is_set_theory ^mem ⇒ is_std_type_assignment tyass ==> (tyass (strlit"bool") [] = range bool_to_inner)``,
+  rw[is_std_type_assignment_def,range_bool_to_inner]) |> funpow 2 UNDISCH
 
-val good_context_wf_to_inner_fun_to_inner = prove(mk_imp(good_context,rand(concl(wf_to_inner_fun_to_inner))),
-  rw[good_context_def,wf_to_inner_fun_to_inner]) |> UNDISCH
-
-val good_context_tyass_bool = prove(
-  ``^good_context ==> (tyass (strlit"bool") [] = range bool_to_inner)``,
-  rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_bool_to_inner]) |> UNDISCH
-
-val good_context_tyass_fun = prove(
-  ``^good_context ==> !tya tyb ina inb.
+val tyass_fun_thm = prove(
+  ``is_set_theory ^mem ⇒ is_std_type_assignment tyass ==> !tya tyb ina inb.
       wf_to_inner ina /\ wf_to_inner inb /\ tya = range ina /\ tyb = range inb ==>
         tyass (strlit"fun") [tya; tyb] = range (fun_to_inner ina inb)``,
-  rw[good_context_def,is_std_interpretation_def,is_std_type_assignment_def,range_fun_to_inner]
-  ) |> UNDISCH
+  rw[is_std_type_assignment_def,range_fun_to_inner]
+  ) |> funpow 2 UNDISCH
 
 val good_context_lookup_bool = prove(
   ``^good_context ⇒ FLOOKUP ^tysig (strlit "bool") = SOME 0``,
@@ -477,14 +471,10 @@ val good_context_instance_equality = prove(
   metis_tac[wf_to_inner_finv_right])
 
 val _ = save_thms
-  ["good_context_wf_to_inner_bool_to_inner",
-   "good_context_wf_to_inner_fun_to_inner",
-   "good_context_tyass_bool", "good_context_tyass_fun",
+  ["tyass_bool_thm", "tyass_fun_thm",
    "good_context_lookup_bool","good_context_lookup_fun",
    "is_valuation_extend", "good_context_instance_equality"]
-  [ good_context_wf_to_inner_bool_to_inner ,
-    good_context_wf_to_inner_fun_to_inner ,
-    good_context_tyass_bool, good_context_tyass_fun,
+  [ tyass_bool_thm ,  tyass_fun_thm ,
     good_context_lookup_bool , good_context_lookup_fun ,
     is_valuation_extend, good_context_instance_equality ]
 
