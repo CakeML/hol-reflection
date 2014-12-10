@@ -24,22 +24,21 @@ val mp_lemma = store_thm("mp_lemma",
   metis_tac[])
 
 val good_context_def = Define`
-  good_context ^mem (^tysig,^tmsig) (^tyass,^tmass) (^tyval,^tmval) ⇔
+  good_context ^mem (^tysig,^tmsig) (^tyass,^tmass) ⇔
     is_set_theory ^mem ∧
     is_std_sig ^signatur ∧
     is_interpretation ^signatur ^interpretation ∧
-    is_std_interpretation ^interpretation ∧
-    is_valuation ^tysig ^tyass ^valuation`
+    is_std_interpretation ^interpretation`
 val good_context = good_context_def |> concl |> strip_forall |> snd |> lhs
+val is_valuation = ``is_valuation ^tysig ^tyass ^valuation``
 
 val good_context_unpaired = store_thm("good_context_unpaired",
-  ``good_context mem sig i v ⇔
+  ``good_context mem sig i ⇔
     is_set_theory mem ∧
     is_std_sig sig ∧
     is_interpretation sig i ∧
-    is_std_interpretation i ∧
-    is_valuation (tysof sig) (tyaof i) v``,
-  map_every PairCases_on[`sig`,`i`,`v`]>>rw[good_context_def])
+    is_std_interpretation i``,
+  map_every PairCases_on[`sig`,`i`]>>rw[good_context_def])
 
 val finv_def = Define`
   finv f x = @y. f y = x`
@@ -364,7 +363,7 @@ val Comb_thm = prove(
   simp[]) |> UNDISCH
 
 val Abs_thm = prove(
-  ``^good_context ⇒
+  ``^good_context ⇒ ^is_valuation ⇒
     ∀ina inb f x xty b bty.
     typesem tyass tyval xty = range ina ∧
     typesem tyass tyval bty = range inb ⇒
@@ -392,7 +391,7 @@ val Abs_thm = prove(
   fs[is_std_interpretation_def] >>
   fs[is_valuation_def,is_term_valuation_def] >>
   simp[combinTheory.APPLY_UPDATE_THM] >>
-  rw[] >> metis_tac[]) |> UNDISCH
+  rw[] >> metis_tac[]) |> funpow 2 UNDISCH
 
 val save_thms = map2 (curry save_thm)
 val _ = save_thms ["Var_thm","Const_thm","Comb_thm","Abs_thm"]
@@ -423,16 +422,15 @@ val good_context_lookup_fun = prove(
   ``^good_context ⇒ FLOOKUP ^tysig (strlit "fun") = SOME 2``,
   rw[good_context_def,is_std_sig_def]) |> UNDISCH
 
-val good_context_extend_tmval = prove(
-  ``^good_context ∧
-     m <: typesem ^tyass ^tyval ty ⇒
-     good_context ^mem (^tysig,^tmsig) (^tyass,^tmass) (^tyval,(((x,ty) =+ m) ^tmval))``,
-  rw[good_context_def,is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+val is_valuation_extend = prove(
+  ``^is_valuation ∧ m <: typesem ^tyass ^tyval ty ⇒
+     is_valuation ^tysig ^tyass (^tyval,(((x,ty) =+ m) ^tmval))``,
+  rw[is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> rw[])
 
 val good_context_instance_equality = prove(
   ``∀ty ina.
-    ^good_context ∧
+    ^good_context ∧ ^is_valuation ∧
     type_ok ^tysig ty ∧
     typesem ^tyass ^tyval ty = range ina ∧
     wf_to_inner ina ⇒
@@ -483,12 +481,12 @@ val _ = save_thms
    "good_context_wf_to_inner_fun_to_inner",
    "good_context_tyass_bool", "good_context_tyass_fun",
    "good_context_lookup_bool","good_context_lookup_fun",
-   "good_context_extend_tmval","good_context_instance_equality"]
+   "is_valuation_extend", "good_context_instance_equality"]
   [ good_context_wf_to_inner_bool_to_inner ,
     good_context_wf_to_inner_fun_to_inner ,
     good_context_tyass_bool, good_context_tyass_fun,
     good_context_lookup_bool , good_context_lookup_fun ,
-    good_context_extend_tmval , good_context_instance_equality ]
+    is_valuation_extend, good_context_instance_equality ]
 
 val base_tyval_exists = prove(
   ``∃τ. ∀mem. is_set_theory mem ⇒ is_type_valuation0 mem (τ mem)``,
@@ -1193,7 +1191,7 @@ val good_context_base_case = prove(
     ⇒ good_select select
     ⇒
     good_context mem (sigof hol_ctxt) (hol_model select ind_to_inner)
-      (base_valuation (tysof hol_ctxt) (tyaof (hol_model select ind_to_inner)))``,
+      (* (base_valuation (tysof hol_ctxt) (tyaof (hol_model select ind_to_inner))) *)``,
     ntac 3 strip_tac >>
     simp[good_context_unpaired] >>
     conj_tac >- (
@@ -1202,11 +1200,11 @@ val good_context_base_case = prove(
     conj_asm1_tac >- (
       imp_res_tac hol_model_def >>
       fs[models_def]) >>
-    conj_tac >- (
+    (* conj_tac >- ( *)
       imp_res_tac hol_model_def >>
-      fs[models_def]) >>
+      fs[models_def] (* ) >>
     match_mp_tac base_valuation_def >>
-    fs[is_interpretation_def]) |> funpow 2 UNDISCH
+    fs[is_interpretation_def]*)) |> funpow 2 UNDISCH
 val _ = save_thm("good_context_base_case",good_context_base_case)
 
 val update_interpretation_def = new_specification("update_interpretation_def",["update_interpretation0"],
@@ -1249,29 +1247,31 @@ val _ = Parse.overload_on("update_valuation",``update_valuation0 ^mem``)
 val update_valuation_def = save_thm("update_valuation_def",update_valuation_def |> ISPEC mem)
 
 val good_context_extend = store_thm("good_context_extend",
-  ``∀mem upd ctxt i v.
-    good_context mem (sigof ctxt) i v ∧
+  ``∀mem upd ctxt i.
+    good_context mem (sigof ctxt) i ∧
     upd updates ctxt ∧ sound_update ctxt upd ∧
     i models thyof ctxt
     ⇒
     good_context mem (sigof (upd::ctxt)) (update_interpretation ctxt upd i)
-      (update_valuation ctxt upd (tyaof i) (tyaof (update_interpretation ctxt upd i)) v)``,
+      (* (update_valuation ctxt upd (tyaof i) (tyaof (update_interpretation ctxt upd i)) v)*)``,
   rpt gen_tac >>
   PairCases_on`i` >>
-  PairCases_on`v` >>
+  (* PairCases_on`v` >> *)
   rw[good_context_def] >>
   imp_res_tac update_interpretation_def >>
-  Q.PAT_ABBREV_TAC`δ = tyaof (update_interpretation X Y Z)` >>
-  qspecl_then[`ctxt`,`upd`,`i0`,`δ`,`v0,v1`]mp_tac update_valuation_def >>
+  (* Q.PAT_ABBREV_TAC`δ = tyaof (update_interpretation X Y Z)` >> *)
+  (* qspecl_then[`ctxt`,`upd`,`i0`,`δ`,`v0,v1`]mp_tac update_valuation_def >> *)
   simp[] >>
+  (*
   discharge_hyps >- (
     conj_tac >- ( fs[equal_on_def] ) >>
     fs[models_def,is_interpretation_def] ) >>
+  *)
   rw[] >>
-  qmatch_abbrev_tac`good_context mem sig2 i2 v2` >>
-  `∃i3 i4. i2 = (i3,i4) ∧ ∃v3 v4. v2 = (v3,v4)` by metis_tac[pair_CASES] >>
+  qmatch_abbrev_tac`good_context mem sig2 i2` >>
+  `∃i3 i4. i2 = (i3,i4) (*∧ ∃v3 v4. v2 = (v3,v4)*)` by metis_tac[pair_CASES] >>
   simp[good_context_def,Abbr`sig2`] >>
-  fs[Abbr`i2`,Abbr`v2`,Abbr`δ`] >>
+  fs[Abbr`i2`(*,Abbr`v2`,Abbr`δ`*)] >>
   conj_tac >- (
     qspecl_then[`ctxt`,`upd::ctxt`]mp_tac is_std_sig_extends >>
     simp[extends_def] ) >>

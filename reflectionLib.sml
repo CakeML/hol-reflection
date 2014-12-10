@@ -75,6 +75,7 @@ local
     ``typesem tyass tyval ^(type_to_deep ty) = ^(mk_range ty)``
 
   val good_context = hd(hyp good_context_tyass_bool)
+  val is_valuation = Abs_thm |> hyp |> el 2
 
   val good_context_tyass_fun_simp =
     good_context_tyass_fun |> SIMP_RULE std_ss []
@@ -379,7 +380,7 @@ local
 
   fun termsem_cert tm =
     let
-      val goal = (good_context::(term_assums tm),termsem_prop tm)
+      val goal = (good_context::is_valuation::(term_assums tm),termsem_prop tm)
       (* set_goal goal *)
     in
       case dest_term tm of
@@ -422,19 +423,19 @@ local
             ASM_SIMP_TAC (std_ss++LIST_ss++STRING_ss)
               [combinTheory.APPLY_UPDATE_THM,
                mlstringTheory.mlstring_11] >>
+            rpt conj_tac >>
             TRY (
-              reverse conj_tac >- (
-                match_mp_tac (MP_CANON (GSYM wf_to_inner_finv_right)) >>
-                rpt conj_tac >>
-                TRY(first_assum ACCEPT_TAC) >>
-                imp_res_tac (DISCH_ALL good_context_is_set_theory) >>
-                (fn (g as (asl,w)) =>
-                  ACCEPT_TAC(wf_to_inner_mk_to_inner
-                    (fst(dom_rng(type_of(rand w))))) g))) >>
-            match_mp_tac good_context_extend_tmval >>
+              match_mp_tac (MP_CANON (GSYM wf_to_inner_finv_right)) >>
+              rpt conj_tac >>
+              TRY(first_assum ACCEPT_TAC) >>
+              imp_res_tac (DISCH_ALL good_context_is_set_theory) >>
+              (fn (g as (asl,w)) =>
+                ACCEPT_TAC(wf_to_inner_mk_to_inner
+                  (fst(dom_rng(type_of(rand w))))) g)) >>
+            match_mp_tac is_valuation_extend >>
             (conj_tac >- first_assum ACCEPT_TAC) >>
             imp_res_tac (DISCH_ALL good_context_tyass_bool) >>
-            ASM_SIMP_TAC (std_ss++LIST_ss) [typesem_def])
+            ASM_SIMP_TAC (std_ss++LIST_ss) [typesem_def,good_context_tyass_fun_simp])
         end
     end
 
@@ -446,6 +447,7 @@ local
   val tm = ``typesem tysig tyval Bool``
   val tm = mem
   val tm = good_context
+  val tm = ``map (λf. (λ(x,y). x) = f) []``
   termsem_cert tm
   show_assums := true
 *)
@@ -1159,34 +1161,8 @@ local
         equal_on sig i i' ⇒ name ∈ FDOM (tmsof sig) ⇒
         (tmaof i' name args = m)``,
       rw[equal_on_def] >> metis_tac[])
-
-    val tyval_extend_thm = prove(
-      ``(tyvof v name = ty) ⇒
-        ∀^mem. is_set_theory ^mem ⇒
-        upd updates ctxt ⇒ equal_on (sigof ctxt) i (constrain_interpretation upd cs j) ⇒
-        is_valuation (tysof ctxt) (tyaof i) v ⇒
-        is_type_assignment (tysof (upd::ctxt)) (constrain_tyass cs upd (tyaof j)) ⇒
-        (tyvof (update_valuation ctxt upd (tyaof i) (constrain_tyass cs upd (tyaof j)) v) name = ty)``,
-      PairCases_on`j`>>
-      rw[equal_on_def,constrain_interpretation_def] >>
-      qspecl_then[`ctxt`,`upd`,`tyaof i`,`constrain_tyass cs upd j0`,`v`]mp_tac update_valuation_def >>
-      simp[])
-
-    val tmval_extend_thm = prove(
-      ``(tmvof v (name,ty) = m) ⇒
-        ∀^mem.
-        upd updates ctxt ∧ equal_on (sigof ctxt) i (constrain_interpretation upd cs j) ∧
-        is_valuation (tysof ctxt) (tyaof i) v ∧
-        is_type_assignment (tysof (upd::ctxt)) (constrain_tyass cs upd (tyaof j)) ⇒
-        type_ok (tysof ctxt) ty ⇒
-        is_set_theory ^mem ⇒
-        (tmvof (update_valuation ctxt upd (tyaof i) (constrain_tyass cs upd (tyaof j)) v) (name,ty) = m)``,
-      PairCases_on`j`>>
-      rw[equal_on_def,constrain_interpretation_def] >>
-      qspecl_then[`ctxt`,`upd`,`tyaof i`,`constrain_tyass cs upd j0`,`v`]mp_tac update_valuation_def >>
-      simp[])
   in
-    fun make_k_assum uth eqth isvalth istyath ia =
+    fun make_k_assum uth eqth istyath ia =
       case total (MATCH_MP tysig_extend_thm) ia of
         SOME th => MATCH_MP th uth
       | NONE =>
@@ -1200,19 +1176,6 @@ local
       case total (MATCH_MP tmass_extend_thm) ia of
         SOME th =>
             MP (CONV_RULE(LAND_CONV EVAL)(MATCH_MP th eqth)) TRUTH
-      | NONE =>
-      case total (MATCH_MP tyval_extend_thm) ia of
-        SOME th =>
-          th |> SPEC mem |> UNDISCH
-          |> C MATCH_MP uth
-          |> C MATCH_MP eqth
-          |> C MATCH_MP isvalth
-          |> C MATCH_MP istyath
-      | NONE => (* TODO: tmval_extend_thm is probably never used *)
-      case total (MATCH_MP tmval_extend_thm) ia of
-        SOME th =>
-          th |> SPEC mem |> C MATCH_MP (LIST_CONJ [uth,eqth,isvalth,istyath])
-          |> UNDISCH |> prove_hyps_by EVAL_TAC |> UNDISCH
       | NONE => assert (can (match_term``wf_to_inner X`` o concl)) ia
   end
 
@@ -1284,7 +1247,9 @@ local
          ``is_set_theory ^mem``] @
         (mapfilter (fn ty => to_inner_prop (assert is_vartype ty)) tys)
       val tyassums = flatten (map base_type_assums tys)
+           |> filter (not o can (assert (equal tyval) o fst o strip_comb o lhs))
       val tmassums = flatten (map base_term_assums consts)
+        (* |> filter (not o can (assert (equal tmval) o fst o strip_comb o lhs)) *)
       val assums0 = list_mk_conj (tyassums @ tmassums)
       (* TODO: need to choose select according to constraints *)
       val int = ``hol_model base_select ind_to_inner``
@@ -1294,8 +1259,7 @@ local
       val s = [tysig |-> ``tysof ^(el 2 args)``,
                tmsig |-> ``tmsof ^(el 2 args)``,
                tyass |-> ``tyaof ^(el 3 args)``,
-               tmass |-> ``tmaof ^(el 3 args)``,
-               tyval |-> ``tyvof ^(el 4 args)``]
+               tmass |-> ``tmaof ^(el 3 args)``]
       val assums = subst s assums0
       val th =
         MATCH_MP hol_model_def
@@ -1376,10 +1340,31 @@ local
           MATCH_MP constrain_tyass_is_type_assignment
                    (CONJ th1 th2)
         end
-      val isvalth = good_context_i |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 5
       val k_assums = map
-        (make_k_assum (#updates_thm upd) k_equal_on_i isvalth istyath)
+        (make_k_assum (#updates_thm upd) k_equal_on_i istyath)
         (CONJUNCTS i_assums)
+      val k_models = TRUTH
+      val good_context_k = TRUTH
+      (*
+      val is_std_sig_thm =
+      good_context_j
+      good_context_def
+        MATCH_MP theory_ok_sig
+          (MATCH_MP
+             (MATCH_MP extends_theory_ok
+                (MATCH_MP updates_extends_trans
+                  (CONJ (#updates_thm upd) (#extends_init_thm upd))))
+           init_theory_ok)
+      val i_is_std_int = 
+      val is_std_int_thm = MATCH_MP is_std_interpretation_equal_on
+                             LIST_CONJ
+
+      f"is_std_inter"
+
+      val good_context_k =
+      good_context_def
+      *)
+
       (*
         val ia = el 4 (CONJUNCTS i_assums)
         val uth = #updates_thm upd
@@ -1395,7 +1380,7 @@ local
       cs_assums
       *)
     in
-      TRUTH
+      LIST_CONJ (good_context_k::k_models::(new_wf_to_inners@sig_ths@cs_assums@k_assums))
     end
 
 (*
