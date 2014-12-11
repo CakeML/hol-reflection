@@ -8,6 +8,8 @@ local
 
   val ERR = mk_HOL_ERR"reflectionLib"
 
+  fun VALID_TAC_PROOF (goal,tac) = TAC_PROOF(goal, VALID tac)
+
   val bool_to_inner_tm = ``bool_to_inner``
   val fun_to_inner_tm = ``fun_to_inner``
 
@@ -95,7 +97,7 @@ local
       val goal = (is_set_theory_mem::is_std_type_assignment::(type_assums ty), typesem_prop ty)
       (* set_goal goal *)
     in
-      TAC_PROOF(goal,
+      VALID_TAC_PROOF(goal,
         rpt(
           (CHANGED_TAC(REWRITE_TAC[typesem_def,listTheory.MAP,ETA_AX]))
           ORELSE
@@ -146,9 +148,9 @@ local
     end
 
   fun cmp_to_P c x y = c (x,y) <> GREATER
+  fun tyvar_to_str (x : hol_type) = tyvar_to_deep (dest_vartype x)
 
   local
-    fun tyvar_to_str (x : hol_type) = tyvar_to_deep (dest_vartype x)
     fun to_pair {redex,residue} = (tyvar_to_str redex, residue)
     val le = cmp_to_P (inv_img_cmp fst String.compare)
   in
@@ -245,7 +247,7 @@ local
         val tyin = tyin_to_deep (type_instance tm)
         (* set_goal goal *)
       in
-        TAC_PROOF(goal,
+        VALID_TAC_PROOF(goal,
           first_assum(mp_tac o MATCH_MP instance_thm) >>
           disch_then(
             (CONV_TAC o LAND_CONV o RATOR_CONV o REWR_CONV) o
@@ -358,7 +360,7 @@ local
               |> SPEC (type_to_deep (generic_type {Name=Name,Thy=Thy}))
             val goal:goal = ([],th |> concl |> dest_imp |> fst)
             (* set_goal goal *)
-            val th1 = TAC_PROOF(goal,
+            val th1 = VALID_TAC_PROOF(goal,
               exists_tac (tyin_to_deep (type_instance tm)) >>
               EVAL_TAC)
           in
@@ -402,8 +404,8 @@ local
       (* set_goal goal *)
     in
       case dest_term tm of
-        VAR _ => TAC_PROOF(goal,ASM_SIMP_TAC std_ss [termsem_def])
-      | CONST _ => TAC_PROOF(goal,
+        VAR _ => VALID_TAC_PROOF(goal,ASM_SIMP_TAC std_ss [termsem_def])
+      | CONST _ => VALID_TAC_PROOF(goal,
           SIMP_TAC std_ss [termsem_def] >>
           ACCEPT_TAC(instance_cert tm))
       (* val COMB(t1,t2) = it *)
@@ -419,7 +421,7 @@ local
                    |> C MATCH_MP (wf_to_inner_mk_to_inner rty)
                    |> PROVE_HYP good_context_is_set_theory
         in
-          TAC_PROOF(goal, ACCEPT_TAC th)
+          VALID_TAC_PROOF(goal, ACCEPT_TAC th)
         end
       (* val LAMB(x,b) = it *)
       (* val tm = b *)
@@ -431,7 +433,7 @@ local
                     (typesem_cert (type_of b)))
           val cb = termsem_cert b
         in
-          TAC_PROOF(goal,
+          VALID_TAC_PROOF(goal,
             match_mp_tac th >>
             conj_tac >- (ACCEPT_TAC (term_ok_term_to_deep b)) >>
             conj_tac >- EVAL_TAC >>
@@ -929,7 +931,7 @@ local
         tys = [``:('a,'b)prod``],
         consts = [``ABS_prod``,``REP_prod``],
         (* TODO: axs may need tweaking to match the inner *)
-        axs = CONJUNCTS pairTheory.ABS_REP_prod }
+        axs = map SPEC_ALL (CONJUNCTS pairTheory.ABS_REP_prod) }
 
      val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
      val consts =  map (C inst ``ABS_prod``) substs
@@ -1068,7 +1070,7 @@ local
       val listc = listLib.list_compset()
       val goal:goal = (hyps,gtm)
       (* set_goal goal *)
-      val th = TAC_PROOF(goal,
+      val th = VALID_TAC_PROOF(goal,
         CONV_TAC(HO_REWR_CONV IS_SOME_cs_thm) >>
         CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV cs_cases))) >>
         CONV_TAC(HO_REWR_CONV(GSYM listTheory.EVERY_MEM)) >>
@@ -1112,7 +1114,7 @@ local
                  |> mk_set
       val vth = EVERY_range_inhabited vtys
       val vth1 = foldl (uncurry PROVE_HYP) vth wf_to_inners
-      val th = TAC_PROOF(goal,
+      val th = VALID_TAC_PROOF(goal,
         CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV cs_cases))) >>
         CONV_TAC(HO_REWR_CONV(GSYM listTheory.EVERY_MEM)) >>
         CONV_TAC(computeLib.CBV_CONV c) >>
@@ -1228,7 +1230,7 @@ local
         in
           ACCEPT_TAC th2 g
         end
-      val th = TAC_PROOF(goal,
+      val th = VALID_TAC_PROOF(goal,
         CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV cs_cases))) >>
         CONV_TAC(HO_REWR_CONV(GSYM listTheory.EVERY_MEM)) >>
         CONV_TAC(computeLib.CBV_CONV c) >>
@@ -1253,12 +1255,12 @@ local
            CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
            first_x_assum(CONV_TAC o RAND_CONV o REWR_CONV) >>
            typesem_tac (rand o rand) >>
-           REWRITE_TAC[])) >>
+           REWRITE_TAC[tyaof_constrain_interpretation])) >>
         disch_then(CHANGED_TAC o SUBST1_TAC o SYM) >>
         CONV_TAC(RAND_CONV(REWR_CONV(GSYM typesem_TYPE_SUBST))) >>
         CONV_TAC(RAND_CONV(RAND_CONV(EVAL))) >>
         typesem_tac (rator o rand o rator) >>
-        REWRITE_TAC[] >>
+        REWRITE_TAC[tyaof_constrain_interpretation] >>
         disch_then(CHANGED_TAC o SUBST1_TAC) >>
         match_mp_tac wf_to_inner_range_thm >>
         wf_to_inner_mk_to_inner_tac)
@@ -1378,8 +1380,8 @@ local
 
   fun make_wf_to_inner_th assums ax =
     let
-      val th = MATCH_MP wf_to_inner_defined_type ax
-      val abs = rator(lhs(snd(dest_forall(concl ax))))
+      val th = MATCH_MP wf_to_inner_defined_type (GEN_ALL ax)
+      val abs = rator(lhs(concl ax))
       val (b,a) = dom_rng(type_of abs)
       val th1 = SPECL [type_to_deep a, mk_to_inner b] th
       val th2 = MATCH_MP th1 (wf_to_inner_mk_to_inner b)
@@ -1428,7 +1430,7 @@ local
                       gsbs,
                       ASSUME (el 1 hypotheses)])
         |> CONJUNCT1
-      val assumsth = TAC_PROOF((hypotheses,assums),cheat)
+      val assumsth = VALID_TAC_PROOF((hypotheses,assums),cheat)
     in
       LIST_CONJ [gcth,th,assumsth]
     end
@@ -1446,7 +1448,7 @@ local
       val new_tys =
         mk_set(flatten (map (base_types_of_term o concl) instantiated_axioms))
       val new_consts =
-        mk_set(flatten (map (base_terms_of_term o concl) instantiated_axioms))
+        mk_set(flatten (map (filter is_const o base_terms_of_term o concl) instantiated_axioms))
       val ith = build_interpretation ctxt
         (set_diff (union tys new_tys) instantiated_tys)
         (set_diff (union consts new_consts) instantiated_consts)
@@ -1517,7 +1519,6 @@ local
         handle HOL_ERR _ => (* TODO *) tyvars_of_ConstSpec
       val k_is_std_type_assignment =
         k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
-        |> REWRITE_RULE[tyaof_constrain_interpretation]
       val j_is_std_type_assignment =
         j_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
       val all_assums = new_wf_to_inners@sig_ths@cs_assums@k_assums
@@ -1534,19 +1535,19 @@ local
         MATCH_MP (UNDISCH constrain_tmass_is_term_assignment)
           (LIST_CONJ [jistma,
                       j_is_std_type_assignment,
-                      k_is_std_type_assignment,
+                      k_is_std_type_assignment |> REWRITE_RULE[tyaof_constrain_interpretation],
                       #constrainable_thm upd,
                       well_formed_constraints_thm,
                       #updates_thm upd,
                       #extends_init_thm upd])
+      val istyath1 = REWRITE_RULE[GSYM tyaof_constrain_interpretation]istyath
+      val istmath1 = REWRITE_RULE[GSYM tmaof_constrain_interpretation,
+                                  GSYM tyaof_constrain_interpretation]istmath
       val k_is_int =
         EQ_MP
           (CONV_RULE(LAND_CONV(REWRITE_CONV[of_sigof_rwt]))
              (SYM(SPECL[mem,new_sig,ktm]is_interpretation_def)))
-          (CONJ
-            (REWRITE_RULE[GSYM tyaof_constrain_interpretation]istyath)
-            (REWRITE_RULE[GSYM tmaof_constrain_interpretation,
-                          GSYM tyaof_constrain_interpretation]istmath))
+          (CONJ istyath1 istmath1)
       val good_context_k =
         EQ_MP
           (SYM(SPECL[mem,new_sig,ktm] (Q.GENL[`i`,`sig`,`mem`]good_context_unpaired)))
@@ -1736,7 +1737,7 @@ in
         val th = MATCH_MP th thr
         val hyps = set_diff (mk_set(hyp cb @ hyp th)) (hyp cx)
         val goal = (hyps, th |> concl |> dest_imp |> fst)
-        val th1 = TAC_PROOF(goal,
+        val th1 = VALID_TAC_PROOF(goal,
           gen_tac >> strip_tac >>
           CONV_TAC(LAND_CONV(RAND_CONV(BETA_CONV))) >>
           match_mp_tac (MP_CANON (DISCH_ALL cb)) >>
@@ -1820,7 +1821,7 @@ in
         val tyval = list_mk_icomb(update_list_tm,[base_tyval_tm,pairs])
         val wf_to_inners = map (mk_wf_to_inner o rand o rand) asms
         val goal = (is_set_theory_mem::wf_to_inners,mk_comb(is_type_valuation_tm,tyval))
-        val th = TAC_PROOF(goal,
+        val th = VALID_TAC_PROOF(goal,
           match_mp_tac is_type_valuation_update_list >>
           conj_tac >- ACCEPT_TAC base_tyval_def >>
           SIMP_TAC (std_ss ++ LIST_ss) [] >>
