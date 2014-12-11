@@ -1170,7 +1170,7 @@ local
      rw[] >> PairCases_on`i` >> rw[constrain_interpretation_def])
 
   fun prove_constrained_consts_in_type_thm
-        hyps inner_upd cs cs_cases jtm
+        hyps inner_upd cs cs_cases cs_rws jtm
         tyvars_of_upd_rw k_is_std_type_assignment all_assums new_sig =
     let
       val gtm =
@@ -1499,7 +1499,8 @@ local
       val cs = ktm |> rator |> rand
       val z = genvar(listSyntax.mk_list_type universe_ty)
       val cs_cases = GEN z (updates_equal_some_cases z cs)
-      val lengths_match = prove_lengths_match_thm hyps cs cs_cases cs_rws (upd_to_inner upd)
+      val inner_upd = upd_to_inner upd
+      val lengths_match = prove_lengths_match_thm hyps cs cs_cases cs_rws inner_upd
       val k_equal_on_j =
         MATCH_MP (UNDISCH constrain_interpretation_equal_on)
           (LIST_CONJ [#constrainable_thm upd,
@@ -1534,39 +1535,40 @@ local
         handle HOL_ERR _ => (* TODO *) tyvars_of_ConstSpec
       val k_is_std_type_assignment =
         k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
+      val j_is_std_type_assignment =
+        j_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
+      val j_is_std_type_assignment =
       val all_assums = new_wf_to_inners@sig_ths@cs_assums@k_assums
       val constrained_consts_in_type_thm =
-        prove_constrained_consts_in_type_thm hyps inner_upd cs cs_cases jtm
+        prove_constrained_consts_in_type_thm hyps inner_upd cs cs_cases cs_rws jtm
           tyvars_of_upd_rw k_is_std_type_assignment all_assums new_sig
-
-        well_formed_constraints_def
-
+      val well_formed_constraints_thm =
+        MATCH_MP
+          (MATCH_MP
+             (MATCH_MP to_well_formed_constraints_thm lengths_match)
+             inhabited_thm)
+          constrained_consts_in_type_thm
       val istmath =
         MATCH_MP (UNDISCH constrain_tmass_is_term_assignment)
           (LIST_CONJ [jistma,
-                      j_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1,
-                      k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1,
+                      j_is_std_type_assignment,
+                      k_is_std_type_assignment,
                       #constrainable_thm upd,
-                      well_formed_constraints_thm,
+                      well_formed_constraints_thm (* TODO: need this about j, not k *),
                       #updates_thm upd,
                       #extends_init_thm upd])
       val k_is_int =
         EQ_MP
           (SYM(SPECL[mem,new_sig,ktm]is_interpretation_def))
-          (CONJ istyath (
+          (CONJ istyath istmath)
       val good_context_k =
         EQ_MP
           (SYM(SPECL[mem,new_sig,ktm] (Q.GENL[`i`,`sig`,`mem`]good_context_unpaired)))
           (LIST_CONJ
             [good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 1,
              good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 2,
-             good_context_unpaired
-
-
-        TAC_PROOF(list_mk_comb(``good_context``,[mem,
-        TRUTH
-      *)
-      val good_context_k = TRUTH
+             k_is_int,
+             k_is_std])
       val k_models = TRUTH
       (*
       val is_std_sig_thm =
