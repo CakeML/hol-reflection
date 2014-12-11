@@ -1140,20 +1140,6 @@ val tyaof_constrain_interpretation_lemma = store_thm("tyaof_constrain_interpreta
     simp[MAP_ZIP,MEM_ZIP] >>
     qexists_tac`n`>>simp[EL_MAP])
 
-val updates_upd_ALL_DISTINCT = store_thm("updates_upd_ALL_DISTINCT",
-  ``∀upd ctxt. upd updates ctxt ⇒
-      ALL_DISTINCT (MAP FST (consts_of_upd upd)) ∧
-      ALL_DISTINCT (MAP FST (types_of_upd upd))``,
-  ho_match_mp_tac updates_ind >> rw[] >>
-  rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX])
-
-val updates_upd_DISJOINT = store_thm("updates_upd_DISJOINT",
-  ``∀upd ctxt. upd updates ctxt ⇒
-      DISJOINT (set (MAP FST (types_of_upd upd))) (set (MAP FST (type_list ctxt))) ∧
-      DISJOINT (set (MAP FST (consts_of_upd upd))) (set (MAP FST (const_list ctxt)))``,
-  ho_match_mp_tac updates_ind >> rw[IN_DISJOINT,MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS,LET_THM] >>
-  metis_tac[])
-
 val axiom_simplifier = store_thm("axiom_simplifier",
   ``p ∧ (termsem tmsig i v t = bool_to_inner p) ⇒
     (termsem tmsig i v t = True)``,
