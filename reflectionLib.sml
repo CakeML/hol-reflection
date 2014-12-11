@@ -1402,6 +1402,60 @@ local
       (tmsof (sigof x) = tmsof x)``,
     rw[])
 
+  val unpair_sig = prove(``sig = (tysof sig, tmsof sig)``, rw[])
+  val unpair_int = prove(``int = (tyaof int, tmaof int)``, rw[])
+  fun tosub x y = {redex = x, residue = y}
+
+  (*
+  fun prove_ax_satisfied hyps inner_upd old_ctxt cs cs_cases jtm
+                         ktyass ktmass tyvars_of_upd_rw new_sig
+                         good_context_k all_assums ax =
+    let
+      val inner_ax = term_to_deep (concl ax)
+      val gtm =
+        constrain_interpretation_satisfies |> UNDISCH
+        |> SPECL [jtm,inner_upd,old_ctxt,cs]
+        |> concl |> dest_imp |> fst
+        |> strip_conj |> last |> rator |> rand
+        |> C (curry mk_comb) inner_ax |> beta_conv
+      val c = listLib.list_compset()
+      val () = optionLib.OPTION_rws c
+      val () = pairLib.add_pair_compset c
+      val gck = good_context_k |> ONCE_REWRITE_RULE[unpair_sig, unpair_int]
+      val sorted_tys =
+        sort (cmp_to_P (inv_img_cmp tyvar_to_str String.compare))
+          (type_vars_in_term (concl ax))
+      fun termsem_tac (g as (asl,w)) =
+        let
+          val tys = w |> dest_imp |> fst |> rhs |> listSyntax.dest_list |> fst
+                    |> map (fst o dom_rng o type_of o rand)
+          val tyin = map2 tosub sorted_tys tys
+          val iax = INST_TYPE tyin ax
+          val th1 = termsem_cert (concl iax)
+          val th2 = INST[tyass |-> ktyass,
+                         tmass |-> ktmass,
+                         tysig |-> ``tysof ^new_sig``,
+                         tmsig |-> ``tmsof ^new_sig``] th1
+          val th3 = foldl (uncurry PROVE_HYP) th2 (gck::all_assums)
+        in
+          CONV_TAC(computeLib.CBV_CONV c) >> strip_tac
+          mp_tac th3 g
+        end
+      val goal = (hyps,gtm)
+      (* set_goal goal *)
+      val th = VALID_TAC_PROOF(goal,
+        CONV_TAC(QUANT_CONV(LAND_CONV(REWR_CONV cs_cases))) >>
+        CONV_TAC(HO_REWR_CONV(GSYM listTheory.EVERY_MEM)) >>
+        CONV_TAC(computeLib.CBV_CONV c) >>
+        rpt conj_tac >>
+        ntac 2 gen_tac >> strip_tac >>
+        REWRITE_TAC[tyvars_of_upd_rw] >>
+        CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV(EVAL)))) >>
+        termsem_tac
+
+        val (asl,w) = top_goal()
+  *)
+
   fun build_interpretation [] tys consts =
     let
       val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
@@ -1556,41 +1610,39 @@ local
              good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS |> el 2,
              k_is_int,
              k_is_std])
-      val k_models = TRUTH
+      val axexts_empty = prove(``axexts_of_upd ^inner_upd = []``,EVAL_TAC)
+      val old_ctxt = #updates_thm upd |> concl |> rand
+      val ktyass = istyath1 |> concl |> rand
+      val ktmass = istmath1 |> concl |> rand
       (*
-      val is_std_sig_thm =
-      good_context_j
-      good_context_def
-        MATCH_MP theory_ok_sig
-          (MATCH_MP
-             (MATCH_MP extends_theory_ok
-                (MATCH_MP updates_extends_trans
-                  (CONJ (#updates_thm upd) (#extends_init_thm upd))))
-           init_theory_ok)
-      val i_is_std_int = 
-      val is_std_int_thm = MATCH_MP is_std_interpretation_equal_on
-                             LIST_CONJ
+      val axs_satisfied =
+        map (prove_ax_satisfied hyps inner_upd old_ctxt cs cs_cases jtm
+                                ktyass ktmass tyvars_of_upd_rw new_sig
+                                good_context_k all_assums)
+            (#axs upd)
 
-      f"is_std_inter"
-
-      val good_context_k =
-      good_context_def
-      *)
-
-      (*
-        val ia = el 4 (CONJUNCTS i_assums)
-        val uth = #updates_thm upd
-        val eqth = k_equal_on_i
-        make_k_assum uth eqth isvalth istyath (el 4 (CONJUNCTS i_assums))
+        val ax = hd(#axs upd)
+      val valid_constraints_thm =
+        LIST_CONJ [
+          #constrainable_thm upd,
+          #updates_thm upd,
+          axexts_empty,
+          j_models,
+          axs_satisfied]
+        |> MATCH_MP (UNDISCH constrain_interpretation_satisfies)
       *)
       (*
-      val deep_axioms0 = map (termsem_cert o concl) instantiated_axioms
-      val deep_axioms = map
-        (fn (p,q) => MATCH_MP  axiom_simplifier (CONJ p q))
-        (zip instantiated_axioms deep_axioms0)
-      ktm
-      cs_assums
-      *)
+      val k_models =
+        LIST_CONJ
+          [#constrainable_thm upd,
+           #updates_thm upd,
+           #extends_init_thm upd,
+           j_models,
+           well_formed_constraints_thm,
+           valid_constraints_thm]
+        |> MATCH_MP (UNDISCH add_constraints_thm)
+        *)
+        val k_models = TRUTH
     in
       LIST_CONJ (good_context_k::k_models::all_assums)
     end
