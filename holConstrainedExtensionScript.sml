@@ -161,6 +161,24 @@ val termsem_consts = store_thm("termsem_consts",
   fsrw_tac[boolSimps.DNF_ss][subterm_Abs] >>
   rpt AP_TERM_TAC >> simp[FUN_EQ_THM])
 
+val conexts_of_upd_welltyped_closed = store_thm("conexts_of_upd_welltyped_closed",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      EVERY (λp. welltyped p ∧ CLOSED p) (conexts_of_upd upd)``,
+  ho_match_mp_tac updates_ind >>
+  conj_tac >- simp[conexts_of_upd_def] >>
+  conj_tac >- simp[conexts_of_upd_def] >>
+  conj_tac >- (
+    simp[conexts_of_upd_def] >>
+    cheat
+    (*
+    f"VSUBST_Has"
+    f"VFREE_IN_V"
+    *) ) >>
+  conj_tac >- simp[conexts_of_upd_def] >>
+  rw[] >>
+  simp[conexts_of_upd_def] >>
+  cheat)
+
 (* maybe the above too *)
 
 (* TODO: move? *)
@@ -896,6 +914,67 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     metis_tac[termsem_extend]) >>
   fs[valid_constraints_def] >>
   fs[markerTheory.Abbrev_def,EVERY_MEM])
+
+val constrain_interpretation_satisfies = store_thm("constrain_interpretation_satisfies",
+  ``is_set_theory ^mem ⇒
+    ∀j upd ctxt cs.
+    constrainable_update upd ∧ upd updates ctxt ∧ (axexts_of_upd upd = []) ∧
+    j models (thyof (upd::ctxt)) ∧
+    EVERY (λx.
+      (∀vs tmvs tyvs.
+         cs vs = SOME (tmvs,tyvs) ⇒
+         ∀v. is_valuation (tysof (upd::ctxt)) (tyaof (constrain_interpretation upd cs j)) v ⇒
+             termsem (tmsof (upd::ctxt)) (constrain_interpretation upd cs j) v x = True))
+      (axioms_of_upd upd)
+    ⇒
+    valid_constraints ctxt upd cs j``,
+  strip_tac >>
+  rpt gen_tac >>
+  qabbrev_tac`axs = axioms_of_upd upd` >>
+  REWRITE_TAC[valid_constraints_def] >>
+  ASM_SIMP_TAC pure_ss [] >>
+  qabbrev_tac`sig = sigof(upd::ctxt)` >>
+  qabbrev_tac`tysig = tysof (upd::ctxt)` >>
+  qabbrev_tac`tmsig = tmsof (upd::ctxt)` >>
+  simp[EVERY_MEM,models_def] >> strip_tac >>
+  rw[] >>
+  rfs[Abbr`axs`] >>
+  first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+  first_x_assum(qspec_then`p`mp_tac) >> simp[] >> strip_tac >>
+  simp[satisfies_def] >> rw[] >>
+  `tysof sig = tysig` by simp[Abbr`tysig`,Abbr`sig`] >> fs[] >> pop_assum kall_tac >>
+  pop_assum mp_tac >> PairCases_on`v`>>simp[is_valuation_def] >> strip_tac >>
+  `tyvars_of_upd upd = mlstring_sort (tvars p)` by (
+    simp[tyvars_of_upd_def] >>
+    qmatch_abbrev_tac`mlstring_sort l1 = mlstring_sort l2` >>
+    `ALL_DISTINCT l1 ∧ ALL_DISTINCT l2` by (
+      imp_res_tac set_tyvars_of_upd_def >>
+      simp[Abbr`l1`,Abbr`l2`] ) >>
+    simp[mlstring_sort_eq] >>
+    match_mp_tac sortingTheory.PERM_ALL_DISTINCT >>
+    simp[GSYM EXTENSION] >>
+    simp[Abbr`l1`,Abbr`l2`] >>
+    imp_res_tac set_tyvars_of_upd_def >>
+    simp[SET_TO_LIST_INV] >>
+    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] ) >>
+  Cases_on`cs (MAP v0 (tyvars_of_upd upd))` >- (
+    fs[satisfies_def] >>
+    `∃v2. is_valuation (tysof sig) (tyaof j) (v0,v2)` by (
+      match_mp_tac (UNDISCH term_valuation_exists) >>
+      fs[is_interpretation_def] ) >>
+    first_x_assum(qspec_then`v0,v2`mp_tac) >> simp[] >>
+    disch_then(SUBST1_TAC o SYM) >>
+    match_mp_tac EQ_TRANS >>
+    qexists_tac`termsem (tmsof sig) (constrain_interpretation upd cs j) (v0,v2) p` >>
+    imp_res_tac conexts_of_upd_welltyped_closed >> fs[EVERY_MEM] >>
+    conj_tac >- (
+      match_mp_tac termsem_frees >>
+      fs[CLOSED_def] ) >>
+    match_mp_tac termsem_consts >>
+    cheat ) >>
+  PairCases_on`x` >>
+  first_x_assum(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+  simp[is_valuation_def,FORALL_PROD,Abbr`sig`])
 
 (*
   simp[satisfies_def] >>
