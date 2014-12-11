@@ -457,18 +457,18 @@ local
         end
     end
 
-(*
-  val tm = ``λx. K F``
-  val tm = ``λx. K (λy. F) 3``
-  val tm = ``let x = 5 in x + y``
-  val tm = ``[x;y;[2]]``
-  val tm = ``typesem tysig tyval Bool``
-  val tm = mem
-  val tm = good_context
-  val tm = ``map (λf. (λ(x,y). x) = f) []``
-  termsem_cert tm
-  show_assums := true
-*)
+  (*
+    val tm = ``λx. K F``
+    val tm = ``λx. K (λy. F) 3``
+    val tm = ``let x = 5 in x + y``
+    val tm = ``[x;y;[2]]``
+    val tm = ``typesem tysig tyval Bool``
+    val tm = mem
+    val tm = good_context
+    val tm = ``map (λf. (λ(x,y). x) = f) []``
+    termsem_cert tm
+    show_assums := true
+  *)
 
   type update = {
     sound_update_thm  : thm, (* |- sound_update ctxt upd *)
@@ -1041,24 +1041,6 @@ local
       (∀vs. IS_SOME (cs vs) ⇒ P vs (FST (THE (cs vs))) (SND (THE (cs vs))))``,
     rw[IS_SOME_EXISTS,PULL_EXISTS,pairTheory.FORALL_PROD])
 
-(*
-  val remove_inhabited_assumption_thm = prove(
-    ``∀cs upd.
-      (∀vs tyvs tmvs.
-         (cs vs = SOME (tyvs,tmvs)) ⇒
-         EVERY inhabited tyvs ∧
-         (* EVERY inhabited vs ∧ *)
-         (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
-         (LENGTH tmvs = LENGTH (consts_of_upd upd)))
-      ⇒
-      (∀vs tyvs tmvs.
-         (cs vs = SOME (tyvs,tmvs)) ⇒
-         (LENGTH tyvs = LENGTH (types_of_upd upd)) ∧
-         (LENGTH tmvs = LENGTH (consts_of_upd upd)))``,
-  rw[] >> metis_tac[])
-
-*)
-
   fun join_EVERY P =
     let
       val nilth = listTheory.EVERY_DEF |> CONJUNCT1 |> ISPEC P |> EQT_ELIM
@@ -1406,18 +1388,6 @@ local
     rw[is_std_interpretation_def] >- (
       fs[is_std_type_assignment_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF] ) >>
     fs[interprets_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF])
-
-(*
-  val good_context_constrain = store_thm("good_context_constrain",
-    ``good_context mem sig i ⇒
-      good_context mem sig (constrain_interpretation upd cs i)``,
-    reverse(rw[good_context_unpaired]) >- (
-      match_mp_tac is_std_interpretation_equal_on >>
-      rw[]
-
-    PairCases_on`i`>>
-    rw[good_context_unpaired,constrain_interpretation_def]
-*)
 
   fun build_interpretation [] tys consts =
     let
