@@ -921,10 +921,11 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
     constrainable_update upd ∧ upd updates ctxt ∧ (axexts_of_upd upd = []) ∧
     j models (thyof (upd::ctxt)) ∧
     EVERY (λx.
-      (∀vs tmvs tyvs.
-         cs vs = SOME (tmvs,tyvs) ⇒
-         ∀v. is_valuation (tysof (upd::ctxt)) (tyaof (constrain_interpretation upd cs j)) v ⇒
-             termsem (tmsof (upd::ctxt)) (constrain_interpretation upd cs j) v x = True))
+      (∀vs. IS_SOME (cs vs) ⇒
+         ∀tyval tmval.
+             is_valuation (tysof (upd::ctxt)) (tyaof (constrain_interpretation upd cs j)) (tyval,tmval) ⇒
+             MAP tyval (tyvars_of_upd upd) = vs ⇒
+             termsem (tmsof (upd::ctxt)) (constrain_interpretation upd cs j) (tyval,tmval) x = True))
       (axioms_of_upd upd)
     ⇒
     valid_constraints ctxt upd cs j``,
@@ -972,8 +973,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
       fs[CLOSED_def] ) >>
     match_mp_tac termsem_consts >>
     cheat ) >>
-  PairCases_on`x` >>
-  first_x_assum(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+  first_x_assum(qspec_then`MAP v0 (tyvars_of_upd upd)`mp_tac) >> simp[] >>
   simp[is_valuation_def,FORALL_PROD,Abbr`sig`])
 
 (*
