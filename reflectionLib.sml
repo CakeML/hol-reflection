@@ -1151,6 +1151,12 @@ local
         constrain_tyass cs upd (tyaof i)``,
      rw[] >> PairCases_on`i` >> rw[constrain_interpretation_def])
 
+  val tmaof_constrain_interpretation = prove(
+    ``∀upd cs i.
+        tmaof (constrain_interpretation upd cs i) =
+        constrain_tmass cs upd (tmaof i)``,
+     rw[] >> PairCases_on`i` >> rw[constrain_interpretation_def])
+
   fun prove_constrained_consts_in_type_thm
         hyps inner_upd cs cs_cases cs_rws jtm
         tyvars_of_upd_rw k_is_std_type_assignment all_assums new_sig =
@@ -1247,12 +1253,12 @@ local
            CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
            first_x_assum(CONV_TAC o RAND_CONV o REWR_CONV) >>
            typesem_tac (rand o rand) >>
-           REWRITE_TAC[tyaof_constrain_interpretation])) >>
+           REWRITE_TAC[])) >>
         disch_then(CHANGED_TAC o SUBST1_TAC o SYM) >>
         CONV_TAC(RAND_CONV(REWR_CONV(GSYM typesem_TYPE_SUBST))) >>
         CONV_TAC(RAND_CONV(RAND_CONV(EVAL))) >>
         typesem_tac (rator o rand o rator) >>
-        REWRITE_TAC[tyaof_constrain_interpretation] >>
+        REWRITE_TAC[] >>
         disch_then(CHANGED_TAC o SUBST1_TAC) >>
         match_mp_tac wf_to_inner_range_thm >>
         wf_to_inner_mk_to_inner_tac)
@@ -1389,6 +1395,11 @@ local
       fs[is_std_type_assignment_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF] ) >>
     fs[interprets_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF])
 
+  val of_sigof_rwt = prove(
+    ``(tysof (sigof x) = tysof x) ∧
+      (tmsof (sigof x) = tmsof x)``,
+    rw[])
+
   fun build_interpretation [] tys consts =
     let
       val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
@@ -1481,7 +1492,8 @@ local
       val k_equal_on_i = MATCH_MP equal_on_trans (CONJ j_equal_on_i k_equal_on_j)
       val [_,is_std_sig_thm,j_is_int,j_is_std] =
         good_context_j |> REWRITE_RULE[good_context_unpaired] |> CONJUNCTS
-      val jistma = j_is_int |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT1
+      val jistya = j_is_int |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT1
+      val jistma = j_is_int |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT2
       val inhabited_thm = prove_inhabited_thm hyps instantiated_tys cs cs_cases cs_rws wf_to_inners
       val istyath =
         let
@@ -1491,7 +1503,7 @@ local
               inhabited_thm
         in
           MATCH_MP constrain_tyass_is_type_assignment
-                   (CONJ jistma th2)
+                   (CONJ jistya th2)
         end
       val k_assums = map
         (make_k_assum (#updates_thm upd) k_equal_on_i istyath)
@@ -1505,9 +1517,9 @@ local
         handle HOL_ERR _ => (* TODO *) tyvars_of_ConstSpec
       val k_is_std_type_assignment =
         k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
+        |> REWRITE_RULE[tyaof_constrain_interpretation]
       val j_is_std_type_assignment =
         j_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
-      val j_is_std_type_assignment =
       val all_assums = new_wf_to_inners@sig_ths@cs_assums@k_assums
       val constrained_consts_in_type_thm =
         prove_constrained_consts_in_type_thm hyps inner_upd cs cs_cases cs_rws jtm
@@ -1524,13 +1536,17 @@ local
                       j_is_std_type_assignment,
                       k_is_std_type_assignment,
                       #constrainable_thm upd,
-                      well_formed_constraints_thm (* TODO: need this about j, not k *),
+                      well_formed_constraints_thm,
                       #updates_thm upd,
                       #extends_init_thm upd])
       val k_is_int =
         EQ_MP
-          (SYM(SPECL[mem,new_sig,ktm]is_interpretation_def))
-          (CONJ istyath istmath)
+          (CONV_RULE(LAND_CONV(REWRITE_CONV[of_sigof_rwt]))
+             (SYM(SPECL[mem,new_sig,ktm]is_interpretation_def)))
+          (CONJ
+            (REWRITE_RULE[GSYM tyaof_constrain_interpretation]istyath)
+            (REWRITE_RULE[GSYM tmaof_constrain_interpretation,
+                          GSYM tyaof_constrain_interpretation]istmath))
       val good_context_k =
         EQ_MP
           (SYM(SPECL[mem,new_sig,ktm] (Q.GENL[`i`,`sig`,`mem`]good_context_unpaired)))
