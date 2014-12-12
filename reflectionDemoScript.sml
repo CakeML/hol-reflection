@@ -49,7 +49,8 @@ val upd:update = {
 val tys = [``:'c#bool``]
 val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
 val consts =  map (C inst ``ABS_prod``) substs
-val example1 = save_thm("example1",build_interpretation [upd] tys consts)
+val ctxt:update list = []
+val example1 = save_thm("example1",build_interpretation (upd::ctxt) tys consts)
 
 (* example 2: defining K on top of hol_ctxt *)
 val ctxt = ``hol_ctxt``
