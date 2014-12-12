@@ -953,7 +953,6 @@ local
         extends_init_thm = extends_init_thm2,
         tys = [``:('a,'b)prod``],
         consts = [``ABS_prod``,``REP_prod``],
-        (* TODO: axs may need tweaking to match the inner *)
         axs = map SPEC_ALL (CONJUNCTS pairTheory.ABS_REP_prod) }
 
      val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
@@ -962,9 +961,6 @@ local
      val ctxt:update list = []
      val vti:(hol_type,hol_type)subst = []
      val () = Globals.max_print_depth := 13
-
-     (* TODO: build_interpretation should have provided this (interpreting K) *)
-     val int0 = int0
   *)
 
   fun upd_to_inner (upd:update) = #constrainable_thm upd |> concl |> rand
@@ -1413,14 +1409,6 @@ local
       foldl (uncurry PROVE_HYP) th2 assums
     end
 
-  (* TODO: move*)
-  val is_std_interpretation_equal_on = store_thm("is_std_interpretation_equal_on",
-    ``is_std_interpretation i ∧ equal_on sig i i' ∧ is_std_sig sig ⇒
-      is_std_interpretation i'``,
-    rw[is_std_interpretation_def] >- (
-      fs[is_std_type_assignment_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF] ) >>
-    fs[interprets_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF])
-
   val of_sigof_rwt = prove(
     ``(tysof (sigof x) = tysof x) ∧
       (tmsof (sigof x) = tmsof x)``,
@@ -1742,13 +1730,6 @@ local
       LIST_CONJ (good_context_k::k_models::all_assums)
     end
   (* build_interpretation vti (upd::ctxt) tys consts *)
-
-(*
-  sound_update ctxt upd ⇔
-    ∀i. i models (thyof ctxt) ⇒
-      ∃i'. equal_on (sigof ctxt) i i' ∧
-           i' models (thyof (upd::ctxt))`
-*)
 
 (*******************
   val MID_EXISTS_AND_THM = prove(

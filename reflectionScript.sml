@@ -1222,6 +1222,13 @@ val update_valuation_def = new_specification("update_valuation_def",["update_val
 val _ = Parse.overload_on("update_valuation",``update_valuation0 ^mem``)
 val update_valuation_def = save_thm("update_valuation_def",update_valuation_def |> ISPEC mem)
 
+val is_std_interpretation_equal_on = store_thm("is_std_interpretation_equal_on",
+  ``is_std_interpretation i ∧ equal_on sig i i' ∧ is_std_sig sig ⇒
+    is_std_interpretation i'``,
+  rw[is_std_interpretation_def] >- (
+    fs[is_std_type_assignment_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF] ) >>
+  fs[interprets_def,equal_on_def,is_std_sig_def,finite_mapTheory.FLOOKUP_DEF])
+
 val good_context_extend = store_thm("good_context_extend",
   ``∀mem upd ctxt i.
     good_context mem (sigof ctxt) i ∧
