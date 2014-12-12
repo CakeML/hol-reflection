@@ -1,3 +1,7 @@
+
+LCA l = ?f : num -> 'U. f zero = range ind_to_inner /\ !n<l. is_set_theory_model (f n) /\
+          ?g : num -> 'U. g zero = f n /\ !m. g m subset g (suc m) /\ g m subset f (suc n)
+-----
 Ultimate desired theorem:
 ... (was written on a sheet of paper in Vienna) ...
 
