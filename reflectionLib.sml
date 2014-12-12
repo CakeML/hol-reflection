@@ -1433,7 +1433,8 @@ val vti:(hol_type,hol_type)subst = []
 
 fun build_interpretation vti [] tys consts =
   let
-    val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
+    val select = ``base_select``
+    val good_select = (UNDISCH holAxiomsTheory.good_select_base_select)
     val hypotheses =
       [``wf_to_inner (ind_to_inner:ind -> 'U)``,
        ``is_set_theory ^mem``] @
@@ -1446,7 +1447,7 @@ fun build_interpretation vti [] tys consts =
     (* TODO: need to choose select according to constraints *)
     val int = ``hol_model base_select ind_to_inner``
     val gcth =
-      MATCH_MP good_context_base_case gsbs
+      MATCH_MP good_context_base_case good_select
     val args = snd(strip_comb(concl gcth))
     val s = [tysig |-> ``tysof ^(el 2 args)``,
              tmsig |-> ``tmsof ^(el 2 args)``,
@@ -1456,7 +1457,7 @@ fun build_interpretation vti [] tys consts =
     val th =
       MATCH_MP hol_model_def
         (LIST_CONJ [ASSUME (el 2 hypotheses),
-                    gsbs,
+                    good_select,
                     ASSUME (el 1 hypotheses)])
       |> CONJUNCT1
     val goal = (hypotheses,assums)
