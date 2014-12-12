@@ -14,8 +14,6 @@ fun VALID_TAC_PROOF (goal,tac) = TAC_PROOF(goal, VALID tac)
 val bool_to_inner_tm = ``bool_to_inner``
 val fun_to_inner_tm = ``fun_to_inner``
 
-val universe_ty = ``:'U``
-val type_ty = ``:type``
 fun to_inner_tm ty =
   mk_comb (
     mk_const ("to_inner0", (universe_ty --> universe_ty --> bool)

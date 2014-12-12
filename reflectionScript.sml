@@ -1513,15 +1513,6 @@ val fun_cert_thm = prove(
   rw[good_context_def,typesem_def,is_std_interpretation_def,is_std_type_assignment_def] >>
   rw[wf_to_inner_fun_to_inner,range_fun_to_inner]) |> UNDISCH;
 
-(*
-val tag_def = Define`
-  (tag : (type # 'U) -> 'U) = @f. INJ f UNIV UNIV`
-
-val in_def_def = Define`
-  in_def0 ^mem ty x = tag (ty, ((@f. is_in f) x))`
-val _ = Parse.overload_on("in_def",``in_def0 ^mem``)
-*)
-
 val tyvar_cert_thm = prove(
   ``^good_context ==>
     wf_to_inner (to_inner (Tyvar v) : 'a -> 'U) ==>
