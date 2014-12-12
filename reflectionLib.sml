@@ -985,11 +985,10 @@ local
     val substs = instances_to_constrain
     val int0 = jtm
    *)
-  fun make_cs_assums vti upd substs int0 =
+  fun make_cs_assums vti upd substs theory_ok_thm int0 =
     let
       val tys = #tys upd val consts = #consts upd
       val updates_thm = #updates_thm upd
-      val theory_ok_thm = MATCH_MP (MATCH_MP extends_theory_ok (#extends_init_thm upd)) init_theory_ok
       val (csi,tysths) = cs_to_inner vti tys consts substs
       val int = ``constrain_interpretation ^(upd_to_inner upd) ^csi ^int0``
       val tya = ``tyaof ^int``
@@ -1618,7 +1617,8 @@ local
           map (fn gtm => prove(gtm,EVAL_TAC))
             ((map (tmsig_prop ``tmsof ^new_sig``) instantiated_consts) @
              (map (tysig_prop ``tysof ^new_sig``) instantiated_tys))
-      val (ktm,cs_assums,cs_rws) = make_cs_assums vti upd instances_to_constrain jtm
+      val theory_ok_thm = MATCH_MP (MATCH_MP extends_theory_ok (#extends_init_thm upd)) init_theory_ok
+      val (ktm,cs_assums,cs_rws) = make_cs_assums vti upd instances_to_constrain theory_ok_thm jtm
       val cs = ktm |> rator |> rand
       val z = genvar(listSyntax.mk_list_type universe_ty)
       val cs_cases = GEN z (updates_equal_some_cases z cs)
@@ -1723,8 +1723,10 @@ local
         LIST_CONJ [
           #constrainable_thm upd,
           #updates_thm upd,
+          theory_ok_thm,
           axexts_empty,
           j_models,
+          lengths_match |> CONV_RULE(HO_REWR_CONV IS_SOME_cs_thm),
           EVERY_axs]
         |> MATCH_MP (UNDISCH constrain_interpretation_satisfies)
       val k_models =
