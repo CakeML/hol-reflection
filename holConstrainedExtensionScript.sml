@@ -435,7 +435,7 @@ val set_tyvars_of_upd_def = new_specification("set_tyvars_of_upd_def",["set_tyva
   |> GEN_ALL
   |> CONV_RULE(HO_REWR_CONV SKOLEM_THM))
 
-val tyvars_of_upd_def = Define`
+val tyvars_of_upd_def = zDefine`
   tyvars_of_upd upd = mlstring_sort (SET_TO_LIST (set_tyvars_of_upd upd))`
 
 val ALL_DISTINCT_mlstring_sort = store_thm("ALL_DISTINCT_mlstring_sort",

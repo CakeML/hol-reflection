@@ -1,4 +1,4 @@
-structure reflectionLib = struct local
+structure reflectionLib :> reflectionLib = struct
 open HolKernel boolLib bossLib lcsymtacs listSimps stringSimps listLib optionLib pairLib
 open miscLib miscTheory combinTheory pred_setTheory numSyntax pairSyntax stringSyntax listSyntax holSyntaxSyntax
 open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
@@ -926,40 +926,6 @@ end
       consts = [``ABS_prod``,``REP_prod``],
       (* TODO: axs may need tweaking to match the inner *)
       axs = CONJUNCTS pairTheory.ABS_REP_prod }
-
-  val ctxt = ``hol_ctxt``
-  val pred_tm = ``λp. ∃x y. p = λa b. (a=x) ∧ (b=y)``
-  val pred_inner = term_to_deep pred_tm
-  val inner_upd = ``TypeDefn (strlit"prod") ^pred_inner (strlit"ABS_prod") (strlit"REP_prod")``
-  val sound_update_thm = prove(
-    ``is_set_theory ^mem ⇒
-      sound_update ^ctxt ^inner_upd``,
-    strip_tac >>
-    ho_match_mp_tac (UNDISCH holExtensionTheory.new_type_definition_correct) >>
-    cheat) |> UNDISCH
-  val constrainable_thm = prove(
-    ``constrainable_update ^inner_upd``,
-    REWRITE_TAC[constrainable_update_def] >>
-    cheat )
-  val updates_thm2 = prove(
-    ``^inner_upd updates ^ctxt``,
-    cheat)
-  val extends_init_thm2 = hol_extends_init
-  val upd:update = {
-      sound_update_thm  = sound_update_thm,
-      constrainable_thm = constrainable_thm,
-      updates_thm = updates_thm2,
-      extends_init_thm = extends_init_thm2,
-      tys = [``:('a,'b)prod``],
-      consts = [``ABS_prod``,``REP_prod``],
-      axs = map SPEC_ALL (CONJUNCTS pairTheory.ABS_REP_prod) }
-
-   val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
-   val consts =  map (C inst ``ABS_prod``) substs
-   val tys = [``:'c#bool``]
-   val ctxt:update list = []
-   val vti:(hol_type,hol_type)subst = []
-   val () = Globals.max_print_depth := 13
 *)
 
 fun upd_to_inner (upd:update) = #constrainable_thm upd |> concl |> rand
@@ -1463,6 +1429,8 @@ fun prove_ax_satisfied vti hyps inner_upd old_ctxt cs cs_cases jtm
     th
   end
 
+val vti:(hol_type,hol_type)subst = []
+
 fun build_interpretation vti [] tys consts =
   let
     val gsbs = (UNDISCH holAxiomsTheory.good_select_base_select)
@@ -1491,7 +1459,8 @@ fun build_interpretation vti [] tys consts =
                     gsbs,
                     ASSUME (el 1 hypotheses)])
       |> CONJUNCT1
-    val assumsth = VALID_TAC_PROOF((hypotheses,assums),cheat)
+    val goal = (hypotheses,assums)
+    val assumsth = VALID_TAC_PROOF(goal,cheat)
   in
     LIST_CONJ [gcth,th,assumsth]
   end
@@ -1578,7 +1547,11 @@ fun build_interpretation vti [] tys consts =
     val tyvars_of_upd_rw =
       MATCH_MP tyvars_of_TypeDefn
         (CONJ (#updates_thm upd) old_sig_is_std)
-      handle HOL_ERR _ => (* TODO *) tyvars_of_ConstSpec
+      handle HOL_ERR _ =>
+        MATCH_MP tyvars_of_ConstSpec
+          (CONJ
+            (MATCH_MP ConstSpec_updates_welltyped (#updates_thm upd))
+            (#constrainable_thm upd))
     val k_is_std_type_assignment =
       k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
     val j_is_std_type_assignment =
@@ -1664,4 +1637,6 @@ fun build_interpretation vti [] tys consts =
     LIST_CONJ (good_context_k::k_models::all_assums)
   end
 (* build_interpretation vti (upd::ctxt) tys consts *)
-end end
+
+val build_interpretation = build_interpretation []
+end

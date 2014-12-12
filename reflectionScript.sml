@@ -1313,6 +1313,12 @@ val updates_extends_trans = store_thm("updates_extends_trans",
   rw[extends_def] >>
   rw[Once relationTheory.RTC_CASES1])
 
+val ConstSpec_updates_welltyped = store_thm("ConstSpec_updates_welltyped",
+  ``ConstSpec eqs prop updates ctxt ⇒ welltyped prop``,
+  rw[updates_cases] >>
+  imp_res_tac proves_term_ok >> fs[welltyped_def] >>
+  PROVE_TAC[])
+
 (*
 val IN_FDOM_implies_type_ok = store_thm("IN_FDOM_implies_type_ok",
   ``name ∈ FDOM tysig ⇒ ∃args. type_ok tysig (Tyapp name args)``,
