@@ -1036,6 +1036,50 @@ val wf_to_inner_ind_to_inner_implies_infinite = store_thm("wf_to_inner_ind_to_in
   match_mp_tac (snd(EQ_IMP_RULE INFINITE_UNIV)) >>
   metis_tac[INFINITY_AX,ONE_ONE_DEF,ONTO_DEF])
 
+val wf_to_inner_can_be_tagged = store_thm("wf_to_inner_can_be_tagged",
+  ``is_set_theory ^mem ⇒
+    ∀f t. wf_to_inner f ⇒ wf_to_inner (tag t o f)``,
+  rw[] >>
+  imp_res_tac tag_def >>
+  fs[wf_to_inner_def] >>
+  ntac 2 (pop_assum kall_tac) >>
+  first_x_assum(qspecl_then[`x`,`t`]strip_assume_tac) >>
+  qexists_tac`u` >>
+  match_mp_tac BIJ_COMPOSE >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  fs[ext_def] >>
+  fs[GSYM IMAGE_SURJ] >>
+  simp[BIJ_DEF,INJ_DEF] >>
+  fs[SURJ_DEF] >>
+  metis_tac[])
+
+val wf_to_inner_defined_type = save_thm("wf_to_inner_defined_type",
+  prove(
+  ``is_set_theory ^mem ⇒
+    ∀abs rep.
+    (∀a:α. abs ((rep a):β) = a) ⇒
+    ∀tya tyb_to_inner.
+    wf_to_inner (tyb_to_inner:β -> 'U) ⇒
+    wf_to_inner ((to_inner tya):α -> 'U)``,
+  rw[] >>
+  pop_assum(fn th =>
+    assume_tac th >>
+    strip_assume_tac (SIMP_RULE std_ss [wf_to_inner_def] th)) >>
+  pop_assum(strip_assume_tac o SIMP_RULE std_ss [BIJ_IFF_INV]) >>
+  simp[to_inner_def] >>
+  SELECT_ELIM_TAC >>
+  conj_tac >- (
+    qexists_tac`tyb_to_inner o rep` >>
+    simp[wf_to_inner_def] >>
+    qexists_tac`x suchthat (λb. g b = rep (abs (g b)))` >>
+    simp[BIJ_IFF_INV] >> fs[] >>
+    simp[mem_sub] >>
+    qexists_tac`abs o g` >>
+    simp[] >>
+    metis_tac[] ) >>
+  match_mp_tac wf_to_inner_can_be_tagged >>
+  rw[]) |> UNDISCH)
+
 val hol_model_exists = prove(
   ``∃i. ∀^mem select ind_to_inner.
         is_set_theory ^mem ∧ good_select select ∧ wf_to_inner (ind_to_inner:ind->'U) ⇒
@@ -1268,6 +1312,15 @@ val updates_extends_trans = store_thm("updates_extends_trans",
   ``upd updates ctxt ∧ ctxt extends ctxt0 ⇒ upd::ctxt extends ctxt0``,
   rw[extends_def] >>
   rw[Once relationTheory.RTC_CASES1])
+
+(*
+val IN_FDOM_implies_type_ok = store_thm("IN_FDOM_implies_type_ok",
+  ``name ∈ FDOM tysig ⇒ ∃args. type_ok tysig (Tyapp name args)``,
+  rw[type_ok_def,finite_mapTheory.FLOOKUP_DEF] >>
+  qexists_tac`GENLIST (K (Tyvar ARB)) (tysig ' name)` >>
+  rw[listTheory.EVERY_MEM,listTheory.MEM_GENLIST] >>
+  rw[type_ok_def])
+*)
 
 (*
 val interpretations1 = bool_interpretations hol_bool_interpretation
