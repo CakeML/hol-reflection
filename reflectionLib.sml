@@ -190,12 +190,14 @@ fun base_term_assums vti (tm : term) : term list = case dest_base_term tm of
                         universe_ty)) =
          ^(mk_to_inner vti Ty) ^(inst vti tm)``]
 
+fun type_assums_of_term vti tm =
+  HOLset.addList(
+    Term.empty_tmset,
+    flatten (map (base_type_assums vti) (base_types_of_term tm)))
+
 fun term_assums vti (tm : term) : term list =
   HOLset.listItems(
-    HOLset.addList(
-      HOLset.addList(
-        Term.empty_tmset,
-        flatten (map (base_type_assums vti) (base_types_of_term tm))),
+    HOLset.addList(type_assums_of_term vti tm,
       flatten (map (base_term_assums vti) (base_terms_of_term tm))))
 
 val instance_tm = Term.inst[alpha|->universe_ty]``instance``
@@ -1273,7 +1275,17 @@ local
     imp_res_tac updates_upd_DISJOINT >>
     fs[IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
     metis_tac[])
+in
+  fun make_k_sig_assum uth ia =
+    case total (MATCH_MP tysig_extend_thm) ia of
+      SOME th =>
+      MATCH_MP th uth | NONE =>
+    let val th = (MATCH_MP tmsig_extend_thm) ia in
+      MATCH_MP th uth
+    end
+end
 
+local
   val tyass_extend_thm = prove(
     ``(tyaof i name args = ty) ⇒
        equal_on sig i i' ⇒ name ∈ FDOM (tysof sig) ⇒
@@ -1286,21 +1298,14 @@ local
       (tmaof i' name args = m)``,
     rw[equal_on_def] >> metis_tac[])
 in
-  fun make_k_assum uth eqth istyath ia =
-    case total (MATCH_MP tysig_extend_thm) ia of
-      SOME th => MATCH_MP th uth
-    | NONE =>
-    case total (MATCH_MP tmsig_extend_thm) ia of
-      SOME th => MATCH_MP th uth
-    | NONE =>
+  fun make_k_int_assum eqth ia =
     case total (MATCH_MP tyass_extend_thm) ia of
       SOME th =>
           MP (CONV_RULE(LAND_CONV EVAL)(MATCH_MP th eqth)) TRUTH
     | NONE =>
-    case total (MATCH_MP tmass_extend_thm) ia of
-      SOME th =>
+    let val th = (MATCH_MP tmass_extend_thm) ia in
           MP (CONV_RULE(LAND_CONV EVAL)(MATCH_MP th eqth)) TRUTH
-    | NONE => assert (can (match_term``wf_to_inner X`` o concl)) ia
+    end
 end
 
 (*
@@ -1429,6 +1434,24 @@ fun prove_ax_satisfied vti hyps inner_upd old_ctxt cs cs_cases jtm
     th
   end
 
+type interpretation_cert = {
+  good_context_thm : thm,
+  models_thm : thm,
+  wf_to_inners : thm list,
+  sig_assums : thm list,
+  int_assums : thm list
+}
+
+(* TODO: MATCH_ACCEPT_TAC is broken? it fails when
+  fun match_accept_tac th (g as (asl,w)) =
+    ACCEPT_TAC (INST_TY_TERM (match_term (concl th) w) th) g
+  doesn't, when the goal contains multiple occurrences of the same variable
+*)
+
+val bool_thms =
+  [equality_thm,truth_thm,and_thm,implies_thm,forall_thm
+  ,exists_thm,or_thm,falsity_thm,not_thm]
+
 val vti:(hol_type,hol_type)subst = []
 
 fun build_interpretation vti [] tys consts =
@@ -1443,7 +1466,7 @@ fun build_interpretation vti [] tys consts =
          |> filter (not o can (assert (equal tyval) o fst o strip_comb o lhs))
     val tmassums = flatten (map (base_term_assums vti) consts)
       (* |> filter (not o can (assert (equal tmval) o fst o strip_comb o lhs)) *)
-    val assums0 = list_mk_conj (tyassums @ tmassums)
+    val assums0 = tyassums @ tmassums
     (* TODO: need to choose select according to constraints *)
     val int = ``hol_model base_select ind_to_inner``
     val gcth =
@@ -1453,17 +1476,48 @@ fun build_interpretation vti [] tys consts =
              tmsig |-> ``tmsof ^(el 2 args)``,
              tyass |-> ``tyaof ^(el 3 args)``,
              tmass |-> ``tmaof ^(el 3 args)``]
-    val assums = subst s assums0
+    val assums = map (subst s) assums0
     val th =
       MATCH_MP hol_model_def
         (LIST_CONJ [ASSUME (el 2 hypotheses),
                     good_select,
                     ASSUME (el 1 hypotheses)])
       |> CONJUNCT1
-    val goal = (hypotheses,assums)
-    val assumsth = VALID_TAC_PROOF(goal,cheat)
+    val (wf_to_inner_tms,assums1) =
+      partition (can(match_term``wf_to_inner x``)) assums
+    val wf_to_inners = map
+      (fn tm => VALID_TAC_PROOF((hypotheses,tm),first_assum ACCEPT_TAC))
+      wf_to_inner_tms
+    val (sig_tms,int_tms) =
+      partition (can(match_term``FLOOKUP sig name = SOME v``)) assums1
+    val sig_assums = map
+      (fn tm => VALID_TAC_PROOF((hypotheses,tm),EVAL_TAC))
+      sig_tms
+    val wf_to_inner_hyps =
+      foldl (fn (tm,s) => HOLset.addList(s,
+          map (to_inner_prop vti) (base_types_of_term tm)))
+        Term.empty_tmset consts
+      |> HOLset.listItems
+    val prepare_bool_thm = PROVE_HYP good_select o Q.INST [`select`|->`^select`]
+    fun wf_match_accept_tac th (g as (asl,w)) =
+      let
+        val th1 = INST_TY_TERM (match_term (concl th) w) th
+        val wfs = map (wf_to_inner_mk_to_inner vti o fst o dom_rng o type_of o rand)
+                    (set_diff (hyp th1) hypotheses)
+        val th2 = foldl (uncurry PROVE_HYP) th1 wfs
+      in
+        ACCEPT_TAC th2 g
+      end
+    val int_assums = map
+      (fn tm => VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
+        FIRST (map (wf_match_accept_tac o prepare_bool_thm) bool_thms)))
+      int_tms
   in
-    LIST_CONJ [gcth,th,assumsth]
+    { good_context_thm = gcth,
+      models_thm = th,
+      wf_to_inners = wf_to_inners,
+      sig_assums = sig_assums,
+      int_assums = int_assums }
   end
 | build_interpretation vti (upd::ctxt) tys consts =
   let
@@ -1480,25 +1534,27 @@ fun build_interpretation vti [] tys consts =
       mk_set(flatten (map (base_types_of_term o concl) instantiated_axioms))
     val new_consts =
       mk_set(flatten (map (filter is_const o base_terms_of_term o concl) instantiated_axioms))
-    val ith = build_interpretation vti ctxt
-      (set_diff (union tys new_tys) instantiated_tys)
-      (set_diff (union consts new_consts) instantiated_consts)
+    val {good_context_thm = good_context_i,
+         models_thm = i_models,
+         wf_to_inners = i_wf_to_inners,
+         sig_assums = i_sig_assums,
+         int_assums = i_int_assums }
+      = build_interpretation vti ctxt
+        (set_diff (union tys new_tys) instantiated_tys)
+        (set_diff (union consts new_consts) instantiated_consts)
       (* [Note: It is *not* guaranteed that
           (instantiated_tys SUBSET tys) or the analog for consts;
           this is because we may have been *told* to constrain e.g.
           one of the constants of a certain instance of the update,
           but this means that we need to constrain *all* of the
-          constants of that update]
-       *)
-    val hyps = hyp ith
-    val good_context_i = CONJUNCT1 ith
-    val i_models = CONJUNCT1 (CONJUNCT2 ith)
+          constants of that update] *)
+    val hyps = hyp i_models @ flatten (map hyp i_wf_to_inners)
     val itm = get_int i_models
-    val i_assums = CONJUNCT2(CONJUNCT2 ith)
-    val i_wf_to_inners = filter(can(match_term``wf_to_inner X``) o concl)(CONJUNCTS i_assums)
     val new_wf_to_inners = if null (#tys upd) then [] else
       mapfilter (make_wf_to_inner_th vti i_wf_to_inners) instantiated_axioms
-    val wf_to_inners = i_wf_to_inners @ new_wf_to_inners
+    val new_i_int_assums =
+      map (fn th => foldl (uncurry PROVE_HYP) th new_wf_to_inners) i_int_assums
+    val wf_to_inners = new_wf_to_inners @ i_wf_to_inners
     val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) i_models)
     val (j_equal_on_i,j_models) = CONJ_PAIR jth
     val jtm = get_int j_models
@@ -1529,19 +1585,10 @@ fun build_interpretation vti [] tys consts =
     val jistya = j_is_int |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT1
     val jistma = j_is_int |> REWRITE_RULE[is_interpretation_def] |> CONJUNCT2
     val inhabited_thm = prove_inhabited_thm vti hyps instantiated_tys cs cs_cases cs_rws wf_to_inners
-    val istyath =
-      let
-        val th2 =
-          MATCH_MP
-            (MATCH_MP (ISPEC cs length_thm_to_lengths_and_inhabited_thm) lengths_match)
-            inhabited_thm
-      in
-        MATCH_MP constrain_tyass_is_type_assignment
-                 (CONJ jistya th2)
-      end
-    val k_assums = map
-      (make_k_assum (#updates_thm upd) k_equal_on_i istyath)
-      (CONJUNCTS i_assums)
+    val k_sig_assums = map (make_k_sig_assum (#updates_thm upd)) i_sig_assums
+    val k_int_assums = map (make_k_int_assum k_equal_on_i) new_i_int_assums
+    val sig_assums = sig_ths@k_sig_assums
+    val int_assums = cs_assums@k_int_assums
     val old_sig_is_std = good_context_i |> REWRITE_RULE[good_context_unpaired] |> CONJUNCT2 |> CONJUNCT1
     val k_is_std = MATCH_MP is_std_interpretation_equal_on
                      (LIST_CONJ [j_is_std,k_equal_on_j,old_sig_is_std])
@@ -1557,7 +1604,8 @@ fun build_interpretation vti [] tys consts =
       k_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
     val j_is_std_type_assignment =
       j_is_std |> REWRITE_RULE[is_std_interpretation_def] |> CONJUNCT1
-    val all_assums = new_wf_to_inners@sig_ths@cs_assums@k_assums
+    (* TODO: use these in a more fine-grained way *)
+    val all_assums = wf_to_inners@sig_assums@int_assums
     val constrained_consts_in_type_thm =
       prove_constrained_consts_in_type_thm vti hyps inner_upd cs cs_cases cs_rws jtm
         tyvars_of_upd_rw k_is_std_type_assignment all_assums new_sig
@@ -1576,6 +1624,16 @@ fun build_interpretation vti [] tys consts =
                     well_formed_constraints_thm,
                     #updates_thm upd,
                     #extends_init_thm upd])
+    val istyath =
+      let
+        val th2 =
+          MATCH_MP
+            (MATCH_MP (ISPEC cs length_thm_to_lengths_and_inhabited_thm) lengths_match)
+            inhabited_thm
+      in
+        MATCH_MP constrain_tyass_is_type_assignment
+                 (CONJ jistya th2)
+      end
     val istyath1 = REWRITE_RULE[GSYM tyaof_constrain_interpretation]istyath
     val istmath1 = REWRITE_RULE[GSYM tmaof_constrain_interpretation,
                                 GSYM tyaof_constrain_interpretation]istmath
@@ -1635,7 +1693,12 @@ fun build_interpretation vti [] tys consts =
          valid_constraints_thm]
       |> MATCH_MP (UNDISCH add_constraints_thm)
   in
-    LIST_CONJ (good_context_k::k_models::all_assums)
+    { good_context_thm = good_context_k,
+      models_thm = k_models,
+      wf_to_inners = wf_to_inners,
+      sig_assums = sig_assums,
+      int_assums = int_assums
+    }
   end
 (* build_interpretation vti (upd::ctxt) tys consts *)
 
