@@ -1328,7 +1328,6 @@ val IN_FDOM_implies_type_ok = store_thm("IN_FDOM_implies_type_ok",
   rw[type_ok_def])
 *)
 
-(*
 val interpretations1 = bool_interpretations hol_bool_interpretation
 val equality_thm0 = CONJUNCT1 (funpow 0 CONJUNCT2 interpretations1)
 val truth_thm0    = CONJUNCT1 (funpow 1 CONJUNCT2 interpretations1)
@@ -1341,35 +1340,66 @@ val falsity_thm0  = CONJUNCT1 (funpow 7 CONJUNCT2 interpretations1)
 val not_thm0      =           (funpow 8 CONJUNCT2 interpretations1)
 
 val equality_thm =
-  equality_thm0 |> Q.SPEC`range ina`
+  equality_thm0
+  |> Q.SPEC`range ina`
   |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
   |> CONV_RULE (RAND_CONV (REWR_CONV (SYM fun_to_inner_equals)))
 val truth_thm =
-  truth_thm0 |> CONV_RULE(REWR_CONV is_true_interpretation_def)
+  truth_thm0
+  |> CONV_RULE(REWR_CONV is_true_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_nil)
+  |> REWRITE_RULE[combinTheory.K_THM]
   |> CONV_RULE(RAND_CONV(REWR_CONV(SYM bool_to_inner_true)))
 val and_thm =
-  and_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
+  and_thm0
+  |> CONV_RULE(REWR_CONV is_and_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_nil)
+  |> REWRITE_RULE[Boolrel_def,combinTheory.K_THM]
+  |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
 val implies_thm =
-  implies_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
+  implies_thm0
+  |> CONV_RULE(REWR_CONV is_implies_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_nil)
+  |> REWRITE_RULE[Boolrel_def,combinTheory.K_THM]
+  |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
 val forall_thm =
-  forall_thm0|> Q.SPEC`range ina`
+  forall_thm0
+  |> CONV_RULE(REWR_CONV is_forall_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_one)
+  |> Q.SPEC`range ina`
   |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV BETA_CONV) |> REWRITE_RULE[HD]
   |> CONV_RULE (RAND_CONV (REWR_CONV (SYM fun_to_inner_forall)))
 val exists_thm =
-  exists_thm0|> Q.SPEC`range ina`
+  exists_thm0
+  |> CONV_RULE(REWR_CONV is_exists_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_one)
+  |> Q.SPEC`range ina`
   |> C MATCH_MP (UNDISCH (Q.SPEC`ina` inhabited_range))
+  |> CONV_RULE (RAND_CONV BETA_CONV) |> REWRITE_RULE[HD]
   |> CONV_RULE (RAND_CONV (REWR_CONV (SYM fun_to_inner_exists)))
 val or_thm =
-  or_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
+  or_thm0
+  |> CONV_RULE(REWR_CONV is_or_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_nil)
+  |> REWRITE_RULE[Boolrel_def,combinTheory.K_THM]
+  |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_binop)))
 val falsity_thm =
-  falsity_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM bool_to_inner_false)))
+  falsity_thm0
+  |> CONV_RULE(REWR_CONV is_false_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_nil)
+  |> REWRITE_RULE[combinTheory.K_THM]
+  |> CONV_RULE(RAND_CONV(REWR_CONV(SYM bool_to_inner_false)))
 val not_thm =
-  not_thm0 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_not)))
+  not_thm0
+  |> CONV_RULE(REWR_CONV is_not_interpretation_def)
+  |> CONV_RULE(REWR_CONV interprets_nil)
+  |> REWRITE_RULE[combinTheory.K_THM]
+  |> CONV_RULE(RAND_CONV(REWR_CONV(SYM fun_to_inner_not)))
 
 val _ = map2 (curry save_thm)
   ["equality_thm","truth_thm","and_thm","implies_thm","forall_thm","exists_thm","or_thm","falsity_thm","not_thm"]
   [ equality_thm , truth_thm , and_thm , implies_thm , forall_thm , exists_thm , or_thm , falsity_thm , not_thm ]
-*)
 
 val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
   ``is_set_theory ^mem ⇒
