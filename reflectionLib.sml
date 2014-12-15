@@ -1461,6 +1461,9 @@ fun build_interpretation vti [] tys consts =
     val itm = get_int i_models
     val new_wf_to_inners = if null (#tys upd) then [] else
       mapfilter (make_wf_to_inner_th vti i_wf_to_inners) instantiated_axioms
+    (* TODO: some of the new_wf_to_inners might depend on each other, i.e.
+             some need to be PROVE_HYPed with others. Consider when
+             a type operator is nested (i.e. appears in one of its args). *)
     val new_i_int_assums =
       map (fn th => foldl (uncurry PROVE_HYP) th new_wf_to_inners) i_int_assums
     val wf_to_inners = new_wf_to_inners @ i_wf_to_inners

@@ -202,20 +202,85 @@ val ctxt:update list = []
 val res = build_interpretation (comma_upd::prod_upd::ctxt) tys consts
 val example3 = save_thm("example3",#models_thm res)
 
-(* example 4: defining FST and SND
+(* example 4: defining FST and SND *)
 
 val proj_th =
   TAC_PROOF(([``fst = @fst. ∃snd. ∀x:'a#'b. (fst x, snd x) = x``,
               ``snd = @snd. ∃fst. ∀x:'a#'b. (fst x, snd x) = x``],
             ``∀x:'a#'b. (fst x, snd x) = x``),
-  rw[] >>
+  rpt strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
   SELECT_ELIM_TAC >>
-  rw[pairTheory.FORALL_PROD,pairTheory.EXISTS_PROD] >- (
-    map_every qexists_tac[`FST`,`SND`] >> rw[] ) >>
+  conj_tac >- (
+    Ho_Rewrite.REWRITE_TAC[GSYM SKOLEM_THM] >>
+    MATCH_ACCEPT_TAC (GSYM pairTheory.ABS_PAIR_THM) ) >>
+  rpt strip_tac >>
   SELECT_ELIM_TAC >>
-  rw[pairTheory.FORALL_PROD,pairTheory.EXISTS_PROD] >- (
-    map_every qexists_tac[`SND`,`FST`] >> rw[] ) >>
-  Cases_on`x`>>rw[])
-*)
+  conj_tac >- (
+    Ho_Rewrite.REWRITE_TAC[GSYM SKOLEM_THM] >>
+    PROVE_TAC[pairTheory.ABS_PAIR_THM] ) >>
+  PROVE_TAC[pairTheory.PAIR_EQ])
+
+val fst_w = rhs(el 1 (hyp proj_th))
+val snd_w = rhs(el 2 (hyp proj_th))
+val eqs = ``[(strlit"FST",^(term_to_deep fst_w));
+             (strlit"SND",^(term_to_deep snd_w))]``
+val proj_inner_upd = ``ConstSpec ^eqs ^(term_to_deep (concl pairTheory.PAIR))``
+
+val extends_init_thm =
+  MATCH_MP updates_extends_trans
+        (CONJ (#updates_thm comma_upd) (#extends_init_thm comma_upd))
+
+val comma_ctxt = rand(rator (concl extends_init_thm))
+
+val comma_theory_ok = prove(
+  ``theory_ok (thyof ^comma_ctxt)``,
+    match_mp_tac(MATCH_MP extends_theory_ok extends_init_thm) >>
+    rw[init_theory_ok] )
+
+val updates_thm = prove(
+  ``^proj_inner_upd updates ^comma_ctxt``,
+  match_mp_tac (updates_rules |> CONJUNCTS |> el 3) >>
+  conj_tac >- cheat >>
+  conj_tac >- ( EVAL_TAC >> rw[] >> PROVE_TAC[] ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] ) >>
+  EVAL_TAC)
+
+val sound_update_thm = prove(
+  ``is_set_theory ^mem ⇒
+    sound_update ^comma_ctxt ^proj_inner_upd``,
+  strip_tac >>
+  ho_match_mp_tac (UNDISCH new_specification_correct) >>
+  conj_asm1_tac >- ACCEPT_TAC comma_theory_ok >>
+  (updates_thm |> SIMP_RULE bool_ss [updates_cases,update_distinct,update_11] |> strip_assume_tac) >>
+  rpt conj_tac >>
+  first_assum ACCEPT_TAC) |> UNDISCH
+
+val constrainable_thm = prove(
+  ``constrainable_update ^proj_inner_upd``,
+  rw[constrainable_update_def] >> rw[] >>
+  rw[conexts_of_upd_def] >>
+  rw[listTheory.EVERY_MAP] >>
+  unabbrev_all_tac >> rw[] >>
+  TRY(pop_assum mp_tac) >>
+  EVAL_TAC >> rw[])
+
+val proj_upd:update = {
+  sound_update_thm = sound_update_thm,
+  constrainable_thm = constrainable_thm,
+  updates_thm = updates_thm,
+  extends_init_thm = extends_init_thm,
+  consts = [``FST``,``SND``],
+  tys = [],
+  axs = [pairTheory.PAIR]
+}
+
+val substs = [[alpha|->bool,beta|->``:'b#'c``]]
+val consts =  map (C inst ``SND``) substs
+val tys:hol_type list = []
+val ctxt:update list = [comma_upd,prod_upd]
+val upd = proj_upd
+val res = build_interpretation (proj_upd::ctxt) tys consts
+val example4 = save_thm("example4",#models_thm res)
 
 val _ = export_theory()
