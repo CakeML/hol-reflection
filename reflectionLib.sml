@@ -849,42 +849,6 @@ end
   val [(ty1,th1),(ty2,th2),(ty3,th3)] = ths
   th2
 
-  val ctxt = ``hol_ctxt``
-  val tm = term_to_deep(rhs(concl K_DEF))
-  val inner_upd = ``ConstDef (strlit"K") ^tm``
-  val sound_update_thm = prove(
-    ``is_set_theory ^mem ⇒
-      sound_update ^ctxt ^inner_upd``,
-    strip_tac >>
-    ho_match_mp_tac (UNDISCH holExtensionTheory.new_specification_correct) >>
-    conj_asm1_tac >- rw[hol_theory_ok,holConsistencyTheory.hol_ctxt_def,
-                   holConsistencyTheory.fhol_ctxt_def] >>
-    conj_tac >- (
-      simp[] >>
-      match_mp_tac (el 2 (CONJUNCTS proves_rules)) >>
-      conj_tac >- rw[] >>
-      conj_tac >- cheat >>
-      cheat ) >>
-    cheat) |> UNDISCH
-  val constrainable_thm = prove(
-    ``constrainable_update ^inner_upd``,
-    rw[constrainable_update_def] >> rw[] >>
-    rw[conexts_of_upd_def] >>
-    rw[listTheory.EVERY_MAP] >>
-    cheat )
-  val updates_thm = prove(
-    ``^inner_upd updates hol_ctxt``,
-    ho_match_mp_tac ConstDef_updates >>
-    cheat)
-  val upd:update = {
-      sound_update_thm  = sound_update_thm,
-      constrainable_thm = constrainable_thm,
-      updates_thm = updates_thm,
-      extends_init_thm = hol_extends_init,
-      tys = [],
-      consts = [``K``],
-      axs = [combinTheory.K_DEF] }
-
   val true =
     rand(rator(rhs(concl(EVAL ``conexts_of_upd ^inner_upd``)))) =
     term_to_deep(concl(combinTheory.K_DEF))
@@ -892,45 +856,11 @@ end
   val substs =
     [[alpha|->bool,beta|->bool],
      [alpha|->``:'x``,beta|->``:'y``]]
-  (* for build interpretation: *)
-  val ctxt:update list = []
-  val tys:hol_type list = []
-  val consts = map (C inst combinSyntax.K_tm) substs
-  (* -- *)
 
   val int0 = ``hol_model select ind_to_inner``
-
-  val ctxt = ``^inner_upd::hol_ctxt``
-  val pred_tm = ``λp. ∃x y. p = λa b. (a=x) ∧ (b=y)``
-  val pred_inner = term_to_deep pred_tm
-  val inner_upd = ``TypeDefn (strlit"prod") ^pred_inner (strlit"ABS_prod") (strlit"REP_prod")``
-  val sound_update_thm = prove(
-    ``is_set_theory ^mem ⇒
-      sound_update ^ctxt ^inner_upd``,
-    strip_tac >>
-    ho_match_mp_tac (UNDISCH holExtensionTheory.new_type_definition_correct) >>
-    cheat) |> UNDISCH
-  val constrainable_thm = prove(
-    ``constrainable_update ^inner_upd``,
-    REWRITE_TAC[constrainable_update_def] >>
-    cheat )
-  val updates_thm2 = prove(
-    ``^inner_upd updates ^ctxt``,
-    cheat)
-  val extends_init_thm2 =
-    MATCH_MP updates_extends_trans (CONJ updates_thm hol_extends_init)
-  val upd:update = {
-      sound_update_thm  = sound_update_thm,
-      constrainable_thm = constrainable_thm,
-      updates_thm = updates_thm2,
-      extends_init_thm = extends_init_thm2,
-      tys = [``:('a,'b)prod``],
-      consts = [``ABS_prod``,``REP_prod``],
-      (* TODO: axs may need tweaking to match the inner *)
-      axs = CONJUNCTS pairTheory.ABS_REP_prod }
 *)
 
-fun upd_to_inner (upd:update) = #constrainable_thm upd |> concl |> rand
+fun update_to_inner (upd:update) = #constrainable_thm upd |> concl |> rand
 
 local
   val cons_lemma = last(CONJUNCTS listTheory.LIST_REL_def) |> EQ_IMP_RULE |> fst
@@ -953,7 +883,7 @@ fun make_cs_assums vti upd substs theory_ok_thm int0 =
     val tys = #tys upd val consts = #consts upd
     val updates_thm = #updates_thm upd
     val (csi,tysths) = cs_to_inner vti tys consts substs
-    val int = ``constrain_interpretation ^(upd_to_inner upd) ^csi ^int0``
+    val int = ``constrain_interpretation ^(update_to_inner upd) ^csi ^int0``
     val tya = ``tyaof ^int``
     val tma = ``tmaof ^int``
     (* val (instances,th) = hd tysths *)
@@ -984,27 +914,6 @@ fun make_cs_assums vti upd substs theory_ok_thm int0 =
   end
 
 fun get_int th = th |> concl |> rator |> rand
-
-(*
-  val tys =
-      (set_diff (union tys new_tys) instantiated_tys)
-  val consts =
-      (set_diff (union consts new_consts) instantiated_consts)
-  val mth = hol_model_def |> SPEC mem |> SPEC_ALL |>
-            REWRITE_RULE[GSYM AND_IMP_INTRO] |>
-            funpow 3 UNDISCH |> CONJUNCT1
-  val ith = CONJ mth (prove(assums,cheat))
-
-  in hol_ctxt:
-  NewAxiom × 3
-  NewConst × 1 (select)
-  NewType × 1 (ind)
-  ConstDef × 10
-    (true, false, implies, and, or, not, forall, exists, one_one, onto)
-
-  val consts = [T,inst[alpha|->numSyntax.num]``$!``]
-  val tys:hol_type list = []
-*)
 
 local
   val base_case = prove(``∀z. (IS_SOME (K NONE z) ⇔ MEM z [])``,rw[])
@@ -1047,7 +956,7 @@ fun EVERY_range_inhabited vti tys =
     CONV_RULE(REWR_CONV(inhabited_eta))
       o MATCH_MP inhabited_range o (wf_to_inner_mk_to_inner vti)) tys)
 
-(* val inner_upd = upd_to_inner upd *)
+(* val inner_upd = update_to_inner upd *)
 fun prove_lengths_match_thm hyps cs cs_cases cs_rws inner_upd =
   let
     val gtm =
@@ -1570,7 +1479,7 @@ fun build_interpretation vti [] tys consts =
     val cs = ktm |> rator |> rand
     val z = genvar(listSyntax.mk_list_type universe_ty)
     val cs_cases = GEN z (updates_equal_some_cases z cs)
-    val inner_upd = upd_to_inner upd
+    val inner_upd = update_to_inner upd
     val lengths_match = prove_lengths_match_thm hyps cs cs_cases cs_rws inner_upd
     val k_equal_on_j =
       MATCH_MP (UNDISCH constrain_interpretation_equal_on)

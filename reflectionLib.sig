@@ -9,6 +9,7 @@ signature reflectionLib = sig include Abbrev
     tys : hol_type list,
     consts : term list,
     axs : thm list }
+  val update_to_inner : update -> term
   type interpretation_cert = {
     good_context_thm : thm,
     models_thm : thm,
