@@ -1217,12 +1217,7 @@ in
     end
 end
 
-(*
-  val assums = i_wf_to_inners
-  val ax = el 3 instantiated_axioms
-*)
-
-fun make_wf_to_inner_th vti assums ax =
+fun make_wf_to_inner_th vti ax =
   let
     val th = MATCH_MP wf_to_inner_defined_type (GEN_ALL ax)
     val abs = rator(lhs(concl ax))
@@ -1230,7 +1225,7 @@ fun make_wf_to_inner_th vti assums ax =
     val th1 = SPECL [type_to_deep a, mk_to_inner vti b] th
     val th2 = MATCH_MP th1 (wf_to_inner_mk_to_inner vti b)
   in
-    foldl (uncurry PROVE_HYP) th2 assums
+    th2
   end
 
 val of_sigof_rwt = prove(
@@ -1363,6 +1358,29 @@ val bool_thms =
 
 val vti:(hol_type,hol_type)subst = []
 
+(* TODO: improve algorithm - maybe need to add more structure to the
+         wf_to_inners when they are generated? *)
+fun reduce_hyps i_wf_to_inners new_wf_to_inners0 =
+  let
+    val asms = filter (fn th => not(HOLset.member(hypset th,concl th))) i_wf_to_inners
+    fun reduce thc [] = thc
+      | reduce (th,c) (asm::asms) =
+        if HOLset.member(hypset th,concl asm) andalso
+           not(concl th = concl asm)
+        then
+          reduce (PROVE_HYP asm th,true) asms
+        else reduce (th,c) asms
+    fun loop thms =
+      let
+        val thmsc = map (fn th => reduce (th,false) (thms@asms)) thms
+        val (thms,cs) = unzip thmsc
+      in
+        if exists I cs then loop thms else thms
+      end
+  in
+    loop new_wf_to_inners0
+  end
+
 fun build_interpretation vti [] tys consts =
   let
     val select = ``base_select``
@@ -1459,11 +1477,9 @@ fun build_interpretation vti [] tys consts =
           constants of that update] *)
     val hyps = hyp i_models @ flatten (map hyp i_wf_to_inners)
     val itm = get_int i_models
-    val new_wf_to_inners = if null (#tys upd) then [] else
-      mapfilter (make_wf_to_inner_th vti i_wf_to_inners) instantiated_axioms
-    (* TODO: some of the new_wf_to_inners might depend on each other, i.e.
-             some need to be PROVE_HYPed with others. Consider when
-             a type operator is nested (i.e. appears in one of its args). *)
+    val new_wf_to_inners0 = if null (#tys upd) then [] else
+      mapfilter (make_wf_to_inner_th vti) instantiated_axioms
+    val new_wf_to_inners = reduce_hyps i_wf_to_inners new_wf_to_inners0
     val new_i_int_assums =
       map (fn th => foldl (uncurry PROVE_HYP) th new_wf_to_inners) i_int_assums
     val wf_to_inners = new_wf_to_inners @ i_wf_to_inners
