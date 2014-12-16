@@ -1383,8 +1383,6 @@ fun reduce_hyps i_wf_to_inners new_wf_to_inners0 =
 
 fun build_interpretation vti [] tys consts =
   let
-    val select = ``base_select``
-    val good_select = (UNDISCH holAxiomsTheory.good_select_base_select)
     val hypotheses =
       [``wf_to_inner (ind_to_inner:ind -> 'U)``,
        ``is_set_theory ^mem``] @
@@ -1394,8 +1392,20 @@ fun build_interpretation vti [] tys consts =
     val tmassums = flatten (map (base_term_assums vti) consts)
       (* |> filter (not o can (assert (equal tmval) o fst o strip_comb o lhs)) *)
     val assums0 = tyassums @ tmassums
-    (* TODO: need to choose select according to constraints *)
-    val int = ``hol_model base_select ind_to_inner``
+    val select_tys = filter (same_const boolSyntax.select) consts
+      |> map (snd o dom_rng o type_of)
+    fun foldthis (ty,th) =
+      let
+        val wf = wf_to_inner_mk_to_inner vti ty
+        val th1 = MATCH_MP good_select_extend_base_select wf
+        val th2 = MATCH_MP th1 th
+      in th2 end
+    val good_select =
+      foldl foldthis
+        (UNDISCH holAxiomsTheory.good_select_base_select)
+        select_tys
+    val select = rand(concl good_select)
+    val int = ``hol_model ^select ind_to_inner``
     val gcth =
       MATCH_MP good_context_base_case good_select
     val args = snd(strip_comb(concl gcth))
@@ -1435,9 +1445,35 @@ fun build_interpretation vti [] tys consts =
       in
         ACCEPT_TAC th2 g
       end
+    fun ranges_distinct_tac (g as (asl,w)) =
+      let
+        val e = boolSyntax.dest_neg w
+        val ty1 = fst(dom_rng(type_of(rand(lhs e))))
+        val ty2 = fst(dom_rng(type_of(rand(rhs e))))
+        val th = ranges_distinct vti ty1 ty2
+      in
+        ACCEPT_TAC th g
+      end
+    fun select_tac (g as (asl,w)) =
+      let
+        val wf = wf_to_inner_mk_to_inner vti (fst(dom_rng(type_of(rand(rand(rator(rand(lhs(w)))))))))
+        val th1 = MATCH_MP tmaof_hol_model_select wf
+        val th2 = MATCH_MP th1 good_select
+      in
+        MATCH_MP_TAC th2 >>
+        gen_tac >>
+        REWRITE_TAC[combinTheory.APPLY_UPDATE_THM] >>
+        rpt IF_CASES_TAC >>
+        CONV_TAC(LAND_CONV(BETA_CONV)) >>
+        TRY REFL_TAC >>
+        MATCH_MP_TAC FALSITY >>
+        pop_assum mp_tac >>
+        simp_tac bool_ss [] >>
+        ranges_distinct_tac
+      end g
     val int_assums = map
       (fn tm => VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
-        FIRST (map (wf_match_accept_tac o prepare_bool_thm) bool_thms)))
+        FIRST (select_tac::(map (wf_match_accept_tac o prepare_bool_thm) bool_thms))))
       int_tms
   in
     { good_context_thm = gcth,

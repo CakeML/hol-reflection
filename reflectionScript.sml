@@ -1144,6 +1144,30 @@ val hol_bool_interpretation = prove(
   metis_tac[]) |> funpow 3 UNDISCH
 val _ = save_thm("hol_bool_interpretation",hol_bool_interpretation)
 
+val tmaof_hol_model_select = prove(
+  ``is_set_theory ^mem ⇒ wf_to_inner ind_to_inner ⇒
+    wf_to_inner a ⇒
+    good_select select ⇒
+    (∀p. select (range a) (Holds p) = a (@x. Holds p (a x))) ⇒
+    (tmaof (hol_model select ind_to_inner) (strlit"@") [range a] =
+     fun_to_inner (fun_to_inner a bool_to_inner) a $@)``,
+  rw[] >> imp_res_tac hol_model_def >> fs[equal_on_def] >>
+  first_x_assum(qspec_then`strlit"@"`mp_tac) >>
+  discharge_hyps >- EVAL_TAC >>
+  disch_then(SUBST1_TAC) >>
+  imp_res_tac select_model_def >>
+  pop_assum SUBST1_TAC >> rw[] >>
+  first_assum(SUBST1_TAC o MATCH_MP fun_to_inner_select) >>
+  (range_fun_to_inner_ina_bool_to_inner |> Q.DISCH`wf_to_inner ina`
+   |> Q.GEN`ina` |> Q.ISPEC_THEN`a`(fn th => first_assum(SUBST1_TAC o MATCH_MP th))) >>
+  SUBST1_TAC(UNDISCH range_bool_to_inner) >>
+  match_mp_tac(UNDISCH abstract_eq) >>
+  gen_tac >> strip_tac >>
+  imp_res_tac inhabited_range >>
+  simp[] >>
+  metis_tac[wf_to_inner_range_thm] ) |> funpow 2 UNDISCH
+val _ = save_thm("tmaof_hol_model_select",tmaof_hol_model_select)
+
 val tmaof_constrain_interpretation_lemma = store_thm("tmaof_constrain_interpretation_lemma",
   ``(csi inst = SOME(w,results)) ⇒
     ALL_DISTINCT (MAP FST (consts_of_upd upd)) ⇒

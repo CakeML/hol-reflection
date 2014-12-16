@@ -55,6 +55,7 @@ val tys = [``:'c#bool``]
 val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
 val consts =  map (C inst ``ABS_prod``) substs
 val ctxt:update list = []
+val upd = prod_upd
 val res = build_interpretation (prod_upd::ctxt) tys consts
 val example1 = save_thm("example1",#models_thm res)
 
@@ -282,5 +283,13 @@ val ctxt:update list = [comma_upd,prod_upd]
 val upd = proj_upd
 val res = build_interpretation (proj_upd::ctxt) tys consts
 val example4 = save_thm("example4",#models_thm res)
+
+(* example 5: constraining select in hol_ctxt *)
+val substs = [[alpha|->bool],[alpha|->``:'a -> 'b``]]
+val consts = map (C inst ``$@``) substs
+val tys:hol_type list = []
+val ctxt:update list = []
+val res = build_interpretation ctxt tys consts
+val example5 = save_thm("example5",#models_thm res)
 
 val _ = export_theory()
