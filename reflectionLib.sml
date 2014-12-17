@@ -463,9 +463,11 @@ fun termsem_cert vti =
                 rpt conj_tac >>
                 TRY(first_assum ACCEPT_TAC) >>
                 imp_res_tac (DISCH_ALL good_context_is_set_theory) >>
-                (fn (g as (asl,w)) =>
-                  ACCEPT_TAC(wf_to_inner_mk_to_inner []
-                    (fst(dom_rng(type_of(rand w))))) g)) >>
+                rpt (
+                  TRY(first_assum ACCEPT_TAC) >>
+                  TRY(MATCH_ACCEPT_TAC (UNDISCH wf_to_inner_bool_to_inner)) >>
+                  match_mp_tac (UNDISCH wf_to_inner_fun_to_inner) >>
+                  rpt conj_tac )) >>
               match_mp_tac is_valuation_extend >>
               (conj_tac >- first_assum ACCEPT_TAC) >>
               imp_res_tac (DISCH_ALL good_context_tyass_bool) >>
@@ -1681,7 +1683,6 @@ fun build_interpretation vti [] tys consts =
       int_assums = int_assums
     }
   end
-(* build_interpretation vti (upd::ctxt) tys consts *)
 
 val build_interpretation = build_interpretation []
 end
