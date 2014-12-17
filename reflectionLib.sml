@@ -1381,6 +1381,11 @@ fun reduce_hyps i_wf_to_inners new_wf_to_inners0 =
     loop new_wf_to_inners0
   end
 
+fun tyvar_variant tvs tv =
+  if List.exists (equal tv) tvs
+  then tyvar_variant tvs (mk_vartype((dest_vartype tv)^"'"))
+  else tv
+
 fun build_interpretation vti [] tys consts =
   let
     val hypotheses =
@@ -1435,7 +1440,17 @@ fun build_interpretation vti [] tys consts =
           map (to_inner_prop vti) (base_types_of_term tm)))
         Term.empty_tmset consts
       |> HOLset.listItems
-    val prepare_bool_thm = PROVE_HYP good_select o Q.INST [`select`|->`^select`]
+    val styvars = filter (not o equal universe_ty) (type_vars_in_term select)
+    fun prepare_bool_thm th =
+      let
+        val tyvars = filter (not o equal universe_ty) (type_vars_in_term (concl th))
+        val newtys = map (tyvar_variant styvars) tyvars
+        val th1 = INST_TYPE (map2 (curry op |->) tyvars newtys) th
+        val th2 = Q.INST[`select`|->`^select`] th1
+        val th3 = PROVE_HYP good_select th2
+      in
+        th3
+      end
     fun wf_match_accept_tac th (g as (asl,w)) =
       let
         val th1 = INST_TY_TERM (match_term (concl th) w) th
@@ -1472,8 +1487,10 @@ fun build_interpretation vti [] tys consts =
         ranges_distinct_tac
       end g
     val int_assums = map
-      (fn tm => VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
-        FIRST (select_tac::(map (wf_match_accept_tac o prepare_bool_thm) bool_thms))))
+      (fn tm =>
+        VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
+          FIRST (select_tac::(map (wf_match_accept_tac o prepare_bool_thm) bool_thms)))
+      )
       int_tms
   in
     { good_context_thm = gcth,
