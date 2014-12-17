@@ -409,8 +409,9 @@ val res_select_upd:update = {
 val substs = [[alpha|->bool],[alpha|->``:'a -> 'b``]]
 val consts = map (C inst ``RES_SELECT``) substs
 val tys:hol_type list = []
-val ctxt:update list = [res_select_upd,in_upd]
-val res = build_interpretation ctxt tys consts
+val ctxt:update list = [in_upd]
+val upd = res_select_upd
+val res = build_interpretation (upd::ctxt) tys consts
 val example6 = save_thm("example6",#models_thm res)
 
 val _ = export_theory()
