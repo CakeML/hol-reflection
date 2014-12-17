@@ -292,4 +292,125 @@ val ctxt:update list = []
 val res = build_interpretation ctxt tys consts
 val example5 = save_thm("example5",#models_thm res)
 
+(* example 6: indirectly constraining select via a definition *)
+val tm = term_to_deep(rhs(concl IN_DEF))
+val inner_upd = ``ConstDef (strlit"IN") ^tm``
+val hol_theory_ok = hol_theory_ok |> REWRITE_RULE[GSYM hol_ctxt_def,GSYM fhol_ctxt_def]
+val term_ok_tm = prove(
+  ``term_ok (sigof hol_ctxt) ^tm``,
+  map_every (assume_tac o SIMP_RULE std_ss [] o GEN_ALL)
+    (CONJUNCTS (MATCH_MP holBoolSyntaxTheory.term_ok_clauses (MATCH_MP theory_ok_sig hol_theory_ok))) >>
+  ASM_SIMP_TAC std_ss [WELLTYPED_CLAUSES] >>
+  rpt conj_tac >>
+  TRY (EVAL_TAC >> rw[] >> NO_TAC) >>
+  TRY (rw[] >> NO_TAC) >>
+  simp[term_ok_def,type_ok_def] >>
+  EVAL_TAC >> rw[tyvar_inst_exists])
+val updates_thm = prove(
+  ``^inner_upd updates hol_ctxt``,
+  ho_match_mp_tac ConstDef_updates >>
+  conj_asm1_tac >- ACCEPT_TAC hol_theory_ok >>
+  conj_tac >- ACCEPT_TAC term_ok_tm >>
+  conj_tac >- EVAL_TAC >>
+  conj_tac >- ( EVAL_TAC >> rw[] >> PROVE_TAC[] ) >>
+  EVAL_TAC >> rw[])
+val sound_update_thm = prove(
+  ``is_set_theory ^mem ⇒
+    sound_update hol_ctxt ^inner_upd``,
+  strip_tac >>
+  ho_match_mp_tac (UNDISCH new_specification_correct) >>
+  conj_asm1_tac >- ACCEPT_TAC hol_theory_ok >>
+  conj_tac >- (
+    simp_tac (srw_ss()) [] >>
+    match_mp_tac (el 2 (CONJUNCTS proves_rules)) >>
+    conj_tac >- rw[] >>
+    conj_tac >- (
+      simp_tac std_ss [EQUATION_HAS_TYPE_BOOL] >>
+      simp_tac (srw_ss())[] ) >>
+    imp_res_tac theory_ok_sig >>
+    simp[term_ok_equation] >>
+    simp[term_ok_def,type_ok_def] >>
+    EVAL_TAC ) >>
+  (updates_thm |> SIMP_RULE (srw_ss()) [updates_cases] |> strip_assume_tac) >>
+  simp_tac (srw_ss())[] >>
+  rpt conj_tac >>
+  first_assum ACCEPT_TAC) |> UNDISCH
+val constrainable_thm = prove(
+  ``constrainable_update ^inner_upd``,
+  rw[constrainable_update_def] >> rw[] >>
+  rw[conexts_of_upd_def] >>
+  rw[listTheory.EVERY_MAP] >>
+  unabbrev_all_tac >> rw[] >>
+  TRY(pop_assum mp_tac) >>
+  EVAL_TAC)
+val in_upd:update = {
+  sound_update_thm  = sound_update_thm,
+  constrainable_thm = constrainable_thm,
+  updates_thm = updates_thm,
+  extends_init_thm = hol_extends_init,
+  tys = [],
+  consts = [``$IN``],
+  axs = [IN_DEF] }
+val in_ctxt = ``^(update_to_inner in_upd)::hol_ctxt``
+val extends_init_thm =
+  MATCH_MP updates_extends_trans
+        (CONJ (#updates_thm in_upd) (#extends_init_thm in_upd))
+val in_theory_ok = prove(
+  ``theory_ok (thyof ^in_ctxt)``,
+    match_mp_tac(MATCH_MP extends_theory_ok extends_init_thm) >>
+    rw[init_theory_ok] )
+
+val tm = term_to_deep(rhs(concl RES_SELECT_DEF))
+val inner_upd = ``ConstDef (strlit"RES_SELECT") ^tm``
+val term_ok_tm = prove(
+  ``term_ok (sigof ^in_ctxt) ^tm``,
+  map_every (assume_tac o SIMP_RULE std_ss [] o GEN_ALL)
+    (CONJUNCTS (MATCH_MP holBoolSyntaxTheory.term_ok_clauses (MATCH_MP theory_ok_sig in_theory_ok))) >>
+  ASM_SIMP_TAC std_ss [WELLTYPED_CLAUSES] >>
+  rpt conj_tac >>
+  TRY (EVAL_TAC >> rw[] >> NO_TAC) >>
+  TRY (rw[] >> NO_TAC) >>
+  simp[term_ok_def,type_ok_def] >>
+  EVAL_TAC >> rw[tyvar_inst_exists])
+val updates_thm = prove(
+  ``^inner_upd updates ^in_ctxt``,
+  ho_match_mp_tac ConstDef_updates >>
+  conj_asm1_tac >- ACCEPT_TAC in_theory_ok >>
+  conj_tac >- ACCEPT_TAC term_ok_tm >>
+  conj_tac >- EVAL_TAC >>
+  conj_tac >- ( EVAL_TAC >> rw[] >> PROVE_TAC[] ) >>
+  EVAL_TAC >> rw[])
+val sound_update_thm = prove(
+  ``is_set_theory ^mem ⇒
+    sound_update ^in_ctxt ^inner_upd``,
+  strip_tac >>
+  ho_match_mp_tac (UNDISCH new_specification_correct) >>
+  conj_asm1_tac >- ACCEPT_TAC in_theory_ok >>
+  (updates_thm |> SIMP_RULE bool_ss [updates_cases,update_distinct,update_11] |> strip_assume_tac) >>
+  rpt conj_tac >>
+  first_assum ACCEPT_TAC) |> UNDISCH
+val constrainable_thm = prove(
+  ``constrainable_update ^inner_upd``,
+  rw[constrainable_update_def] >> rw[] >>
+  rw[conexts_of_upd_def] >>
+  rw[listTheory.EVERY_MAP] >>
+  unabbrev_all_tac >> rw[] >>
+  TRY(pop_assum mp_tac) >>
+  EVAL_TAC)
+val res_select_upd:update = {
+  sound_update_thm  = sound_update_thm,
+  constrainable_thm = constrainable_thm,
+  updates_thm = updates_thm,
+  extends_init_thm = extends_init_thm,
+  tys = [],
+  consts = [``RES_SELECT``],
+  axs = [RES_SELECT_DEF] }
+
+val substs = [[alpha|->bool],[alpha|->``:'a -> 'b``]]
+val consts = map (C inst ``RES_SELECT``) substs
+val tys:hol_type list = []
+val ctxt:update list = [res_select_upd,in_upd]
+val res = build_interpretation ctxt tys consts
+val example6 = save_thm("example6",#models_thm res)
+
 val _ = export_theory()
