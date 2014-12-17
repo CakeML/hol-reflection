@@ -1385,7 +1385,9 @@ fun reduce_hyps i_wf_to_inners new_wf_to_inners0 =
 
 fun tyvar_variant tvs tv =
   if List.exists (equal tv) tvs
-  then tyvar_variant tvs (mk_vartype((dest_vartype tv)^"'"))
+  then
+      mk_vartype((dest_vartype tv)^"_")
+    |> tyvar_variant tvs
   else tv
 
 fun build_interpretation vti [] tys consts =
