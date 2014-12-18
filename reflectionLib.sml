@@ -1750,7 +1750,8 @@ fun termsem_cert ctxt tm =
              tyass |-> ``tyaof ^(el 3 args)``,
              tmass |-> ``tmaof ^(el 3 args)``]
     val th2 = INST s th1
-    val th3 = foldl (uncurry PROVE_HYP) th2 (good_context_thm::sig_assums@int_assums)
+    val gc = good_context_thm |> ONCE_REWRITE_RULE[unpair_sig, unpair_int]
+    val th3 = foldl (uncurry PROVE_HYP) th2 (gc::sig_assums@int_assums)
     val th4 = foldl (uncurry PROVE_HYP) th3 wf_to_inners
   in
     CONJ models_thm th4
