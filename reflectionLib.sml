@@ -537,6 +537,13 @@ fun find_const_instances consts fromupdate =
     mk_set(map type_instance consts1)
   end
 
+fun tyvar_variant tvs tv =
+  if List.exists (equal tv) tvs
+  then
+      mk_vartype((dest_vartype tv)^"_")
+    |> tyvar_variant tvs
+  else tv
+
 local
   val distinct_tag_bool_range = prove(
     ``is_set_theory ^mem ⇒
@@ -676,27 +683,21 @@ in
          |> ISPECL [mk_to_inner vti x, mk_to_inner vti y]
          |> C MP (wf_to_inner_mk_to_inner vti x)
          |> C MP (wf_to_inner_mk_to_inner vti y)
-    |  (FunType (x,y), BoolType) =>
-         distinct_bool_fun
-         |> ISPECL [mk_to_inner vti x, mk_to_inner vti y]
-         |> C MP (wf_to_inner_mk_to_inner vti x)
-         |> C MP (wf_to_inner_mk_to_inner vti y)
-         |> GSYM
+    |  (FunType _, BoolType) => GSYM (ranges_distinct vti ty2 ty1)
     |  (BaseType _, FunType(x,y)) =>
-         distinct_tag_fun_range
-         |> ISPECL [type_to_deep ty1, mk_to_inner vti x, mk_to_inner vti y]
-         |> INST_TYPE[alpha|->ty1]
-         |> UNDISCH
-         |> C MP (wf_to_inner_mk_to_inner vti x)
-         |> C MP (wf_to_inner_mk_to_inner vti y)
-    |  (FunType (x,y), BaseType _) =>
-         distinct_tag_fun_range
-         |> ISPECL [type_to_deep ty2, mk_to_inner vti x, mk_to_inner vti y]
-         |> INST_TYPE[alpha|->ty2]
-         |> UNDISCH
-         |> C MP (wf_to_inner_mk_to_inner vti x)
-         |> C MP (wf_to_inner_mk_to_inner vti y)
-         |> GSYM
+         let
+           val tvs = type_varsl [ty1,ty2]
+           val b = tyvar_variant tvs beta
+           val c = tyvar_variant tvs gamma
+         in
+           distinct_tag_fun_range
+           |> INST_TYPE[alpha|->ty1,beta|->b,gamma|->c]
+           |> ISPECL [type_to_deep ty1, mk_to_inner vti x, mk_to_inner vti y]
+           |> UNDISCH
+           |> C MP (wf_to_inner_mk_to_inner vti x)
+           |> C MP (wf_to_inner_mk_to_inner vti y)
+         end
+    |  (FunType _, BaseType _) => GSYM (ranges_distinct vti ty2 ty1)
     (* val (FunType (x1,y1), FunType (x2,y2)) = it *)
     |  (FunType (x1,y1), FunType (x2,y2)) =>
          let
@@ -732,12 +733,7 @@ in
          |> ISPEC (type_to_deep ty1)
          |> INST_TYPE[alpha|->ty1]
          |> UNDISCH
-    |  (BoolType, BaseType _) =>
-         distinct_tag_bool_range
-         |> ISPEC (type_to_deep ty2)
-         |> INST_TYPE[alpha|->ty2]
-         |> UNDISCH
-         |> GSYM
+    |  (BoolType, BaseType _) => GSYM (ranges_distinct vti ty2 ty1)
     |  (BaseType _, BaseType _) =>
          if ty1 = ty2 then raise ERR_same
          else let
@@ -801,7 +797,7 @@ in
             |> CONV_RULE(RAND_CONV(
                  TEST_CONV(REWR_CONV(EQT_INTRO(REFL instance)))
                  THENC REWR_CONV if_T_thm))
-          (* val (tys0,th0)::_ = ths *)
+          (* val (instance_tys0,th0)::_ = ths *)
           fun update (instance_tys0,th0) =
             let
               val notinstance = th0 |> concl |> lhs |> rand
@@ -885,14 +881,13 @@ end
 
 (*
   val substs = instances_to_constrain
-  val int0 = jtm
  *)
-fun make_cs_assums vti upd substs theory_ok_thm int0 =
+fun make_cs_assums vti upd substs theory_ok_thm jtm =
   let
     val tys = #tys upd val consts = #consts upd
     val updates_thm = #updates_thm upd
     val (csi,tysths) = cs_to_inner vti tys consts substs
-    val int = ``constrain_interpretation ^(update_to_inner upd) ^csi ^int0``
+    val int = ``constrain_interpretation ^(update_to_inner upd) ^csi ^jtm``
     val tya = ``tyaof ^int``
     val tma = ``tmaof ^int``
     (* val (instances,th) = hd tysths *)
@@ -904,7 +899,7 @@ fun make_cs_assums vti upd substs theory_ok_thm int0 =
         (* TODO: finer conversions than the EVALs below *)
         val lem3 = CONV_RULE(LAND_CONV EVAL) lem2 |> C MP TRUTH
         val lem4 = lem3 |> CONV_RULE(RATOR_CONV(RAND_CONV EVAL))
-        val lem5 = lem4 |> Q.GEN`int0` |> SPEC int0
+        val lem5 = lem4 |> Q.GEN`int0` |> SPEC jtm
         val tmths = split_LIST_REL lem5
         (* --- *)
         val lemma = MATCH_MP tyaof_constrain_interpretation_lemma th
@@ -913,7 +908,7 @@ fun make_cs_assums vti upd substs theory_ok_thm int0 =
         (* TODO: finer conversions than the EVALs below *)
         val lem3 = CONV_RULE(LAND_CONV EVAL) lem2 |> C MP TRUTH
         val lem4 = lem3 |> CONV_RULE(RATOR_CONV(RAND_CONV EVAL))
-        val lem5 = lem4 |> Q.GEN`int0` |> SPEC int0
+        val lem5 = lem4 |> Q.GEN`int0` |> SPEC jtm
         val tyths = split_LIST_REL lem5
       in
         tyths@tmths
@@ -1390,13 +1385,6 @@ fun reduce_hyps i_wf_to_inners new_wf_to_inners0 =
     loop new_wf_to_inners0
   end
 
-fun tyvar_variant tvs tv =
-  if List.exists (equal tv) tvs
-  then
-      mk_vartype((dest_vartype tv)^"_")
-    |> tyvar_variant tvs
-  else tv
-
 fun build_interpretation vti [] tys consts =
   let
     val hypotheses =
@@ -1748,13 +1736,13 @@ fun termsem_cert ctxt tm =
   let
     val _ = assert HOLset.isEmpty (FVL [tm] empty_tmset)
     val tys = base_types_of_term tm
-    val tms = base_terms_of_term tm
+    val consts = base_terms_of_term tm
     val { good_context_thm,
           models_thm,
           wf_to_inners,
           sig_assums,
           int_assums } =
-        build_interpretation ctxt tys tms
+        build_interpretation ctxt tys consts
     val th1 = termsem_cert_unint [] tm
     val args = good_context_thm |> concl |> strip_comb |> snd
     val s = [tysig |-> ``tysof ^(el 2 args)``,
