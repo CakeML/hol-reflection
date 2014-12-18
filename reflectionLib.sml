@@ -1688,8 +1688,9 @@ fun build_interpretation vti [] tys consts =
 
 val build_interpretation = build_interpretation []
 
-fun build_ConstDef ctxt extends_init_thm def =
+fun build_ConstDef extends_init_thm def =
   let
+    val ctxt = extends_init_thm |> concl |> rator |> rand
     val (c,d) = dest_eq(concl def)
     val {Name,Thy,Ty} = dest_thy_const c
     val tm = term_to_deep d
@@ -1721,15 +1722,19 @@ fun build_ConstDef ctxt extends_init_thm def =
       ho_match_mp_tac (GEN_ALL ConstSpec_constrainable) >>
       exists_tac ctxt >> conj_tac >- ACCEPT_TAC updates_thm >>
       EVAL_TAC)
+    val upd:update =
+      { sound_update_thm  = sound_update_thm
+      , constrainable_thm = constrainable_thm
+      , updates_thm       = updates_thm
+      , extends_init_thm  = extends_init_thm
+      , consts            = [c]
+      , tys               = []
+      , axs               = [def]
+      }
+  val new_extends_init_thm =
+    MATCH_MP updates_extends_trans (CONJ updates_thm extends_init_thm)
   in
-    { sound_update_thm  = sound_update_thm
-    , constrainable_thm = constrainable_thm
-    , updates_thm       = updates_thm
-    , extends_init_thm  = extends_init_thm
-    , consts            = [c]
-    , tys               = []
-    , axs               = [def]
-    } : update
+    (upd, new_extends_init_thm)
   end
 
 end

@@ -18,5 +18,5 @@ signature reflectionLib = sig include Abbrev
     int_assums : thm list
   }
   val build_interpretation : update list -> hol_type list -> term list -> interpretation_cert
-  val build_ConstDef : term -> thm -> thm -> update
+  val build_ConstDef : (*extends_init*)thm -> (*def*)thm -> update * (*extends_init*)thm
 end

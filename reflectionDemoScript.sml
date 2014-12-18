@@ -54,10 +54,9 @@ val res = build_interpretation (prod_upd::ctxt) tys consts
 val example1 = save_thm("example1",#models_thm res)
 
 (* example 2: defining K on top of hol_ctxt *)
-val ctxt = ``hol_ctxt``
 val extends_init_thm = hol_extends_init
 val def = K_DEF
-val upd = build_ConstDef ctxt extends_init_thm def
+val (upd,_) = build_ConstDef extends_init_thm def
 val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
 val consts =  map (C inst ``K``) substs
 val tys:hol_type list = []
@@ -69,11 +68,10 @@ val example2 = save_thm("example2",#models_thm res)
 val comma_def = prove(
   ``$, = λx y. ABS_prod ^(prod_pred_tm |> dest_abs |> snd |> strip_exists |> snd |> rhs)``,
   rw[FUN_EQ_THM,pairTheory.COMMA_DEF])
-val prod_ctxt = ``^(update_to_inner prod_upd)::hol_ctxt``
 val prod_extends_init =
   MATCH_MP updates_extends_trans
         (CONJ (#updates_thm prod_upd) (#extends_init_thm prod_upd))
-val comma_upd = build_ConstDef prod_ctxt prod_extends_init comma_def
+val (comma_upd,comma_extends_init) = build_ConstDef prod_extends_init comma_def
 val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
 val consts =  map (C inst ``pair$,``) substs
 val tys:hol_type list = []
@@ -104,12 +102,9 @@ val eqs = ``[(strlit"FST",^(term_to_deep fst_w));
              (strlit"SND",^(term_to_deep snd_w))]``
 val proj_inner_upd = ``ConstSpec ^eqs ^(term_to_deep (concl pairTheory.PAIR))``
 
-val extends_init_thm =
-  MATCH_MP updates_extends_trans
-        (CONJ (#updates_thm comma_upd) (#extends_init_thm comma_upd))
+val extends_init_thm = comma_extends_init
 
-val comma_ctxt = rand(rator (concl extends_init_thm))
-
+val comma_ctxt = comma_extends_init |> concl |> rator |> rand
 val comma_theory_ok = prove(
   ``theory_ok (thyof ^comma_ctxt)``,
     match_mp_tac(MATCH_MP extends_theory_ok extends_init_thm) >>
@@ -170,12 +165,8 @@ val res = build_interpretation ctxt tys consts
 val example5 = save_thm("example5",#models_thm res)
 
 (* example 6: indirectly constraining select via a definition *)
-val in_upd = build_ConstDef ``hol_ctxt`` hol_extends_init IN_DEF
-val in_ctxt = ``^(update_to_inner in_upd)::hol_ctxt``
-val in_extends_init =
-  MATCH_MP updates_extends_trans
-        (CONJ (#updates_thm in_upd) (#extends_init_thm in_upd))
-val res_select_upd = build_ConstDef in_ctxt in_extends_init RES_SELECT_DEF
+val (in_upd,in_extends_init) = build_ConstDef hol_extends_init IN_DEF
+val (res_select_upd,_) = build_ConstDef in_extends_init RES_SELECT_DEF
 val substs = [[alpha|->bool],[alpha|->``:'a -> 'b``]]
 val consts = map (C inst ``RES_SELECT``) substs
 val tys:hol_type list = []
