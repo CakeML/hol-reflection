@@ -1687,4 +1687,49 @@ fun build_interpretation vti [] tys consts =
   end
 
 val build_interpretation = build_interpretation []
+
+fun build_ConstDef ctxt extends_init_thm def =
+  let
+    val (c,d) = dest_eq(concl def)
+    val {Name,Thy,Ty} = dest_thy_const c
+    val tm = term_to_deep d
+    val name = string_to_inner Name
+    val conditions =
+      prove(ConstDef_updates |> SPECL[name,tm,ctxt] |> concl |> dest_imp |> fst,
+        conj_asm1_tac >- (
+          match_mp_tac (MATCH_MP extends_theory_ok extends_init_thm) >>
+          ACCEPT_TAC init_theory_ok ) >>
+        conj_tac >- (
+          pop_assum(fn theory_ok =>
+            map_every (assume_tac o SIMP_RULE std_ss [] o GEN_ALL)
+              (CONJUNCTS (MATCH_MP holBoolSyntaxTheory.term_ok_clauses (MATCH_MP theory_ok_sig theory_ok)))) >>
+          ASM_SIMP_TAC std_ss [WELLTYPED_CLAUSES] >>
+          rpt conj_tac >>
+          TRY (EVAL_TAC >> rw[] >> NO_TAC) >>
+          TRY (rw[] >> NO_TAC) >>
+          simp[term_ok_def,type_ok_def] >>
+          EVAL_TAC >> rw[holSyntaxLibTheory.tyvar_inst_exists]) >>
+        conj_tac >- EVAL_TAC >>
+        conj_tac >- ( EVAL_TAC >> rw[] >> PROVE_TAC[] ) >>
+        EVAL_TAC >> rw[])
+    val inner_upd = ``ConstDef ^name ^tm``
+    val updates_thm = MATCH_MP ConstDef_updates conditions
+    val sound_update_thm =
+      holExtensionTheory.new_definition_correct
+      |> UNDISCH |> C MATCH_MP conditions
+    val constrainable_thm = prove(``constrainable_update ^inner_upd``,
+      ho_match_mp_tac (GEN_ALL ConstSpec_constrainable) >>
+      exists_tac ctxt >> conj_tac >- ACCEPT_TAC updates_thm >>
+      EVAL_TAC)
+  in
+    { sound_update_thm  = sound_update_thm
+    , constrainable_thm = constrainable_thm
+    , updates_thm       = updates_thm
+    , extends_init_thm  = extends_init_thm
+    , consts            = [c]
+    , tys               = []
+    , axs               = [def]
+    } : update
+  end
+
 end
