@@ -127,7 +127,7 @@ fun types_of_term (tm : term) : hol_type list = case dest_term tm of
   | COMB (tm1,tm2)      => types_of_term tm1 @ types_of_term tm2
 
 val base_types_of_term : term -> hol_type list =
-  flatten o (map base_types_of_type) o types_of_term
+  mk_set o flatten o (map base_types_of_type) o types_of_term
 
 fun dest_base_term (tm : term) : lambda = case dest_term tm of
     LAMB (var,body)     => raise ERR"dest_base_term""called on lambda"
@@ -165,11 +165,18 @@ in
     map snd o sort le o map to_pair o type_instance
 end
 
-fun base_terms_of_term (tm : term) : term list = case dest_term tm of
-    VAR (name,ty)       => [tm]
-  | CONST {Name,Thy,Ty} => [tm]
-  | LAMB (var,body)     => filter (not o equal var) (base_terms_of_term body)
-  | COMB (tm1,tm2)      => base_terms_of_term tm1 @ base_terms_of_term tm2
+local
+  val s = HOLset.singleton Term.compare
+  fun f (tm : term) = case dest_term tm of
+      VAR (name,ty)       => s tm
+    | CONST {Name,Thy,Ty} => s tm
+    | LAMB (var,body)     => HOLset.difference(f body, s var)
+    | COMB (tm1,tm2)      => HOLset.union(f tm1, f tm2)
+in
+  val set_base_terms_of_term = f
+end
+
+val base_terms_of_term = HOLset.listItems o set_base_terms_of_term
 
 fun tmsig_prop tmsig c =
   let
@@ -410,7 +417,7 @@ in
         end
 end
 
-fun termsem_cert vti =
+fun termsem_cert_unint vti =
   let
     fun f tm =
       let
@@ -494,7 +501,7 @@ fun termsem_cert vti =
      ``(λ(p :α -> β -> bool).
          ∃(x :α) (y :β). p = (λ(a :α) (b :β). (a = x) ∧ (b = y)))
             (r :α -> β -> bool) ⇔ (REP_prod (ABS_prod r) = r)``
-  termsem_cert tyin tm
+  termsem_cert_unint tyin tm
   show_assums := true
 *)
 
@@ -1269,7 +1276,7 @@ fun prove_ax_satisfied vti hyps inner_upd old_ctxt cs cs_cases jtm
                   |> map (fst o dom_rng o type_of o rand)
         val tyin = map2 tosub sorted_tys tys
         val iax = INST_TYPE tyin ax
-        val th0 = termsem_cert tyin (concl ax)
+        val th0 = termsem_cert_unint tyin (concl ax)
         val th1 = th0 |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(EQT_INTRO iax))))
                       |> CONV_RULE(RAND_CONV(REWR_CONV bool_to_inner_true))
         val ktysig = ``tysof ^new_sig``
@@ -1735,6 +1742,30 @@ fun build_ConstDef extends_init_thm def =
     MATCH_MP updates_extends_trans (CONJ updates_thm extends_init_thm)
   in
     (upd, new_extends_init_thm)
+  end
+
+fun termsem_cert ctxt tm =
+  let
+    val _ = assert HOLset.isEmpty (FVL [tm] empty_tmset)
+    val tys = base_types_of_term tm
+    val tms = base_terms_of_term tm
+    val { good_context_thm,
+          models_thm,
+          wf_to_inners,
+          sig_assums,
+          int_assums } =
+        build_interpretation ctxt tys tms
+    val th1 = termsem_cert_unint [] tm
+    val args = good_context_thm |> concl |> strip_comb |> snd
+    val s = [tysig |-> ``tysof ^(el 2 args)``,
+             tmsig |-> ``tmsof ^(el 2 args)``,
+             tyass |-> ``tyaof ^(el 3 args)``,
+             tmass |-> ``tmaof ^(el 3 args)``]
+    val th2 = INST s th1
+    val th3 = foldl (uncurry PROVE_HYP) th2 (good_context_thm::sig_assums@int_assums)
+    val th4 = foldl (uncurry PROVE_HYP) th3 wf_to_inners
+  in
+    CONJ models_thm th4
   end
 
 end
