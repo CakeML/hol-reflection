@@ -45,24 +45,19 @@ val prod_upd:update = {
   tys = [``:('a,'b)prod``],
   consts = [``ABS_prod``,``REP_prod``],
   axs = map SPEC_ALL (CONJUNCTS pairTheory.ABS_REP_prod) }
-val tys = [``:'c#bool``]
-val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
-val consts =  map (C inst ``ABS_prod``) substs
-val ctxt:update list = []
-val upd = prod_upd
-val res = build_interpretation (prod_upd::ctxt) tys consts
-val example1 = save_thm("example1",#models_thm res)
+val tm = ``λf g. REP_prod (((λx. f x):'c#bool->'a#'b) (ABS_prod g))``
+val ctxt = [prod_upd]
+val res = termsem_cert ctxt tm
+val example1 = save_thm("example1",res)
 
 (* example 2: defining K on top of hol_ctxt *)
 val extends_init_thm = hol_extends_init
 val def = K_DEF
-val (upd,_) = build_ConstDef extends_init_thm def
-val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
-val consts =  map (C inst ``K``) substs
-val tys:hol_type list = []
-val ctxt:update list = []
-val res = build_interpretation (upd::ctxt) tys consts
-val example2 = save_thm("example2",#models_thm res)
+val (k_upd,_) = build_ConstDef extends_init_thm def
+val tm = ``∀A. K K K = K A T``
+val ctxt = [k_upd]
+val res = termsem_cert ctxt tm
+val example2 = save_thm("example2",res)
 
 (* example 3: defining COMMA after products *)
 val comma_def = prove(
