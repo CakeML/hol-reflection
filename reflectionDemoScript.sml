@@ -67,12 +67,10 @@ val prod_extends_init =
   MATCH_MP updates_extends_trans
         (CONJ (#updates_thm prod_upd) (#extends_init_thm prod_upd))
 val (comma_upd,comma_extends_init) = build_ConstDef prod_extends_init comma_def
-val substs = [[alpha|->bool,beta|->alpha],[alpha|->gamma,beta|->(bool-->bool)]]
-val consts =  map (C inst ``pair$,``) substs
-val tys:hol_type list = []
-val ctxt:update list = []
-val res = build_interpretation (comma_upd::prod_upd::ctxt) tys consts
-val example3 = save_thm("example3",#models_thm res)
+val tm = ``λx. ((T,x),(λy. ∃z. y = z),F)``
+val ctxt = [comma_upd,prod_upd]
+val res = termsem_cert ctxt tm
+val example3 = save_thm("example3",res)
 
 (* example 4: defining FST and SND *)
 val proj_th =

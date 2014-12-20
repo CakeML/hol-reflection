@@ -1532,9 +1532,9 @@ fun build_interpretation vti [] tys consts =
     val new_wf_to_inners0 = if null (#tys upd) then [] else
       mapfilter (make_wf_to_inner_th vti) instantiated_axioms
     val new_wf_to_inners = reduce_hyps i_wf_to_inners new_wf_to_inners0
-    val new_i_int_assums =
-      map (fn th => foldl (uncurry PROVE_HYP) th new_wf_to_inners) i_int_assums
     val wf_to_inners = new_wf_to_inners @ i_wf_to_inners
+    val update_wf_to_inners = map (C (foldl (uncurry PROVE_HYP)) wf_to_inners)
+    val new_i_int_assums = update_wf_to_inners i_int_assums
     val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) i_models)
     val (j_equal_on_i,j_models) = CONJ_PAIR jth
     val jtm = get_int j_models
@@ -1546,7 +1546,9 @@ fun build_interpretation vti [] tys consts =
           ((map (tmsig_prop ``tmsof ^new_sig``) instantiated_consts) @
            (map (tysig_prop ``tysof ^new_sig``) instantiated_tys))
     val theory_ok_thm = MATCH_MP (MATCH_MP extends_theory_ok (#extends_init_thm upd)) init_theory_ok
-    val (ktm,cs_assums,cs_rws) = make_cs_assums vti upd instances_to_constrain theory_ok_thm jtm
+    val (ktm,cs_assums0,cs_rws0) = make_cs_assums vti upd instances_to_constrain theory_ok_thm jtm
+    val cs_assums = update_wf_to_inners cs_assums0
+    val cs_rws = update_wf_to_inners cs_rws0
     val cs = ktm |> rator |> rand
     val z = genvar(listSyntax.mk_list_type universe_ty)
     val cs_cases = GEN z (updates_equal_some_cases z cs)
