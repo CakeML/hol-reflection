@@ -943,16 +943,6 @@ val IS_SOME_cs_thm = prove(
     (∀vs. IS_SOME (cs vs) ⇒ P vs (FST (THE (cs vs))) (SND (THE (cs vs))))``,
   rw[IS_SOME_EXISTS,PULL_EXISTS,pairTheory.FORALL_PROD])
 
-fun join_EVERY P =
-  let
-    val nilth = listTheory.EVERY_DEF |> CONJUNCT1 |> ISPEC P |> EQT_ELIM
-    val consth = listTheory.EVERY_DEF |> CONJUNCT2 |> ISPEC P |> SPEC_ALL |> EQ_IMP_RULE |> snd
-                 |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-    fun f [] = nilth
-      | f (t::ts) = MATCH_MP (MATCH_MP consth t) (f ts)
-  in
-    f
-  end
 val inhabited_tm = ``inhabited``
 val inhabited_eta = prove(``inhabited x ⇔ (λs. inhabited s) x``,rw[])
 fun EVERY_range_inhabited vti tys =
