@@ -266,20 +266,6 @@ val PERM_MAP_BIJ = store_thm("PERM_MAP_BIJ",
   fs[] >>
   metis_tac[sortingTheory.PERM_MAP])
 
-val implode_BIJ = store_thm("implode_BIJ",
-  ``BIJ implode UNIV UNIV``,
-  rw[BIJ_IFF_INV] >>
-  qexists_tac`explode` >>
-  rw[mlstringTheory.implode_explode,
-     mlstringTheory.explode_implode])
-
-val explode_BIJ = store_thm("explode_BIJ",
-  ``BIJ explode UNIV UNIV``,
-  rw[BIJ_IFF_INV] >>
-  qexists_tac`implode` >>
-  rw[mlstringTheory.implode_explode,
-     mlstringTheory.explode_implode])
-
 val INJ_MAP_EQ_IFF = store_thm("INJ_MAP_EQ_IFF",
   ``∀f l1 l2.
     INJ f (set l1 ∪ set l2) UNIV ⇒
@@ -290,13 +276,13 @@ val mlstring_sort_eq = store_thm("mlstring_sort_eq",
   ``∀l1 l2. ALL_DISTINCT l1 ∧ ALL_DISTINCT l2 ⇒
     ((mlstring_sort l1 = mlstring_sort l2) ⇔ PERM l1 l2)``,
   rw[mlstring_sort_def] >>
-  qspecl_then[`l1`,`l2`]mp_tac(MATCH_MP PERM_MAP_BIJ explode_BIJ) >>
+  qspecl_then[`l1`,`l2`]mp_tac(MATCH_MP PERM_MAP_BIJ mlstringTheory.explode_BIJ) >>
   disch_then SUBST1_TAC >>
   imp_res_tac ALL_DISTINCT_MAP_explode >>
   imp_res_tac STRING_SORT_EQ >>
   first_x_assum(CHANGED_TAC o (SUBST1_TAC o SYM)) >>
   match_mp_tac INJ_MAP_EQ_IFF >>
-  mp_tac implode_BIJ >>
+  mp_tac mlstringTheory.implode_BIJ >>
   simp[BIJ_DEF,INJ_DEF,MEM_MAP,PULL_EXISTS])
 (* -- *)
 
