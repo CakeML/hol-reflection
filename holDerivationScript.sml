@@ -89,7 +89,7 @@ val axiom = save_thm("axiom",
   |> REWRITE_RULE[GSYM AND_IMP_INTRO])
 
 val assume = store_thm("assume",
-  ``theory_ok thy ⇒
+  ``∀p thy. theory_ok thy ⇒
     term_ok (sigof thy) p ⇒
     (typeof p = Bool) ⇒
     (thy,[p]) |- p``,
@@ -99,7 +99,8 @@ val assume = store_thm("assume",
             holSyntaxExtraTheory.WELLTYPED])
 
 val betaConv = store_thm("betaConv",
-  ``theory_ok thy ⇒
+  ``∀x ty t thy.
+    theory_ok thy ⇒
     term_ok (sigof thy) (Comb (Abs (Var x ty) t) (Var x ty)) ⇒
     (thy,[]) |- (Comb (Abs (Var x ty) t) (Var x ty) === t)``,
   strip_tac >>
@@ -108,8 +109,7 @@ val betaConv = store_thm("betaConv",
   fs[])
 
 val deductAntisym = save_thm("deductAntisym",
-  proves_rules |> CONJUNCTS |> el 4
-  |> REWRITE_RULE[combinTheory.o_DEF])
+  proves_rules |> CONJUNCTS |> el 4)
 
 val eqMp = save_thm("eqMp",
   proves_rules |> CONJUNCTS |> el 5
@@ -117,5 +117,158 @@ val eqMp = save_thm("eqMp",
 
 val refl = save_thm("refl",
   proves_rules |> CONJUNCTS |> el 9)
+
+(* TODO: add to term_ok_clauses? *)
+val term_ok_Equal = prove(
+  ``is_std_sig sig ⇒
+    (term_ok sig (Equal ty) ⇔ type_ok (tysof sig) ty)``,
+  rw[term_ok_def,type_ok_def] >>
+  fs[is_std_sig_def] >> rw[EQ_IMP_THM] >>
+  qexists_tac`[(ty,Tyvar(strlit"A"))]` >>
+  EVAL_TAC)
+(* -- *)
+
+val sym = store_thm("sym",
+  ``∀thyh p q. thyh |- p === q ⇒ thyh |- q === p``,
+  rpt strip_tac >>
+  imp_res_tac proves_theory_ok >>
+  imp_res_tac proves_term_ok >>
+  imp_res_tac theory_ok_sig >>
+  `(FST thyh,[]) |- p === p` by (
+    match_mp_tac refl >> simp[] >>
+    fs[term_ok_equation]) >>
+  `(FST thyh,[]) |- Equal (typeof p) === Equal (typeof p)` by (
+    match_mp_tac refl >> simp[term_ok_Equal] >>
+    fs[term_ok_equation] >>
+    metis_tac[term_ok_type_ok] ) >>
+  qspecl_then[`[]`,`SND thyh`,`Equal (typeof p)`,`p`]mp_tac appThm >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  simp[] >> discharge_hyps_keep
+    >- fs[term_ok_equation,EQUATION_HAS_TYPE_BOOL] >>
+  simp[term_union_thm] >>
+  strip_tac >> mp_tac appThm >>
+  Cases_on`thyh`>>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  full_simp_tac std_ss [] >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+  fs[term_ok_equation] >>
+  simp[GSYM equation_def,term_union_thm] >>
+  qpat_assum`typeof p = typeof q`(assume_tac o SYM) >>
+  simp[GSYM equation_def] >>
+  fs[EQUATION_HAS_TYPE_BOOL] >>
+  metis_tac[eqMp,term_union_thm,ACONV_REFL])
+
+val proves_concl_ACONV = store_thm("proves_concl_ACONV",
+  ``∀thyh c c'. thyh |- c ∧ ACONV c c' ∧ welltyped c' ⇒ thyh |- c'``,
+  rw[] >>
+  qspecl_then[`c'`,`FST thyh`]mp_tac refl >>
+  imp_res_tac proves_theory_ok >>
+  imp_res_tac proves_term_ok >> fs[] >>
+  imp_res_tac term_ok_aconv >> pop_assum kall_tac >> simp[] >>
+  Cases_on`thyh`>>fs[]>>
+  metis_tac[eqMp,term_union_thm,ACONV_SYM] )
+
+val addAssum = store_thm("addAssum",
+  ``∀thy h c a. (thy,h) |- c ∧ term_ok (sigof thy) a ∧ (typeof a = Bool) ⇒
+      (thy,term_union [a] h) |- c``,
+  rw[] >>
+  ho_match_mp_tac (MP_CANON eqMp) >>
+  map_every qexists_tac[`c`,`c`] >> simp[] >>
+  qspecl_then[`a`,`thy`]mp_tac assume >>
+  imp_res_tac proves_theory_ok >> fs[] >> strip_tac >>
+  Cases_on`ACONV (c === c) a` >- (
+    qspecl_then[`c === c`,`thy`]mp_tac refl >>
+    imp_res_tac theory_ok_sig >>
+    imp_res_tac proves_term_ok >>
+    fs[term_ok_equation] >> strip_tac >>
+    imp_res_tac eqMp >>
+    fs[term_union_thm] ) >>
+  qspecl_then[`c`,`thy`]mp_tac refl >>
+  imp_res_tac proves_term_ok >> fs[] >> strip_tac >>
+  qspecl_then[`a`,`c === c`,`[a]`,`[]`,`thy`]mp_tac deductAntisym >>
+  simp[term_union_thm] >>
+  `term_remove (c === c) [a] = [a]` by (
+    simp[Once term_remove_def,GSYM ACONV_eq_orda] ) >>
+  rw[] >>
+  imp_res_tac eqMp >>
+  metis_tac[ACONV_REFL,term_union_idem])
+
+(*
+val addAssums = store_thm("addAssums",
+  ``∀thy as h c.
+    (thy,h) |- c ∧ EVERY (λa. term_ok (sigof thy) a ∧ (typeof a = Bool)) as ∧ hypset_ok as ⇒
+    (thy,term_union as h) |- c``,
+  gen_tac >> Induct >> simp[term_union_thm] >> rw[] >> fs[hypset_ok_cons] >>
+  imp_res_tac addAssum >>
+*)
+
+(*
+val proves_ACONV = store_thm("proves_ACONV",
+  ``∀thy h' c' h c.
+      (thy,h) |- c ⇒
+      hypset_ok h' ∧ welltyped c' ∧ ACONV c c' ∧
+      EVERY (λx. EXISTS (ACONV x) h') h ∧
+      EVERY (λx. term_ok (sigof thy) x ∧ x has_type Bool) h'
+      ⇒ (thy,h') |- c'``,
+  gen_tac >> Induct >> rw[hypset_ok_cons] >>
+  imp_res_tac proves_theory_ok >>
+  imp_res_tac proves_term_ok >> fs[] >-
+    metis_tac[proves_concl_ACONV] >>
+  Cases_on`ACONV c h` >- (
+    qsuff_tac`(thy,h::h') |- h`>-
+      metis_tac[proves_concl_ACONV,ACONV_SYM,ACONV_TRANS] >>
+    qspecl_then[`h`,`thy`]mp_tac assume >>
+    imp_res_tac WELLTYPED_LEMMA >> simp[] >>
+    addAssum
+
+  qspecl_then[`c`,`h`,`h''`,`[h]`,`thy`]mp_tac deductAntisym >>
+  discharge_hyps >- (
+    metis_tac[WELLTYPED_LEMMA,assume] ) >>
+  addAssum
+
+  rpt gen_tac >> strip_tac
+    deductAntisym
+              print_find"term_ok_A"
+
+val proves_hypset_ACONV = store_thm("proves_hypset_ACONV",
+  ``∀thy h1 h2 c. (thy,h1) |- c ∧ LIST_REL ACONV h1 h2 ⇒ (thy,h2) |- c``,
+  gen_tac >> Induct >> rw[] >>
+  imp_res_tac proves_term_ok >> fs[hypset_ok_cons] >>
+  qmatch_assum_rename_tac`LIST_REL ACONV h1 h2`[] >>
+  qmatch_assum_rename_tac`ACONV a1 a2`[] >>
+  qspecl_then[`a1`,`a2`,`a1::h1`,`[a1]`,`thy`]mp_tac deductAntisym
+  qspecl_then[`[]`,`
+  `(thy,[]) |- 
+  `(thy,h::h1) |- y
+  deductAntisym
+  eqMp
+
+val proves_ACONV = store_thm("proves_ACONV",
+  ``∀thyh c. thyh |- c ⇒
+      ∀h' c'.
+        EVERY (λp. EXISTS (ACONV p) (SND thyh)) h' ∧
+        ACONV c c' ⇒
+        (FST thyh,h') |- c'``,
+  ho_match_mp_tac proves_ind >> simp[] >>
+    or: prove ADD_ASSUM and aconv transformers as derived rules
+        to do this all in one go *)
+
+val proveHyp = store_thm("proveHyp",
+  ``∀thy h1 c1 h2 c2. (thy,h1) |- c1 ∧ (thy,h2) |- c2 ⇒
+      (thy,term_union h2 (term_remove c2 h1)) |- c1``,
+  rw[] >>
+  imp_res_tac proves_term_ok >>
+  imp_res_tac proves_theory_ok >> fs[] >>
+  qspecl_then[`c2`,`c1`,`h2`,`h1`,`thy`]mp_tac deductAntisym >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`(thy,h3) |- c2 === c1` >>
+  qspecl_then[`h3`,`h2`,`c2`,`c2`,`c1`,`thy`]mp_tac eqMp >>
+  simp[] >>
+  qsuff_tac`term_union h3 h2 = term_union h2 (term_remove c2 h1)` >- rw[] >>
+  qmatch_abbrev_tac`l1 = l2` >>
+  `hypset_ok l1 ∧ hypset_ok l2` by metis_tac[hypset_ok_term_union,hypset_ok_term_remove] >>
+  simp[hypset_ok_eq,Abbr`l1`,Abbr`l2`]
+*)
 
 val _ = export_theory()
