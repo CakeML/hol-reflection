@@ -1,17 +1,45 @@
-open HolKernel boolLib bossLib lcsymtacs listTheory
-open holSyntaxTheory
+open HolKernel boolLib bossLib lcsymtacs listTheory miscLib holSyntaxTheory holSyntaxExtraTheory
 val _ = new_theory"holDerivation"
 
-(* TODO: move?
-val proves_ACONV = store_thm("proves_ACONV",
-  ``∀thyh c. thyh |- c ⇒
-      ∀h' c'.
-        EVERY (λp. EXISTS (ACONV p) (SND thyh)) h' ∧
-        ACONV c c' ⇒
-        (FST thyh,h') |- c'``,
-  ho_match_mp_tac proves_ind >> simp[] >>
-    or: prove ADD_ASSUM and aconv transformers as derived rules
-        to do this all in one go *)
+(* TODO: move *)
+val hypset_ok_ALL_DISTINCT = store_thm("hypset_ok_ALL_DISTINCT",
+  ``∀h. hypset_ok h ⇒ ALL_DISTINCT h``,
+  simp[hypset_ok_def] >> Induct >>
+  simp[MATCH_MP sortingTheory.SORTED_EQ transitive_alpha_lt] >>
+  rw[] >> strip_tac >> res_tac >> fs[alpha_lt_def] >>
+  metis_tac[totoTheory.cpn_distinct,ACONV_REFL,ACONV_eq_orda])
+
+val hypset_ok_eq = store_thm("hypset_ok_eq",
+  ``∀h1 h2.  hypset_ok h1 ∧ hypset_ok h2 ⇒
+            ((h1 = h2) ⇔ (set h1 = set h2))``,
+  rw[EQ_IMP_THM] >>
+  fs[pred_setTheory.EXTENSION] >>
+  metis_tac[hypset_ok_ALL_DISTINCT,
+            sortingTheory.PERM_ALL_DISTINCT,
+            sortingTheory.SORTED_PERM_EQ,
+            hypset_ok_def,
+            transitive_alpha_lt,
+            antisymmetric_alpha_lt])
+
+val term_remove_nil = store_thm("term_remove_nil[simp]",
+  ``term_remove a [] = []``,
+  rw[Once term_remove_def])
+
+val term_union_sing_lt = store_thm("term_union_sing_lt",
+  ``∀ys x. EVERY (λy. alpha_lt x y) ys ⇒ (term_union [x] ys = x::ys)``,
+  Induct >> simp[term_union_thm] >> rw[] >> fs[] >>
+  fs[alpha_lt_def])
+
+val MEM_term_union_first = store_thm("MEM_term_union_first",
+  ``∀h1 h2 t. hypset_ok h1 ∧ hypset_ok h2 ∧ MEM t h1 ⇒ MEM t (term_union h1 h2)``,
+  Induct >> simp[hypset_ok_cons] >>
+  gen_tac >> Induct >> simp[term_union_thm] >>
+  rw[hypset_ok_cons] >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  disj2_tac >>
+  first_x_assum match_mp_tac >>
+  rw[hypset_ok_cons])
+(* -- *)
 
 val term_ok_Abs = store_thm("term_ok_Abs",
   ``term_ok (sigof thy) b ∧ type_ok (tysof thy) ty ⇒
