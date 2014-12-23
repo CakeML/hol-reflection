@@ -136,7 +136,8 @@ local
   val () = pairLib.add_pair_compset c
   val () = computeLib.add_thms (TERM_UNION_def::ACONV_rws) c
 in
-  val EVAL_TERM_UNION = computeLib.CBV_CONV c
+  (* TODO fix for new functions *)
+  val EVAL_hypset = computeLib.CBV_CONV c
 end
 
 val listc = listLib.list_compset()
@@ -227,7 +228,7 @@ fun readLine r s l =
         val th2 = EVAL_welltyped (fst(dest_imp(concl th1)))
         val th3 = MP th1 th2
       in
-        CONV_RULE(HYP_CONV EVAL_TERM_UNION) th3
+        CONV_RULE(HYP_CONV EVAL_hypset) th3
         |> Thm |> push s
       end
     else if l = "assume" then
@@ -299,7 +300,7 @@ fun readLine r s l =
         val (Thm th2,s) = pop s
         val th3 = MATCH_MP deductAntisym (CONJ th1 th2)
       in
-        CONV_RULE(HYP_CONV EVAL_TERM_UNION) th3
+        CONV_RULE(HYP_CONV EVAL_hypset) th3
         |> Thm |> push s
       end
     else if l = "def" then
@@ -318,7 +319,7 @@ fun readLine r s l =
                   |> EQT_ELIM
       in
         MP th3 th4
-        |> CONV_RULE(HYP_CONV EVAL_TERM_UNION)
+        |> CONV_RULE(HYP_CONV EVAL_hypset)
         |> Thm |> push s
       end
     else if l = "hdTl" then
@@ -347,7 +348,15 @@ fun readLine r s l =
       pop s |> snd
     else if l = "pragma" then
       pop s |> snd
-    (* else if l = "proveHyp" then *)
+    else if l = "proveHyp" then
+      let
+        val (Thm th1,s) = pop s
+        val (Thm th2,s) = pop s
+      in
+        MATCH_MP proveHyp (CONJ th1 th2)
+        |> CONV_RULE(HYP_CONV EVAL_hypset)
+        |> Thm |> push s
+      end
     else if l = "ref" then
       let
         val (Num k,s) = pop s
@@ -370,7 +379,13 @@ fun readLine r s l =
         remove k s
       end
     (* else if l = "subst" then *)
-    (* else if l = "sym" then *)
+    else if l = "sym" then
+      let
+        val (Thm th,s) = pop s
+      in
+        MATCH_MP sym th
+        |> Thm |> push s
+      end
     (*
     else if l = "thm" then
       let
@@ -380,7 +395,17 @@ fun readLine r s l =
         val h = mk_hyp_list hs
       in
     *)
-    (* else if l = "trans" then *)
+    else if l = "trans" then
+      let
+        val (Thm th2,s) = pop s
+        val (Thm th1,s) = pop s
+        val th3 = MATCH_MP (MATCH_MP trans th1) th2
+        val th4 = EVAL_ACONV (fst(dest_imp(concl th3)))
+                  |> EQT_ELIM
+      in
+        MATCH_MP th3 th4
+        |> Thm |> push s
+      end
     else if l = "typeOp" then
       let
         val (Name n,s) = pop s
