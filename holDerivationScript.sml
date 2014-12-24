@@ -210,6 +210,17 @@ val type_ok_Tyapp = store_thm("type_ok_Tyapp",
 val exists_rty_lemma = store_thm("exists_rty_lemma",
   ``(∃rty. Fun dty rty1 = Fun dty rty) = T``, rw[])
 
+val is_instance_lemma = store_thm("is_instance_lemma",
+  ``(TYPE_SUBST s ty1 = ty2) ⇒ is_instance ty1 ty2``,
+  rw[] >> metis_tac[])
+
+val lookup_type_ok = store_thm("lookup_type_ok",
+  ``theory_ok thy ∧
+    (FLOOKUP (tmsof thy) name = SOME ty0) ⇒
+    type_ok (tysof thy) ty0``,
+  rw[theory_ok_def,finite_mapTheory.IN_FRANGE_FLOOKUP,PULL_EXISTS] >>
+  metis_tac[])
+
 val absThm = save_thm("absThm",
   proves_rules |> CONJUNCTS |> el 1
   |> ONCE_REWRITE_RULE[CONJ_COMM]

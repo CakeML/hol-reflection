@@ -168,16 +168,53 @@ in
   val EVAL_hypset = computeLib.CBV_CONV c
 end
 
+val type_subst_rws = [
+  TYPE_SUBST_def |> REWRITE_RULE[ETA_AX],
+  holSyntaxLibTheory.REV_ASSOCD]
+
+local
+  val c = listLib.list_compset()
+  val () = pairLib.add_pair_compset c
+  val () = computeLib.add_thms type_subst_rws c
+  val () = add_type_info c
+in
+  val EVAL_TYPE_SUBST = computeLib.CBV_CONV c
+end
+
+val match_type_rws = [
+  match_type_def,
+  tymatch_def,
+  holSyntaxLibTheory.REV_ASSOCD]
+
+local
+  val c = listLib.list_compset()
+  val () = optionLib.OPTION_rws c
+  val () = pairLib.add_pair_compset c
+  val () = computeLib.add_thms match_type_rws c
+in
+  val EVAL_match_type = computeLib.CBV_CONV c
+end
+
+fun prove_is_instance type_ok_ty0 type_ok_ty =
+  let
+    val ty0 = type_ok_ty0 |> concl |> rand
+    val ty = type_ok_ty |> concl |> rand
+    val th1 = EVAL_match_type ``match_type ^ty0 ^ty``
+    val th2 =
+      MATCH_MP type_ok_arities_match
+        (CONJ type_ok_ty0 type_ok_ty)
+      |> C MATCH_MP match_type_SOME
+      |> C MATCH_MP th1
+  in
+    MATCH_MP is_instance_lemma th2
+  end
+
 val listc = listLib.list_compset()
 
 val get_hyp = snd o dest_pair o rand o rator o concl
 val HYP_CONV = RATOR_CONV o RAND_CONV o RAND_CONV
-
-fun unimplemented l =
-  mk_HOL_ERR"holDerivationLib""readLine"("unimplemented: "^l)
-
-fun EVAL_is_instance tm =
-  raise unimplemented "EVAL_is_instance"
+fun HYPC_CONV c =
+  HYP_CONV c THENC RAND_CONV c
 
 type reader = {
   theory_ok : thm, (* |- theory_ok thy *)
@@ -191,12 +228,8 @@ type reader = {
 fun trimr s = String.substring(s,0,String.size s - 1)
 fun trimlr s = String.substring(s,1,String.size s - 2)
 
-local
-  fun f (Term term_ok_tm) = term_ok_tm |> concl |> rand
-in
-  fun mk_hyp_list hs =
-    listSyntax.mk_list(map f hs, term_ty)
-end
+fun unimplemented l =
+  mk_HOL_ERR"holDerivationLib""readLine"("unimplemented: "^l)
 
 fun readLine r s l =
   let
@@ -317,7 +350,10 @@ fun readLine r s l =
         val (Const lookup,s) = pop s
         val th1 = MATCH_MP term_ok_Const
                   (CONJ lookup type_ok_ty)
-        val th2 = EVAL_is_instance (fst(dest_imp(concl th1)))
+        val type_ok_ty0 =
+          MATCH_MP lookup_type_ok
+            (CONJ (#theory_ok r) lookup)
+        val th2 = prove_is_instance type_ok_ty0 type_ok_ty
       in
         MP th1 th2
         |> Term |> push s
