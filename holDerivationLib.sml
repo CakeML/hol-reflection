@@ -1,6 +1,6 @@
 structure holDerivationLib :> holDerivationLib = struct
 
-open OpenTheoryMap pairSyntax miscLib
+open OpenTheoryMap pairSyntax miscLib listLib stringLib optionLib
      holSyntaxSyntax holSyntaxTheory
      holDerivationTheory
 
@@ -100,11 +100,21 @@ in
 end
 
 val term_info = valOf(TypeBase.fetch term_ty)
+val type_info = valOf(TypeBase.fetch type_ty)
+val mlstring_info = valOf(TypeBase.fetch ``:mlstring``)
+
+fun add_type_info c =
+  let
+    val () = computeLib.add_datatype_info c term_info
+    val () = computeLib.add_datatype_info c type_info
+    val () = computeLib.add_datatype_info c mlstring_info
+    val () = stringLib.add_string_compset c
+  in () end
 
 local
-  val c = computeLib.bool_compset()
+  val c = listLib.list_compset()
   val () = computeLib.add_thms [VFREE_IN_def] c
-  val () = computeLib.add_datatype_info c term_info
+  val () = add_type_info c
 in
   val EVAL_VFREE_IN = computeLib.CBV_CONV c
 end
@@ -127,16 +137,34 @@ local
   val c = listLib.list_compset()
   val () = pairLib.add_pair_compset c
   val () = computeLib.add_thms ACONV_rws c
+  val () = add_type_info c
 in
   val EVAL_ACONV = computeLib.CBV_CONV c
 end
 
+val mlstring_cmp_thm =
+  ``mlstring_cmp (strlit x) (strlit y)``
+  |> REWRITE_CONV[mlstringTheory.mlstring_cmp_def,
+                  totoTheory.TO_of_LinearOrder,
+                  mlstringTheory.mlstring_lt_def,
+                  mlstringTheory.mlstring_11]
+
+val orda_rws = [
+  orda_def,
+  ordav_def,
+  holSyntaxExtraTheory.term_cmp_thm,
+  holSyntaxExtraTheory.type_cmp_thm,
+  comparisonTheory.pair_cmp_def,
+  comparisonTheory.list_cmp_def,
+  mlstring_cmp_thm ]
+  @ typeof_rws
+
 local
   val c = listLib.list_compset()
   val () = pairLib.add_pair_compset c
-  val () = computeLib.add_thms (TERM_UNION_def::ACONV_rws) c
+  val () = computeLib.add_thms (term_union_def::term_remove_def::term_image_def::orda_rws) c
+  val () = add_type_info c
 in
-  (* TODO fix for new functions *)
   val EVAL_hypset = computeLib.CBV_CONV c
 end
 
