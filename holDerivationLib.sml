@@ -209,6 +209,35 @@ fun prove_is_instance type_ok_ty0 type_ok_ty =
     MATCH_MP is_instance_lemma th2
   end
 
+(* TODO:
+  need an EVAL-friendly version of VARIANT for
+  INST_CORE_def and VSUBST_def. use variant in holKernel. *)
+val vsubst_inst_rws = [
+  VFREE_IN_def,
+  INST_def,
+  RESULT_def,
+  INST_CORE_def,
+  IS_CLASH_def,
+  IS_RESULT_def,
+  dest_var_def]
+  @ type_subst_rws
+
+local
+  val c = listLib.list_compset()
+  val () = pairLib.add_pair_compset c
+  val () = add_type_info c
+  val () = computeLib.add_thms vsubst_inst_rws c
+in
+  val EVAL_subst = computeLib.CBV_CONV c
+end
+
+local
+  fun f (Term term_ok_tm) = term_ok_tm |> concl |> rand
+in
+  fun mk_hyp_list hs =
+    listSyntax.mk_list(map f hs, term_ty)
+end
+
 val listc = listLib.list_compset()
 
 val get_hyp = snd o dest_pair o rand o rator o concl
@@ -442,7 +471,49 @@ fun readLine r s l =
       in
         remove k s
       end
-    (* else if l = "subst" then *)
+    else if l = "subst" then
+      let
+        val (Thm th,s) = pop s
+        val (List [l1,l2],s) = pop s
+        val th1 = MATCH_MP subst_rule th
+        val P = th1 |> concl |> dest_imp |> fst
+          |> rator |> rand
+        fun f (List [Name a, Type type_ok_ty]) =
+          let
+            val ty = type_ok_ty |> rand |> concl
+            val v = mk_Tyvar a
+            val th1 =
+              type_ok_ty |>
+              CONV_RULE(RAND_CONV(
+                REWR_CONV(SYM(ISPECL[ty,v] FST))))
+            val th2 = mk_comb(P,rand(rand(concl th1)))
+              |> BETA_CONV |> SYM |> C EQ_MP th1
+          in
+            th2
+          end
+        val tyinth = join_EVERY P (map f l1)
+        val th2 = MATCH_MP th1 tyinth
+        val P = th2 |> concl |> dest_imp |> fst
+          |> rator |> rand
+        fun f (List [Var (n,type_ok_ty),Term term_ok_tm]) =
+          let
+            val ty = type_ok_ty |> rand |> concl
+            val v = mk_Var(n,ty)
+            val tm = term_ok_tm |> rand |> concl
+            val typeof_th = EVAL_typeof (mk_typeof tm)
+          in
+            mk_comb(P,mk_pair(tm,v))
+              |> PAIRED_BETA_CONV THENC
+                 REWR_CONV exists_var_lemma
+              |> SYM
+              |> C EQ_MP (CONJ typeof_th term_ok_tm)
+          end
+        val substh = join_EVERY P (map f l2)
+      in
+        MATCH_MP th2 substh
+        |> CONV_RULE(HYPC_CONV EVAL_subst)
+        |> Thm |> push s
+      end
     else if l = "sym" then
       let
         val (Thm th,s) = pop s

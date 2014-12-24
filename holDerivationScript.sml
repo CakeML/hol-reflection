@@ -352,4 +352,28 @@ val proveHyp = store_thm("proveHyp",
   TRY(fs[EVERY_MEM]>>NO_TAC) >>
   metis_tac[MEM_term_union,hypset_ok_term_union,hypset_ok_term_remove,ACONV_REFL])
 
+val inst_type = proves_rules |> CONJUNCTS |> el 7
+val vsubst = proves_rules |> CONJUNCTS |> el 6
+  |> ONCE_REWRITE_RULE[CONJ_COMM]
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+
+val subst_rule = store_thm("subst_rule",
+  ``∀thy h c tyin subst.
+    (thy,h) |- c ⇒
+    EVERY (λp. type_ok (tysof thy) (FST p)) tyin ⇒
+    EVERY (λ(s',s). ∃x ty. (s = Var x ty) ∧ (typeof s' = ty) ∧ term_ok (sigof thy) s') subst ⇒
+    (thy,term_image (VSUBST subst) (term_image (INST tyin) h)) |-
+      (VSUBST subst (INST tyin c))``,
+  rw[] >>
+  qspecl_then[`c`,`h`,`thy`,`tyin`]mp_tac inst_type >>
+  simp[EVERY_MAP] >>
+  disch_then(match_mp_tac o MATCH_MP vsubst) >>
+  fs[EVERY_MEM] >> rw[] >> res_tac >> fs[] >>
+  metis_tac[term_ok_welltyped,WELLTYPED])
+
+val exists_var_lemma = store_thm("exists_var_lemma",
+  ``(∃x ty. (Var x1 ty1 = Var x ty) ∧ (typeof s' = ty) ∧ term_ok (sigof thy) s') ⇔
+    ((typeof s' = ty1) ∧ term_ok (sigof thy) s')``,
+  rw[EQ_IMP_THM])
+
 val _ = export_theory()
