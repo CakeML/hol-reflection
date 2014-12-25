@@ -111,12 +111,14 @@ end
 val term_info = valOf(TypeBase.fetch term_ty)
 val type_info = valOf(TypeBase.fetch type_ty)
 val mlstring_info = valOf(TypeBase.fetch ``:mlstring``)
+val cpn_info = valOf(TypeBase.fetch``:cpn``)
 
 fun add_type_info c =
   let
     val () = computeLib.add_datatype_info c term_info
     val () = computeLib.add_datatype_info c type_info
     val () = computeLib.add_datatype_info c mlstring_info
+    val () = computeLib.add_datatype_info c cpn_info
     val () = stringLib.add_string_compset c
   in () end
 
