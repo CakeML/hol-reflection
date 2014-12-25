@@ -357,16 +357,88 @@ val vsubst = proves_rules |> CONJUNCTS |> el 6
   |> ONCE_REWRITE_RULE[CONJ_COMM]
   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
 
+fun replace_term from to =
+  let
+    fun f tm =
+      if tm = from then to else
+        case dest_term tm of
+          COMB(t1,t2) => mk_comb(f t1, f t2)
+        | LAMB(t1,t2) => mk_abs(f t1, f t2)
+        | _ => tm
+  in
+    f
+  end
+
+val (inst_core_eval_def,inst_eval_def) =
+  let
+    val INST_CORE =``INST_CORE``
+    val ty = type_of INST_CORE
+    val inst_core_eval = mk_var("inst_core_eval",ty)
+    val deftm =
+      (INST_CORE_Abs_thm |> SPEC_ALL |> concl |> dest_imp |> snd
+       |> replace_term (mk_var("_",``:type``)) ``u:type``)
+      ::(INST_CORE_def |> CONJUNCTS |> map SPEC_ALL |> map concl |> List.rev |> tl)
+      |> rev |> list_mk_conj
+      |> replace_term INST_CORE inst_core_eval
+    val INST = ``INST``
+    val ty2 = type_of INST
+    val inst_eval = mk_var("inst_eval",ty2)
+    val th1 = tDefine"inst_core_eval"`^deftm`
+     (WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST])
+    val deftm2 = INST_def
+      |> SPEC_ALL |> concl
+      |> replace_term INST inst_eval
+      |> replace_term INST_CORE ``inst_core_eval``
+  in
+    (th1,Define`^deftm2`)
+  end
+
+val inst_core_eval_thm = prove(
+  ``∀env tyin tm. welltyped tm ⇒
+    (inst_core_eval env tyin tm = INST_CORE env tyin tm)``,
+  ho_match_mp_tac (theorem"inst_core_eval_ind") >>
+  rpt conj_tac >>
+  TRY(rw[inst_core_eval_def,INST_CORE_def]>>
+      unabbrev_all_tac >> fs[] >> NO_TAC) >>
+  rpt gen_tac >> strip_tac >> strip_tac >>
+  imp_res_tac INST_CORE_Abs_thm >>
+  asm_simp_tac pure_ss [inst_core_eval_def] >>
+  pop_assum kall_tac >>
+  rw[] >> fs[] >>
+  unabbrev_all_tac >> fs[] >>
+  IF_CASES_TAC >> fs[] >>
+  IF_CASES_TAC >> fs[] >>
+  last_x_assum mp_tac >>
+  discharge_hyps >- (
+    match_mp_tac VSUBST_WELLTYPED >>
+    simp[] >> simp[Once has_type_cases] ) >>
+  strip_tac >> rfs[])
+
+val inst_eval_thm = store_thm("inst_eval_thm",
+  ``∀tyin tm. welltyped tm ⇒ (INST tyin tm = inst_eval tyin tm)``,
+  rw[INST_def,inst_eval_def,inst_core_eval_thm])
+
+val term_image_inst_eval_thm = prove(
+  ``EVERY welltyped h ⇒ (term_image (INST tyin) h = term_image (inst_eval tyin) h)``,
+  Induct_on`h` >> simp[] >> rpt strip_tac >> fs[] >>
+  simp[Once term_image_def] >>
+  simp[Once term_image_def,SimpRHS] >>
+  simp[inst_eval_thm])
+
 val subst_rule = store_thm("subst_rule",
   ``∀thy h c tyin subst.
     (thy,h) |- c ⇒
     EVERY (λp. type_ok (tysof thy) (FST p)) tyin ⇒
     EVERY (λ(s',s). ∃x ty. (s = Var x ty) ∧ (typeof s' = ty) ∧ term_ok (sigof thy) s') subst ⇒
-    (thy,term_image (VSUBST subst) (term_image (INST tyin) h)) |-
-      (VSUBST subst (INST tyin c))``,
+    (thy,term_image (VSUBST subst) (term_image (inst_eval tyin) h)) |-
+      (VSUBST subst (inst_eval tyin c))``,
   rw[] >>
   qspecl_then[`c`,`h`,`thy`,`tyin`]mp_tac inst_type >>
   simp[EVERY_MAP] >>
+  imp_res_tac proves_term_ok >> fs[] >>
+  `welltyped c ∧ EVERY welltyped h` by (
+    fs[EVERY_MEM] >> metis_tac[term_ok_welltyped] ) >>
+  simp[inst_eval_thm,term_image_inst_eval_thm] >>
   disch_then(match_mp_tac o MATCH_MP vsubst) >>
   fs[EVERY_MEM] >> rw[] >> res_tac >> fs[] >>
   metis_tac[term_ok_welltyped,WELLTYPED])
