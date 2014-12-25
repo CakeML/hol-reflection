@@ -448,4 +448,18 @@ val exists_var_lemma = store_thm("exists_var_lemma",
     ((typeof s' = ty1) ∧ term_ok (sigof thy) s')``,
   rw[EQ_IMP_THM])
 
+val thm = store_thm("thm",
+  ``∀thy c' h c.
+      (thy,h) |- c ⇒
+      welltyped c' ⇒ ACONV c c' ⇒
+      EVERY (λx. term_ok (sigof thy) x ∧ (typeof x = Bool)) h' ⇒
+      hypset_ok h' ⇒
+      EVERY (λx. EXISTS (ACONV x) h') h ⇒
+      (thy,h') |- c'``,
+  rw[] >>
+  match_mp_tac proves_ACONV >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  fs[EVERY_MEM,EXISTS_MEM] >>
+  metis_tac[WELLTYPED,term_ok_welltyped])
+
 val _ = export_theory()

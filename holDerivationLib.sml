@@ -1,7 +1,7 @@
 structure holDerivationLib :> holDerivationLib = struct
 
-open OpenTheoryMap pairSyntax miscLib listLib stringLib optionLib
-     holSyntaxSyntax holSyntaxTheory
+open OpenTheoryMap pairSyntax pairTheory miscLib listLib stringLib optionLib
+     holSyntaxSyntax holSyntaxTheory holSyntaxExtraTheory
      holDerivationTheory
 
 val the_name_map : term from_ot = Map.mkDict otname_cmp
@@ -62,7 +62,7 @@ end
 
 local
   val [var,const,comb0,abs0] =
-    holSyntaxExtraTheory.WELLTYPED_CLAUSES
+    WELLTYPED_CLAUSES
     |> CONJUNCTS
   val comb = comb0 |> SPEC_ALL |> EQ_IMP_RULE |> snd
              |> REWRITE_RULE[GSYM AND_IMP_INTRO]
@@ -129,7 +129,7 @@ val EVAL_not_VFREE_IN =
 
 val ACONV_rws =
   [ACONV_def,
-   holSyntaxExtraTheory.RACONV,
+   RACONV,
    holSyntaxLibTheory.ALPHAVARS_def]
   @ typeof_rws
 
@@ -152,12 +152,21 @@ val mlstring_cmp_thm =
 val orda_rws = [
   orda_def,
   ordav_def,
-  holSyntaxExtraTheory.term_cmp_thm,
-  holSyntaxExtraTheory.type_cmp_thm,
+  term_cmp_thm,
+  type_cmp_thm,
   comparisonTheory.pair_cmp_def,
   comparisonTheory.list_cmp_def,
   mlstring_cmp_thm ]
   @ typeof_rws
+
+local
+  val c = listLib.list_compset()
+  val () = pairLib.add_pair_compset c
+  val () = computeLib.add_thms orda_rws c
+  val () = add_type_info c
+in
+  val EVAL_orda = computeLib.CBV_CONV c
+end
 
 local
   val c = listLib.list_compset()
@@ -214,11 +223,11 @@ val strcat_thm = prove(
   rw[mlstringTheory.strcat_def,mlstringTheory.implode_def])
 
 val vsubst_inst_rws = [
-  holSyntaxExtraTheory.VSUBST_thm,
+  VSUBST_thm,
   inst_eval_def,
   inst_core_eval_def,
-  holSyntaxExtraTheory.vfree_in_def,
-  holSyntaxExtraTheory.variant_def,
+  vfree_in_def,
+  variant_def,
   strcat_thm,
   dest_var_def,
   holSyntaxLibTheory.RESULT_def,
@@ -235,6 +244,21 @@ local
 in
   val EVAL_subst = computeLib.CBV_CONV c
 end
+
+local
+  val c = listLib.list_compset()
+  val () = computeLib.add_thms [alpha_lt_def,sortingTheory.SORTED_DEF] c
+  val () = computeLib.add_conv(``orda``,3,EVAL_orda) c
+  val () = computeLib.add_datatype_info c (valOf(TypeBase.fetch``:cpn``))
+in
+  val EVAL_SORTED_alpha_lt = computeLib.CBV_CONV c
+end
+
+fun prove_hypset_ok h =
+  h |>
+  (REWR_CONV(hypset_ok_def) THENC
+   EVAL_SORTED_alpha_lt)
+  |> EQT_ELIM
 
 local
   fun f (Term term_ok_tm) = term_ok_tm |> concl |> rand
@@ -479,13 +503,13 @@ fun readLine r s l =
     else if l = "subst" then
       let
         val (Thm th,s) = pop s
-        val (List [l1,l2],s) = pop s
+        val (List [List l1,List l2],s) = pop s
         val th1 = MATCH_MP subst_rule th
         val P = th1 |> concl |> dest_imp |> fst
           |> rator |> rand
         fun f (List [Name a, Type type_ok_ty]) =
           let
-            val ty = type_ok_ty |> rand |> concl
+            val ty = type_ok_ty |> concl |> rand
             val v = mk_Tyvar a
             val th1 =
               type_ok_ty |>
@@ -502,14 +526,14 @@ fun readLine r s l =
           |> rator |> rand
         fun f (List [Var (n,type_ok_ty),Term term_ok_tm]) =
           let
-            val ty = type_ok_ty |> rand |> concl
+            val ty = type_ok_ty |> concl |> rand
             val v = mk_Var(n,ty)
-            val tm = term_ok_tm |> rand |> concl
+            val tm = term_ok_tm |> concl |> rand
             val typeof_th = EVAL_typeof (mk_typeof tm)
           in
             mk_comb(P,mk_pair(tm,v))
-              |> PAIRED_BETA_CONV THENC
-                 REWR_CONV exists_var_lemma
+              |> (PAIRED_BETA_CONV THENC
+                  REWR_CONV exists_var_lemma)
               |> SYM
               |> C EQ_MP (CONJ typeof_th term_ok_tm)
           end
@@ -526,15 +550,48 @@ fun readLine r s l =
         MATCH_MP sym th
         |> Thm |> push s
       end
-    (*
     else if l = "thm" then
       let
         val (Term term_ok_p,s) = pop s
-        val (List hs,s) = pop s
+        val (List hs0,s) = pop s
         val (Thm th,s) = pop s
-        val h = mk_hyp_list hs
+        val hs1 = map (fn (Term th) => th) hs0
+        fun e th1 th2 =
+          ``orda [] ^(rand(concl th1)) ^(rand(concl th2))``
+          |> EVAL_orda |> concl |> rhs
+        fun lt th1 th2 = e th1 th2 |> same_const``Less``
+        val hs2 = sort lt hs1
+        (* only if hs0 might contain duplicates
+        fun d [] acc = acc
+          | d [h] acc = h::acc
+          | d (h1::h2::hs) acc =
+            if e h1 h2 |> same_const``Equal`` then
+              d hs (h1::acc)
+            else
+              d hs (h2::h1::acc)
+        val hs3 = rev (d hs2 [])
+        *)
+        val hs3 = hs2
+        val th1 = MATCH_MP thm th
+        val th2 = MATCH_MP th1 (MATCH_MP term_ok_welltyped term_ok_p)
+        val th3 = EVAL_ACONV (fst(dest_imp(concl th2)))
+                  |> EQT_ELIM |> MATCH_MP th2
+        val P = rand(rator(fst(dest_imp(concl th3))))
+        fun f term_ok_x =
+          let
+            val x = term_ok_x |> concl |> rand
+          in
+            mk_comb(P,x)
+            |> BETA_CONV |> SYM
+            |> EQ_MP (CONJ term_ok_x (EVAL_typeof x))
+          end
+        val th4 = MATCH_MP th3 (join_EVERY P (map f hs3))
+        val th5 = MATCH_MP th4 (prove_hypset_ok (rand(fst(dest_imp(concl th4)))))
+        val th6 = EVAL_ACONV (fst(dest_imp(concl th5)))
+                  |> EQT_ELIM |> MATCH_MP th5
       in
-    *)
+        th6 |> Thm |> push s
+      end
     else if l = "trans" then
       let
         val (Thm th2,s) = pop s
