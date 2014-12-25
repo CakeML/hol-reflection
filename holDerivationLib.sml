@@ -401,11 +401,14 @@ fun readLine (r:reader) s l =
     else if l = "betaConv" then
       let
         val (Term term_ok_tm,s) = pop s
-        val typeof_thm = EVAL_typeof(rand(rand(rator(rand(concl term_ok_tm)))))
+        val typeof_thm = EVAL_typeof(mk_typeof(rand(rand(rator(rand(concl term_ok_tm))))))
+        val th1 = MATCH_MP betaConv (#theory_ok r)
+                 |> C MATCH_MP term_ok_tm
+                 |> C MATCH_MP typeof_thm
+        val th2 = EVAL_subst(rand(rand(concl th1)))
       in
-        MATCH_MP betaConv (#theory_ok r)
-        |> C MATCH_MP term_ok_tm
-        |> C MATCH_MP typeof_thm
+        th1
+        |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV th2)))
         |> Thm |> push s
       end
     else if l = "cons" then

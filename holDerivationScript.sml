@@ -279,34 +279,6 @@ val assume = store_thm("assume",
             holSyntaxExtraTheory.term_ok_welltyped,
             holSyntaxExtraTheory.WELLTYPED])
 
-fun replace_term from to =
-  let
-    fun f tm =
-      if tm = from then to else
-        case dest_term tm of
-          COMB(t1,t2) => mk_comb(f t1, f t2)
-        | LAMB(t1,t2) => mk_abs(f t1, f t2)
-        | _ => tm
-  in
-    f
-  end
-
-val thm = ``Comb (Abs (Var x ty) t) (Var x ty) === t``
-  |> REWR_CONV equation_def
-  |> REWRITE_RULE[typeof_def,codomain_def]
-val tm = replace_term``typeof t`` ``ty1:type`` (rhs(concl thm))
-
-val betaConv = store_thm("betaConv",
-  ``∀x ty ty1 t thy.
-    theory_ok thy ⇒
-    term_ok (sigof thy) (Comb (Abs (Var x ty) t) (Var x ty)) ⇒
-    (typeof t = ty1) ⇒
-    (thy,[]) |- ^tm``,
-  rw[term_ok_def] >>
-  rw[GSYM thm] >>
-  imp_res_tac(proves_rules |> CONJUNCTS |> el 3) >>
-  fs[])
-
 val deductAntisym_equation = save_thm("deductAntisym_equation",
   proves_rules |> CONJUNCTS |> el 4)
 
@@ -454,6 +426,40 @@ val inst_type = proves_rules |> CONJUNCTS |> el 7
 val vsubst = proves_rules |> CONJUNCTS |> el 6
   |> ONCE_REWRITE_RULE[CONJ_COMM]
   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+
+val betaConvVar = (proves_rules |> CONJUNCTS |> el 3)
+
+val betaConv = store_thm("betaConv",
+  ``∀x ty ty1 t thy u.
+    theory_ok thy ⇒
+    term_ok (sigof thy) (Comb (Abs (Var x ty) t) u) ⇒
+    (typeof t = ty1) ⇒
+    (thy,[]) |- Comb
+      (Comb (Equal ty1) (Comb (Abs (Var x ty) t) u))
+      (VSUBST [(u,Var x ty)] t)``,
+  rw[term_ok_def] >>
+  qspecl_then[`t`,`thy`,`typeof u`,`x`]mp_tac betaConvVar >>
+  simp[] >>
+  disch_then(mp_tac o MATCH_MP vsubst) >>
+  Q.PAT_ABBREV_TAC`ilist = [(u,X:term)]` >>
+  disch_then(qspec_then`ilist`mp_tac) >>
+  discharge_hyps >- (
+    simp[Abbr`ilist`] >> fs[WELLTYPED] ) >>
+  simp[Once term_image_def] >>
+  simp[equation_def] >>
+  simp[VSUBST_def,Abbr`ilist`,REV_ASSOCD])
+
+fun replace_term from to =
+  let
+    fun f tm =
+      if tm = from then to else
+        case dest_term tm of
+          COMB(t1,t2) => mk_comb(f t1, f t2)
+        | LAMB(t1,t2) => mk_abs(f t1, f t2)
+        | _ => tm
+  in
+    f
+  end
 
 val (inst_core_eval_def,inst_eval_def) =
   let
