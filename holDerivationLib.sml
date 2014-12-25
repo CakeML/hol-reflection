@@ -53,9 +53,13 @@ fun def k x (s:state) =
    thms = #thms s}
 
 fun remove k (s:state) : state =
-  {stack = #stack s,
-   dict = fst(Redblackmap.remove(#dict s,k)),
-   thms = #thms s}
+  let
+    val (dict,x) = Redblackmap.remove(#dict s,k)
+  in
+    {stack = x::(#stack s),
+     dict = dict,
+     thms = #thms s}
+  end
 
 val typeof_rws = [typeof_def,codomain_def]
 
