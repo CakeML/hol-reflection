@@ -517,7 +517,7 @@ val term_image_inst_eval_thm = prove(
   simp[inst_eval_thm])
 
 val subst_rule = store_thm("subst_rule",
-  ``∀thy h c tyin subst.
+  ``∀thy h c.
     (thy,h) |- c ⇒
     EVERY (λp. type_ok (tysof thy) (FST p)) tyin ⇒
     EVERY (λ(s',s). ∃x ty. (s = Var x ty) ∧ (typeof s' = ty) ∧ term_ok (sigof thy) s') subst ⇒
@@ -535,7 +535,7 @@ val subst_rule = store_thm("subst_rule",
   metis_tac[term_ok_welltyped,WELLTYPED])
 
 val exists_var_lemma = store_thm("exists_var_lemma",
-  ``(∃x ty. (Var x1 ty1 = Var x ty) ∧ (typeof s' = ty) ∧ term_ok (sigof thy) s') ⇔
+  ``(∃x ty. (Var x1 ty1 = Var x ty) ∧ (typeof s' = ty) ∧ term_ok (sigof (thy:thy)) s') ⇔
     ((typeof s' = ty1) ∧ term_ok (sigof thy) s')``,
   rw[EQ_IMP_THM])
 

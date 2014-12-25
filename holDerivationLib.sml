@@ -252,6 +252,7 @@ local
   val () = add_type_info c
   val () = computeLib.add_datatype_info c (valOf(TypeBase.fetch``:'a result``))
   val () = computeLib.add_thms vsubst_inst_rws c
+  val () = computeLib.add_thms (term_union_def::term_remove_def::term_image_def::orda_rws) c
 in
   val EVAL_subst = computeLib.CBV_CONV c
 end
