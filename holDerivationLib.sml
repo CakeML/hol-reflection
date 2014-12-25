@@ -396,9 +396,11 @@ fun readLine (r:reader) s l =
     else if l = "betaConv" then
       let
         val (Term term_ok_tm,s) = pop s
+        val typeof_thm = EVAL_typeof(rand(rand(rator(rand(concl term_ok_tm)))))
       in
         MATCH_MP betaConv (#theory_ok r)
         |> C MATCH_MP term_ok_tm
+        |> C MATCH_MP typeof_thm
         |> Thm |> push s
       end
     else if l = "cons" then
@@ -434,8 +436,10 @@ fun readLine (r:reader) s l =
         val (Thm th1,s) = pop s
         val (Thm th2,s) = pop s
         val th3 = MATCH_MP deductAntisym (CONJ th1 th2)
+        val th4 = EVAL_typeof(lhs(fst(dest_imp(concl th3))))
       in
-        CONV_RULE(HYP_CONV EVAL_hypset) th3
+        MATCH_MP th3 th4
+        |> CONV_RULE(HYP_CONV EVAL_hypset)
         |> Thm |> push s
       end
     else if l = "def" then
@@ -503,9 +507,11 @@ fun readLine (r:reader) s l =
     else if l = "refl" then
       let
         val (Term term_ok_tm,s) = pop s
+        val th1 = MATCH_MP refl
+                    (CONJ (#theory_ok r) term_ok_tm)
+        val th2 = EVAL_typeof(lhs(fst(dest_imp(concl th1))))
       in
-        MATCH_MP refl
-          (CONJ (#theory_ok r) term_ok_tm)
+        MATCH_MP th1 th2
         |> Thm |> push s
       end
     else if l = "remove" then
