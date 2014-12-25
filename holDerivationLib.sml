@@ -374,6 +374,7 @@ fun readLine (r:reader) s l =
         val (Term term_ok_p,s) = pop s
         val th1 = MATCH_MP (MATCH_MP assume (#theory_ok r)) term_ok_p
         val th2 = EVAL_typeof (fst(dest_imp(concl th1)))
+                  |> EQT_ELIM
       in
         MP th1 th2
         |> Thm |> push s
