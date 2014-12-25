@@ -252,7 +252,7 @@ val appThm_equation = save_thm("appThm_equation",
 val appThm = store_thm("appThm",
   ``∀h1 h2 l1 l2 r1 r2 thy ty1 ty2.
     (thy,h1) |- Comb (Comb (Equal (Fun ty1 ty2)) l1) r1 ⇒
-    (thy,h2) |- Comb (Comb (Equal (Fun ty1 ty2)) l2) r2 ⇒
+    (thy,h2) |- Comb (Comb (Equal ty1) l2) r2 ⇒
     welltyped (Comb l1 l2) ⇒
     (thy,term_union h1 h2) |- Comb (Comb (Equal ty2) (Comb l1 l2)) (Comb r1 r2)``,
   rw[] >>
@@ -262,8 +262,7 @@ val appThm = store_thm("appThm",
   pop_assum(SUBST1_TAC o SYM) >>
   REWRITE_TAC[GSYM equation_def] >>
   match_mp_tac (MP_CANON appThm_equation) >>
-  simp[equation_def] >>
-  metis_tac[])
+  simp[equation_def])
 
 val axiom = save_thm("axiom",
   proves_rules |> CONJUNCTS |> el 11
