@@ -264,9 +264,15 @@ val appThm = store_thm("appThm",
   match_mp_tac (MP_CANON appThm_equation) >>
   simp[equation_def])
 
-val axiom = save_thm("axiom",
-  proves_rules |> CONJUNCTS |> el 11
-  |> REWRITE_RULE[GSYM AND_IMP_INTRO])
+val axiom = store_thm("axiom",
+  ``∀c c' thy. theory_ok thy ⇒
+      welltyped c' ⇒
+      c ∈ axsof thy ∧ ACONV c c' ⇒
+      (thy,[]) |- c'``,
+  rw[] >>
+  imp_res_tac(proves_rules |> CONJUNCTS |> el 11) >>
+  match_mp_tac proves_ACONV >> simp[] >>
+  metis_tac[])
 
 val assume = store_thm("assume",
   ``∀p thy. theory_ok thy ⇒

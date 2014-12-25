@@ -288,7 +288,7 @@ fun HYPC_CONV c =
 
 type reader = {
   theory_ok : thm, (* |- theory_ok thy *)
-  axiom : term -> thm option, (* c -> |- c ∈ axsof thy *)
+  axiom : term -> thm option, (* c' -> |- c ∈ axsof thy ∧ ACONV c c' *)
   const : term -> thm,
    (* name -> |- FLOOKUP (tmsof thy) name = SOME ty0 *)
   typeOp : term -> thm
@@ -388,6 +388,7 @@ fun readLine (r:reader) s l =
         val th =
           if isSome inaxs andalso null hs then
             MATCH_MP axiom theory_ok
+            |> C MATCH_MP (MATCH_MP term_ok_welltyped term_ok_c)
             |> C MATCH_MP (valOf inaxs)
           else
             let
