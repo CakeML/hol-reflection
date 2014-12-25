@@ -4,7 +4,12 @@ open OpenTheoryMap pairSyntax pairTheory miscLib listLib stringLib optionLib
      holSyntaxSyntax holSyntaxTheory holSyntaxExtraTheory
      holDerivationTheory
 
-val the_name_map : term from_ot = Map.mkDict otname_cmp
+val the_name_map : term from_ot ref = ref (Map.mkDict otname_cmp)
+fun add_name_map ot ml =
+  the_name_map := Map.insert(!the_name_map,ot,ml)
+
+val () = add_name_map ([],"->") ``strlit"fun"``
+val () = add_name_map ([],"select") ``strlit"@"``
 
 datatype object =
     Num of int
@@ -197,9 +202,11 @@ val match_type_rws = [
 
 local
   val c = listLib.list_compset()
+  val () = computeLib.scrub_const c ``set`` (* TODO: list_compset is arguably broken because of this *)
   val () = optionLib.OPTION_rws c
   val () = pairLib.add_pair_compset c
   val () = computeLib.add_thms match_type_rws c
+  val () = add_type_info c
 in
   val EVAL_match_type = computeLib.CBV_CONV c
 end
@@ -212,7 +219,7 @@ fun prove_is_instance type_ok_ty0 type_ok_ty =
     val th2 =
       MATCH_MP type_ok_arities_match
         (CONJ type_ok_ty0 type_ok_ty)
-      |> C MATCH_MP match_type_SOME
+      |> MATCH_MP match_type_SOME
       |> C MATCH_MP th1
   in
     MATCH_MP is_instance_lemma th2
@@ -289,15 +296,21 @@ fun trimlr s = String.substring(s,1,String.size s - 2)
 fun unimplemented l =
   mk_HOL_ERR"holDerivationLib""readLine"("unimplemented: "^l)
 
-fun readLine r s l =
+fun default_name ((ns,n):otname) = mlstringSyntax.mk_strlit(stringLib.fromMLstring n)
+
+fun readLine (r:reader) s l =
   let
     val c = String.sub(l,0)
   in
     if c = #"#" then s
     else if c = #"\"" then
-      Map.find(the_name_map,
-               string_to_otname (trimlr l))
-      |> Name |> push s
+      let
+        val otname = string_to_otname (trimlr l)
+        val name = Map.find(!the_name_map,otname)
+                   handle Map.NotFound => default_name otname
+      in
+        name |> Name |> push s
+      end
     else if Char.isDigit(c) orelse c = #"-" then
       Option.valOf(Int.fromString l)
       |> Num |> push s
@@ -462,8 +475,9 @@ fun readLine r s l =
         val th2 = join_EVERY (mk_comb(type_ok_tm,tysig)) (map f args)
         val th3 = MATCH_MP th1 th2
         val th4 = computeLib.CBV_CONV listc (fst(dest_imp(concl th3)))
+                  |> EQT_ELIM
       in
-        MP th4 TRUTH
+        MP th3 th4
         |> Type |> push s
       end
     else if l = "pop" then
@@ -628,9 +642,10 @@ fun readLine r s l =
       end
     else if l = "varType" then
       let
-        val (Var (n,type_ok_ty),s) = pop s
+        val (Name n,s) = pop s
       in
-        type_ok_ty
+        type_ok_Tyvar
+        |> SPECL[#theory_ok r |> concl |> rand,n]
         |> Type |> push s
       end
     else if l = "version" then

@@ -177,30 +177,34 @@ val match_type_SOME = store_thm("match_type_SOME",
 (* -- *)
 
 val term_ok_Abs = store_thm("term_ok_Abs",
-  ``term_ok (sigof thy) b ∧ type_ok (tysof thy) ty ⇒
+  ``term_ok (sigof (thy:thy)) b ∧ type_ok (tysof thy) ty ⇒
       term_ok (sigof thy) (Abs (Var v ty) b)``,
   rw[term_ok_def])
 
 val term_ok_Comb = store_thm("term_ok_Comb",
-  ``term_ok (sigof thy) x ∧ term_ok (sigof thy) f ∧
+  ``term_ok (sigof (thy:thy)) x ∧ term_ok (sigof thy) f ∧
     welltyped (Comb f x) ⇒
     term_ok (sigof thy) (Comb f x)``,
   rw[term_ok_def])
 
 val term_ok_Const = store_thm("term_ok_Const",
-  ``(FLOOKUP (tmsof thy) name = SOME ty0) ∧
+  ``(FLOOKUP (tmsof (thy:thy)) name = SOME ty0) ∧
     type_ok (tysof thy) ty ⇒
     is_instance ty0 ty ⇒
     term_ok (sigof thy) (Const name ty)``,
   rw[term_ok_def])
 
 val term_ok_Var = store_thm("term_ok_Var",
-  ``∀name. type_ok (tysof thy) ty ⇒
+  ``∀name. type_ok (tysof (thy:thy)) ty ⇒
     term_ok (sigof thy) (Var name ty)``,
   rw[term_ok_def])
 
+val type_ok_Tyvar = store_thm("type_ok_Tyvar",
+  ``∀(thy:thy) a. type_ok (tysof thy) (Tyvar a)``,
+  rw[type_ok_def])
+
 val type_ok_Tyapp = store_thm("type_ok_Tyapp",
-  ``(FLOOKUP (tysof thy) name = SOME a) ⇒
+  ``(FLOOKUP (tysof (thy:thy)) name = SOME a) ⇒
     EVERY (type_ok (tysof thy)) args ⇒
     (LENGTH args = a)
     ⇒ type_ok (tysof thy) (Tyapp name args)``,
