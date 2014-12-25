@@ -319,7 +319,8 @@ fun readLine (r:reader) s l =
         val (Term term_ok_b,s) = pop s
         val (Var (x,type_ok_ty),s) = pop s
       in
-        MATCH_MP term_ok_Abs (CONJ term_ok_b type_ok_ty)
+        MATCH_MP (SPEC x term_ok_Abs)
+          (CONJ term_ok_b type_ok_ty)
         |> Term |> push s
       end
     else if l = "absThm" then

@@ -177,7 +177,7 @@ val match_type_SOME = store_thm("match_type_SOME",
 (* -- *)
 
 val term_ok_Abs = store_thm("term_ok_Abs",
-  ``term_ok (sigof (thy:thy)) b ∧ type_ok (tysof thy) ty ⇒
+  ``∀v. term_ok (sigof (thy:thy)) b ∧ type_ok (tysof thy) ty ⇒
       term_ok (sigof thy) (Abs (Var v ty) b)``,
   rw[term_ok_def])
 
