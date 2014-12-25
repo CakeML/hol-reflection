@@ -209,23 +209,28 @@ fun prove_is_instance type_ok_ty0 type_ok_ty =
     MATCH_MP is_instance_lemma th2
   end
 
-(* TODO:
-  need an EVAL-friendly version of VARIANT for
-  INST_CORE_def and VSUBST_def. use variant in holKernel. *)
+val strcat_thm = prove(
+  ``strcat (strlit s1) (strlit s2) = strlit (s1 ++ s2)``,
+  rw[mlstringTheory.strcat_def,mlstringTheory.implode_def])
+
 val vsubst_inst_rws = [
-  VFREE_IN_def,
-  INST_def,
-  RESULT_def,
-  INST_CORE_def,
-  IS_CLASH_def,
-  IS_RESULT_def,
-  dest_var_def]
+  holSyntaxExtraTheory.VSUBST_thm,
+  inst_eval_def,
+  inst_core_eval_def,
+  holSyntaxExtraTheory.vfree_in_def,
+  holSyntaxExtraTheory.variant_def,
+  strcat_thm,
+  dest_var_def,
+  holSyntaxLibTheory.RESULT_def,
+  holSyntaxLibTheory.IS_RESULT_def,
+  holSyntaxLibTheory.IS_CLASH_def]
   @ type_subst_rws
 
 local
   val c = listLib.list_compset()
   val () = pairLib.add_pair_compset c
   val () = add_type_info c
+  val () = computeLib.add_datatype_info c (valOf(TypeBase.fetch``:'a result``))
   val () = computeLib.add_thms vsubst_inst_rws c
 in
   val EVAL_subst = computeLib.CBV_CONV c
