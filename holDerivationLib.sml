@@ -342,6 +342,11 @@ fun remove k (s:state) : state =
      thms = #thms s}
   end
 
+fun addThm th (s:state) : state =
+  {stack = #stack s,
+   dict = #dict s,
+   thms = Net.insert(concl th,th) (#thms s)}
+
 type reader = {
   theory_ok : thm, (* |- theory_ok thy *)
   axiom : thm list -> thm, (* map (|- term_ok thy) (c::h) -> |- (thy,h) |- c *)
@@ -661,11 +666,11 @@ fun readLine (r:reader) s l =
             |> EQ_MP (CONJ term_ok_x (EVAL_typeof x))
           end
         val th4 = MATCH_MP th3 (join_EVERY P (map f hs3))
-        val th5 = MATCH_MP th4 (prove_hypset_ok (rand(fst(dest_imp(concl th4)))))
+        val th5 = MATCH_MP th4 (prove_hypset_ok (fst(dest_imp(concl th4))))
         val th6 = EVAL_ACONV (fst(dest_imp(concl th5)))
                   |> EQT_ELIM |> MATCH_MP th5
       in
-        th6 |> Thm |> push s
+        addThm th6 s
       end
     else if l = "trans" then
       let
