@@ -559,4 +559,100 @@ val thm = store_thm("thm",
   fs[EVERY_MEM,EXISTS_MEM] >>
   metis_tac[WELLTYPED,term_ok_welltyped])
 
+open holBoolSyntaxTheory
+
+val truth = store_thm("truth",
+  ``theory_ok thy ∧
+    (Const (strlit "T") Bool === ^(rhs(concl TrueDef_def))) ∈ axsof thy
+    ⇒
+    (thy,[]) |- True``,
+  rw[] >>
+  imp_res_tac (proves_rules |> CONJUNCTS |> el 11) >>
+  pop_assum(strip_assume_tac o MATCH_MP sym_equation) >>
+  pop_assum(mp_tac o MATCH_MP eqMp_equation) >>
+  qspecl_then[`Abs(Var(strlit"p")Bool)(Var(strlit"p")Bool)`,`thy`]mp_tac refl_equation >>
+  imp_res_tac theory_ok_sig >>
+  simp[term_ok_clauses] >>
+  disch_then(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
+  simp[])
+
+val eqT_intro = store_thm("eqT_intro",
+  ``∀thy h c. (thy,h) |- c ∧
+    (Const (strlit "T") Bool === ^(rhs(concl TrueDef_def))) ∈ axsof thy
+    ⇒
+    (thy,h) |- c === True``,
+  rw[] >>
+  imp_res_tac proves_term_ok >>
+  imp_res_tac proves_theory_ok >> fs[] >>
+  imp_res_tac truth >>
+  qspecl_then[`c`,`True`]mp_tac deductAntisym_equation >>
+  simp[GSYM AND_IMP_INTRO] >>
+  first_x_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
+  first_x_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
+  simp[term_union_thm] >>
+  Cases_on`term_remove True h = h`>>simp[] >> strip_tac >>
+  imp_res_tac term_remove_exists >>
+  qspecl_then[`thy`,`term_remove True h`,`c === True`,`c'`]mp_tac addAssum >>
+  simp[] >>
+  discharge_hyps >- fs[EVERY_MEM] >>
+  metis_tac[term_union_insert_remove])
+
+val gen = store_thm("gen",
+  ``∀thy h t x ty.
+     is_true_sig (tmsof thy) ∧
+     (Const (strlit "T") Bool === ^(rhs(concl TrueDef_def))) ∈ axsof thy ∧
+     (Const (strlit "!") (Fun (Fun (Tyvar(strlit"A")) Bool) Bool) ===
+       ^(rhs(concl ForallDef_def))) ∈ axsof thy ⇒
+    (thy,h) |- t ⇒
+     type_ok (tysof (thy:thy)) ty ⇒
+     EVERY ($~ o VFREE_IN (Var x ty)) h
+    ⇒ (thy,h) |- (Forall x ty t)``,
+  rw[] >>
+  imp_res_tac proves_theory_ok >> fs[] >>
+  ASSUM_LIST(fn ls => assume_tac (MATCH_MP (proves_rules |> CONJUNCTS |> el 11) (CONJ (el 1 ls) (el 5 ls)))) >>
+  first_x_assum(mp_tac o MATCH_MP (GEN_ALL subst_rule)) >>
+  disch_then(qspecl_then[`[(ty,Tyvar(strlit"A"))]`,`[]`]mp_tac) >>
+  simp[] >>
+  CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
+  dep_rewrite.DEP_REWRITE_TAC[equation_intro] >>
+  conj_tac >- EVAL_TAC >>
+  strip_tac >>
+  qspecl_then[`Abs (Var x ty) t`,`thy`]mp_tac refl_equation >>
+  simp[term_ok_def] >>
+  discharge_hyps_keep >- ( imp_res_tac proves_term_ok >> fs[] ) >>
+  strip_tac >>
+  last_x_assum(mp_tac o MATCH_MP appThm_equation) >>
+  disch_then(fn th => last_x_assum (mp_tac o MATCH_MP th)) >>
+  `welltyped t ∧ (typeof t = Bool)` by (
+    imp_res_tac proves_term_ok >> fs[] >>
+    metis_tac[term_ok_welltyped,WELLTYPED_LEMMA] ) >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`(thy,[]) |- Forall x ty t === Comb (Abs (Var u uy) b) l` >>
+  qspecl_then[`u`,`uy`,`typeof b`,`b`,`thy`,`l`]mp_tac betaConv >>
+  imp_res_tac theory_ok_sig >>
+  simp[term_ok_clauses,Abbr`uy`,Abbr`l`] >>
+  simp[GSYM AND_IMP_INTRO] >>
+  discharge_hyps_keep >- (
+    simp[Abbr`b`,term_ok_clauses] >>
+    fs[term_ok_def,is_true_sig_def,term_ok_clauses] ) >>
+  discharge_hyps_keep >- metis_tac[term_ok_welltyped] >> rfs[] >>
+  qunabbrev_tac`b` >> qunabbrev_tac`u` >>
+  CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV EVAL))) >>
+  dep_rewrite.DEP_REWRITE_TAC[equation_intro] >>
+  conj_tac >- (EVAL_TAC >> PROVE_TAC[]) >> strip_tac >>
+  first_x_assum(mp_tac o MATCH_MP trans_equation) >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  simp[] >>
+  `(thy,[]) |- True` by metis_tac[truth] >>
+  qspecl_then[`thy`,`h`,`t`]mp_tac eqT_intro >>
+  simp[] >> strip_tac >>
+  qspecl_then[`h`,`t`,`True`,`thy`,`ty`,`x`]mp_tac absThm_equation >>
+  simp[] >> rw[] >>
+  pop_assum(mp_tac o (MATCH_MP eqMp_equation) o MATCH_MP sym_equation) >>
+  disch_then(fn th => pop_assum(mp_tac o MATCH_MP th)) >>
+  simp[term_union_thm] >> disch_then match_mp_tac >>
+  simp[equation_def,ACONV_def,RACONV] >>
+  match_mp_tac RACONV_REFL >>
+  simp[])
+
 val _ = export_theory()
