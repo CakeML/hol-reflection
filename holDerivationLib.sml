@@ -4,63 +4,6 @@ open OpenTheoryMap pairSyntax pairTheory miscLib listLib stringLib optionLib
      holSyntaxSyntax holSyntaxTheory holSyntaxExtraTheory
      holDerivationTheory
 
-val the_name_map : term from_ot ref = ref (Map.mkDict otname_cmp)
-fun add_name_map ot ml =
-  the_name_map := Map.insert(!the_name_map,ot,ml)
-
-val () = add_name_map ([],"->") ``strlit"fun"``
-val () = add_name_map ([],"select") ``strlit"@"``
-
-datatype object =
-    Num of int
-  | Name of term (* of type mlstring *)
-  | List of object list
-  | TypeOp of thm (* |- FLOOKUP (tysof thy) name = SOME arity *)
-  | Type of thm (* |- type_ok (tysof thy) ty *)
-  | Const of thm (* |- FLOOKUP (tmsof thy) name = SOME ty0 *)
-  | Var of term * thm (* name, |- type_ok (tysof thy) ty *)
-  | Term of thm (* |- term_ok (sigof thy) tm *)
-  | Thm of thm (* |- (thy,h) |- c *)
-
-type state = {
-  stack : object list,
-  dict : (int,object) Redblackmap.dict,
-  thms : thm Net.net
-}
-
-val init_state:state = {
-  stack = [],
-  dict = Redblackmap.mkDict Int.compare,
-  thms = Net.empty
-}
-
-fun push (s:state) obj : state =
-  { stack = obj::(#stack s),
-    dict = #dict s,
-    thms = #thms s}
-
-fun peek (s:state) = hd(#stack s)
-
-fun pop (s:state) : object * state =
-  (peek s,
-   {stack= tl(#stack s),
-    dict = #dict s,
-    thms = #thms s})
-
-fun def k x (s:state) =
-  {stack = #stack s,
-   dict = Redblackmap.update(#dict s, k, K x),
-   thms = #thms s}
-
-fun remove k (s:state) : state =
-  let
-    val (dict,x) = Redblackmap.remove(#dict s,k)
-  in
-    {stack = x::(#stack s),
-     dict = dict,
-     thms = #thms s}
-  end
-
 val typeof_rws = [typeof_def,codomain_def]
 
 local
@@ -282,6 +225,122 @@ val get_hyp = snd o dest_pair o rand o rator o concl
 val HYP_CONV = RATOR_CONV o RAND_CONV o RAND_CONV
 fun HYPC_CONV c =
   HYP_CONV c THENC RAND_CONV c
+
+val the_name_map : term from_ot ref = ref (Map.mkDict otname_cmp)
+fun add_name_map ot ml =
+  the_name_map := Map.insert(!the_name_map,ot,ml)
+
+val () = add_name_map ([],"->") ``strlit"fun"``
+val () = add_name_map ([],"select") ``strlit"@"``
+
+datatype object =
+    Num of int
+  | Name of term (* of type mlstring *)
+  | List of object list
+  | TypeOp of thm (* |- FLOOKUP (tysof thy) name = SOME arity *)
+  | Type of thm (* |- type_ok (tysof thy) ty *)
+  | Const of thm (* |- FLOOKUP (tmsof thy) name = SOME ty0 *)
+  | Var of term * thm (* name, |- type_ok (tysof thy) ty *)
+  | Term of thm (* |- term_ok (sigof thy) tm *)
+  | Thm of thm (* |- (thy,h) |- c *)
+
+fun ground_type ty =
+  mlstringSyntax.is_mlstring_literal(dest_Tyvar ty)
+  handle HOL_ERR {origin_function="dest_Tyvar",...} =>
+    let
+      val (name,args) = dest_Tyapp ty
+    in
+      mlstringSyntax.is_mlstring_literal name
+      andalso
+        (case total listSyntax.dest_list args of NONE => false
+         | SOME (ls,_) => all ground_type ls)
+    end
+
+fun ground_term tm =
+  case total dest_Var tm of SOME (name,ty) =>
+    mlstringSyntax.is_mlstring_literal name
+      andalso ground_type ty
+  | NONE => case total dest_Const tm of SOME (name,ty) =>
+    mlstringSyntax.is_mlstring_literal name
+      andalso ground_type ty
+  | NONE => case total dest_Comb tm of SOME (t1,t2) =>
+    ground_term t1 andalso ground_term t2
+  | NONE => case total dest_Abs tm of SOME (t1,t2) =>
+    ground_term t1 andalso ground_term t2
+  | NONE => false
+
+fun good_object (Num _) = true
+  | good_object (Name n) = mlstringSyntax.is_mlstring_literal n
+  | good_object (List ls) = all good_object ls
+  | good_object (TypeOp th) =
+      can(match_term``FLOOKUP (tysof (thy:thy)) name = SOME arity``)(concl th)
+      andalso mlstringSyntax.is_mlstring_literal(rand(lhs(concl th)))
+      andalso numSyntax.is_numeral(rand(rhs(concl th)))
+  | good_object (Type th) =
+      can(match_term``type_ok (tysof (thy:thy)) ty``)(concl th)
+      andalso ground_type(rand(concl th))
+  | good_object (Const th) =
+      can(match_term``FLOOKUP (tmsof (thy:thy)) name = SOME ty0``)(concl th)
+      andalso mlstringSyntax.is_mlstring_literal(rand(lhs(concl th)))
+      andalso ground_type(rand(rhs(concl th)))
+  | good_object (Var(name,th)) =
+      mlstringSyntax.is_mlstring_literal name
+      andalso good_object (Type th)
+  | good_object (Term th) =
+      can(match_term``term_ok (sigof (thy:thy)) tm``)(concl th)
+      andalso ground_term(rand(concl th))
+  | good_object (Thm th) =
+      can(match_term``(thy,h) |- c``)(concl th)
+      andalso
+        let
+          val (thyh,c) = dest_proves (concl th)
+          val (thy,h) = dest_pair thyh
+        in
+          case total listSyntax.dest_list h of NONE => false
+          | SOME (h,_) => all ground_term (c::h)
+        end
+
+(* comment out for checking *)
+fun good_object _ = true
+
+type state = {
+  stack : object list,
+  dict : (int,object) Redblackmap.dict,
+  thms : thm Net.net
+}
+
+val init_state:state = {
+  stack = [],
+  dict = Redblackmap.mkDict Int.compare,
+  thms = Net.empty
+}
+
+fun push (s:state) obj : state =
+  { stack = (assert good_object obj)::(#stack s),
+    dict = #dict s,
+    thms = #thms s}
+
+fun peek (s:state) = hd(#stack s)
+
+fun pop (s:state) : object * state =
+  (peek s,
+   {stack= tl(#stack s),
+    dict = #dict s,
+    thms = #thms s})
+
+fun def k x (s:state) =
+  {stack = #stack s,
+   dict = Redblackmap.update(#dict s, k, K (assert good_object x)),
+   thms = #thms s}
+
+fun remove k (s:state) : state =
+  let
+    val (dict,x) = Redblackmap.remove(#dict s,k)
+  in
+    {stack = x::(#stack s),
+     dict = dict,
+     thms = #thms s}
+  end
 
 type reader = {
   theory_ok : thm, (* |- theory_ok thy *)
