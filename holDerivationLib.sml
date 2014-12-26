@@ -237,8 +237,10 @@ val strcat_thm = prove(
 
 val vsubst_inst_rws = [
   VSUBST_thm,
+  VFREE_IN_def,
   inst_eval_def,
   inst_core_eval_def,
+  frees_def,union_def,subtract_def,itlist_def,
   vfree_in_def,
   variant_def,
   strcat_thm,
