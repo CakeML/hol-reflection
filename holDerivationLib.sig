@@ -3,7 +3,7 @@ signature holDerivationLib = sig
 
   type reader = {
     theory_ok : thm, (* |- theory_ok thy *)
-    axiom : term -> thm option, (* c' -> |- c ∈ axsof thy ∧ ACONV c c' *)
+    axiom : thm list -> thm, (* map (|- term_ok thy) (c::h) -> |- (thy,h) |- c *)
     const : term -> thm,
      (* name -> |- FLOOKUP (tmsof thy) name = SOME ty0 *)
     typeOp : term -> thm

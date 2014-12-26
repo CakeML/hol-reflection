@@ -274,13 +274,6 @@ fun prove_hypset_ok h =
    EVAL_SORTED_alpha_lt)
   |> EQT_ELIM
 
-local
-  fun f (Term term_ok_tm) = term_ok_tm |> concl |> rand
-in
-  fun mk_hyp_list hs =
-    listSyntax.mk_list(map f hs, term_ty)
-end
-
 val listc = listLib.list_compset()
 
 val get_hyp = snd o dest_pair o rand o rator o concl
@@ -290,7 +283,7 @@ fun HYPC_CONV c =
 
 type reader = {
   theory_ok : thm, (* |- theory_ok thy *)
-  axiom : term -> thm option, (* c' -> |- c ∈ axsof thy ∧ ACONV c c' *)
+  axiom : thm list -> thm, (* map (|- term_ok thy) (c::h) -> |- (thy,h) |- c *)
   const : term -> thm,
    (* name -> |- FLOOKUP (tmsof thy) name = SOME ty0 *)
   typeOp : term -> thm
@@ -385,23 +378,11 @@ fun readLine (r:reader) s l =
       let
         val (Term term_ok_c,s) = pop s
         val (List hs,s) = pop s
-        val c = term_ok_c |> concl |> rand
-        val inaxs = c |> #axiom r
-        val theory_ok = #theory_ok r
-        val th =
-          if isSome inaxs andalso null hs then
-            MATCH_MP axiom theory_ok
-            |> C MATCH_MP (MATCH_MP term_ok_welltyped term_ok_c)
-            |> C MATCH_MP (valOf inaxs)
-          else
-            let
-              val thy = theory_ok |> concl |> rand
-              val h = mk_hyp_list hs
-            in
-              mk_proves(mk_pair(thy,h),c) |> ASSUME
-            end
+        val term_ok_hs = map (fn (Term th) => th) hs
       in
-        th |> Thm |> push s
+        term_ok_c::term_ok_hs
+        |> #axiom r
+        |> Thm |> push s
       end
     else if l = "betaConv" then
       let
