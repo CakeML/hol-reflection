@@ -2,7 +2,8 @@ open HolKernel boolLib bossLib lcsymtacs listTheory combinTheory
 open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 open holConsistencyTheory
 open holExtensionTheory holConstrainedExtensionTheory
-open reflectionTheory reflectionLib
+open reflectionTheory reflectionLib holDerivationLib
+val mem = reflectionLib.mem
 
 val _ = new_theory"reflectionDemo"
 val () = Globals.max_print_depth := 13
@@ -16,7 +17,11 @@ val prod_updates_thm = prove(
   ``^prod_inner_upd updates ^ctxt``,
   match_mp_tac (updates_rules |> CONJUNCTS |> el 5) >>
   exists_tac(term_to_deep``λa b. (a=x) ∧ (b=y)``) >>
-  conj_tac >- ( cheat ) >>
+  conj_tac >- (
+      TextIO.openIn("opentheory/prodWitness.art")
+      |> readArticle hol_ctxt_reader
+      |> Net.listItems
+      |> hd |> ACCEPT_TAC ) >>
   conj_tac >- ( EVAL_TAC >> rw[] >> metis_tac[] ) >>
   EVAL_TAC)
 val prod_sound_update_thm = prove(
