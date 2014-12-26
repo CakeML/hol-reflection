@@ -134,9 +134,9 @@ val NOT_F = NOT_CLAUSES |> CONJUNCTS |> last
 
 val EVAL_not_VFREE_IN =
   EQT_ELIM o
-    REWR_CONV combinTheory.o_THM THENC
-    RAND_CONV EVAL_VFREE_IN THENC
-    REWR_CONV NOT_F
+    (REWR_CONV combinTheory.o_THM THENC
+     RAND_CONV EVAL_VFREE_IN THENC
+     REWR_CONV NOT_F)
 
 val ACONV_rws =
   [ACONV_def,
@@ -431,7 +431,7 @@ fun readLine (r:reader) s l =
       let
         val (Thm th1,s) = pop s
         val (Thm th2,s) = pop s
-        val th3 = MATCH_MP deductAntisym (CONJ th1 th2)
+        val th3 = MATCH_MP deductAntisym (CONJ th2 th1)
         val th4 = EVAL_typeof(lhs(fst(dest_imp(concl th3))))
       in
         MATCH_MP th3 th4
@@ -610,13 +610,14 @@ fun readLine (r:reader) s l =
       end
     else if l = "trans" then
       let
-        val (Thm th2,s) = pop s
         val (Thm th1,s) = pop s
+        val (Thm th2,s) = pop s
         val th3 = MATCH_MP (MATCH_MP trans th1) th2
         val th4 = EVAL_ACONV (fst(dest_imp(concl th3)))
                   |> EQT_ELIM
       in
         MATCH_MP th3 th4
+        |> CONV_RULE(HYP_CONV EVAL_hypset)
         |> Thm |> push s
       end
     else if l = "typeOp" then
