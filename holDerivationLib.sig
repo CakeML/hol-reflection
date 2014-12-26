@@ -12,4 +12,6 @@ signature holDerivationLib = sig
 
   val readArticle : reader -> TextIO.instream -> thm Net.net
 
+  val hol_ctxt_reader : reader
+
 end

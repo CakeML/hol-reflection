@@ -736,4 +736,107 @@ fun readArticle r istr =
     #thms s
   end
 
+local
+  val gen1 =
+    SPEC``thyof (hol_ctxt)``gen
+    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> SIMP_RULE bool_ss [RIGHT_FORALL_IMP_THM]
+    |> REWRITE_RULE[AND_IMP_INTRO]
+    |> UNDISCH
+    |> prove_hyps_by EVAL_TAC
+
+  val theory_ok =
+    MATCH_MP (MATCH_MP extends_theory_ok reflectionTheory.hol_extends_init) init_theory_ok
+
+  val axiom1 = MATCH_MP axiom theory_ok
+
+  val in_ax_th =
+    proves_rules |> CONJUNCTS |> el 11
+    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> C MATCH_MP theory_ok
+
+  val in_axs_disjuncts = ``c ∈ axsof (thyof hol_ctxt)`` |> EVAL |> Q.GEN`c`
+  val axs = in_axs_disjuncts |> SPEC_ALL |> concl |> rhs |> strip_disj |> map rhs
+
+  val axths =
+    REWRITE_RULE[in_axs_disjuncts]in_ax_th
+    |> SIMP_RULE (bool_ss++boolSimps.DNF_ss)[]
+    |> CONJUNCTS
+
+  val ext0 =
+    el 5 axths
+    |> MATCH_MP gen1
+    |> SPECL[``strlit"f"``,``Fun (Tyvar(strlit "A")) (Tyvar(strlit"B"))``]
+    |> UNDISCH
+    |> prove_hyps_by EVAL_TAC
+
+  val choice0 =
+    el 4 axths
+    |> MATCH_MP gen1
+    |> SPECL[``strlit"x"``,``Tyvar(strlit"A")``]
+    |> UNDISCH
+    |> prove_hyps_by EVAL_TAC
+    |> MATCH_MP gen1
+    |> SPECL[``strlit"P"``,``Fun (Tyvar(strlit"A")) Bool``]
+    |> UNDISCH
+    |> prove_hyps_by EVAL_TAC
+
+  val truth0 =
+    truth
+    |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> C MATCH_MP theory_ok
+    |> UNDISCH
+    |> prove_hyps_by EVAL_TAC
+
+  fun trymatch term_ok_c' ax0 =
+    let
+      val ax =
+        proves_ACONV
+        |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+        |> C MATCH_MP ax0
+      val th = MATCH_MP ax (MATCH_MP term_ok_welltyped term_ok_c') |> Q.SPEC`[]`
+    in
+      EVAL_ACONV(fst(dest_imp(concl th)))|>EQT_ELIM|>MATCH_MP th
+        |> C MATCH_MP hypset_ok_nil
+        |> REWRITE_RULE[AND_IMP_INTRO]
+        |> UNDISCH
+        |> prove_hyps_by EVAL_TAC
+    end
+
+  fun findax [term_ok_c'] =
+    tryfind (trymatch term_ok_c') [truth0,ext0,choice0]
+    handle HOL_ERR _ =>
+    let
+      val aconvth =
+        tryfind (fn c => EVAL_ACONV``ACONV ^c ^(rand(concl term_ok_c'))`` |> EQT_ELIM) axs
+      val inth =
+        SPEC(rand(rator(concl aconvth)))in_axs_disjuncts
+        |> CONV_RULE(RAND_CONV EVAL)
+        |> EQT_ELIM
+      val th = axiom1
+        |> C MATCH_MP (MATCH_MP term_ok_welltyped term_ok_c')
+        |> C MATCH_MP (CONJ inth aconvth)
+    in
+      th
+    end
+in
+  val hol_ctxt_reader = {
+    theory_ok = theory_ok,
+    axiom = findax,
+    const = (fn tm => ``FLOOKUP (tmsof (thyof hol_ctxt)) ^tm`` |> EVAL),
+    typeOp = (fn tm => ``FLOOKUP (tysof (thyof hol_ctxt)) ^tm`` |> EVAL)
+  }
+end
+
+(*
+val istr = TextIO.openIn("opentheory/prodWitness.art")
+fun run s 0 = s
+  | run s n =
+      case TextIO.inputLine istr of NONE => s
+      | SOME l => run (readLine hol_ctxt_reader s (trimr l)) (n-1)
+        handle HOL_ERR e => (print l; print(Feedback.format_ERR e); s)
+val s = init_state
+val s = run s 100
+*)
+
 end
