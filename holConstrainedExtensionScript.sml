@@ -662,7 +662,7 @@ val constrain_tyass_is_type_assignment = store_thm("constrain_tyass_is_type_assi
   res_tac >> rw[constrain_assignment_def] >>
   BasicProvers.CASE_TAC >> rw[] >>
   BasicProvers.CASE_TAC >- metis_tac[] >>
-  qmatch_assum_rename_tac`cs ls = SOME p`[]>>
+  qmatch_assum_rename_tac`cs ls = SOME p`>>
   PairCases_on`p`>>res_tac>>
   imp_res_tac ALOOKUP_MEM>>
   rfs[ZIP_MAP,MEM_MAP] >>
@@ -697,7 +697,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
   fs[GSYM mlstring_sort_def] >>
   reverse BasicProvers.CASE_TAC >- (
     fs[well_formed_constraints_def] >>
-    qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+    qmatch_assum_rename_tac`cs _ = SOME p`>>
     PairCases_on`p`>>
     first_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
     fs[LET_THM] >>
@@ -718,7 +718,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
         simp[type_ok_def,Abbr`d1`,FUN_EQ_THM] >> rw[] >>
         BasicProvers.CASE_TAC >>
         BasicProvers.CASE_TAC >>
-        qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+        qmatch_assum_rename_tac`cs _ = SOME p`>>
         PairCases_on`p`>>
         res_tac >> fs[ZIP_MAP] >>
         imp_res_tac ALOOKUP_MEM >>
@@ -794,7 +794,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     fs[well_formed_constraints_def,ALL_DISTINCT_APPEND] >>
-    qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+    qmatch_assum_rename_tac`cs _ = SOME p`>>
     PairCases_on`p`>>res_tac>>
     imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
     imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
@@ -819,7 +819,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     fs[well_formed_constraints_def] >>
-    qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+    qmatch_assum_rename_tac`cs _ = SOME p`>>
     PairCases_on`p`>>res_tac>>
     fs[LENGTH_NIL]) >>
   qmatch_abbrev_tac`typesem d1 τ v = typesem δ τ v` >>
@@ -860,7 +860,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     fs[well_formed_constraints_def] >>
-    qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+    qmatch_assum_rename_tac`cs _ = SOME p`>>
     PairCases_on`p`>>res_tac>>
     imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
     imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
@@ -938,7 +938,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
       res_tac >> fs[] >> rw[] >>
       rpt (BasicProvers.CASE_TAC >> res_tac >> fs[]) >>
       fs[well_formed_constraints_def] >>
-      qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+      qmatch_assum_rename_tac`cs _ = SOME p`>>
       PairCases_on`p`>>res_tac>>
       imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
       imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
@@ -949,7 +949,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     imp_res_tac ALOOKUP_MEM >>
     imp_res_tac well_formed_constraints_implies_lengths >>
     fs[well_formed_constraints_def] >>
-    qmatch_assum_rename_tac`cs ls = SOME p`["ls"]>>
+    qmatch_assum_rename_tac`cs _ = SOME p`>>
     PairCases_on`p`>>res_tac>>
     fs[LET_THM] >>
     qmatch_assum_abbrev_tac`LENGTH ls = 1` >>

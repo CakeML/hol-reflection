@@ -647,7 +647,7 @@ val exists_thm = prove(
   simp[holds_def,GSYM bool_to_inner_def] >>
   disch_then kall_tac >>
   rw[EQ_IMP_THM] >- (
-    qmatch_assum_rename_tac`z <: range ina`[] >>
+    qmatch_assum_rename_tac`z <: range ina` >>
     qexists_tac`finv ina z` >>
     pop_assum mp_tac >>
     simp[fun_to_inner_def] >>
