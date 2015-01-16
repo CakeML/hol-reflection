@@ -1,9 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs
 open pred_setTheory cardinalTheory
-open setSpecTheory
+open setSpecTheory miscLib
 val _ = new_theory"lca"
-
-CARD_LT_CARD |> concl |> rand |> lhs
 
 val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
@@ -14,6 +12,7 @@ val bijection_exists_def = Define`
   bijection_exists X =
     ∃f. BIJ f X { x | x ⊆ X ∧ ¬(cardleq X x)}`
 
+(* probably not true :( *)
 val strong_limit_cardinal_bijection_exists = store_thm("strong_limit_cardinal_bijection_exists",
   ``∀X. strong_limit_cardinal X ⇒ bijection_exists X``,
   rw[strong_limit_cardinal_def] >>
@@ -31,7 +30,6 @@ val lemma = prove(
   cheat)
 *)
 
-(*
 val bijection_implies_set_theory = store_thm("bijection_implies_set_theory",
   ``strong_limit_cardinal (UNIV:'U set) ⇒
     ∃(mem:'U reln). is_set_theory mem``,
@@ -86,39 +84,50 @@ val bijection_implies_set_theory = store_thm("bijection_implies_set_theory",
   qx_genl_tac[`a`,`b`,`c`] >>
   qmatch_abbrev_tac`f (g z) c ⇔ R` >>
   `f (g z) = z` by (
-    first_x_assum match_mp_tac >>
+    first_assum match_mp_tac >>
     simp[Abbr`z`] >>
     qmatch_abbrev_tac`z ≺ u` >>
-    `z = {a;b}` by (
-      simp[Abbr`z`,EXTENSION] ) >>
-    qpat_assum`Abbrev(z = X)`kall_tac >>
-    rw[Abbr`u`] >>
+    `z = {a;b}` by ( simp[Abbr`z`,EXTENSION] ) >>
+    qpat_assum`Abbrev(z = X)`kall_tac >> rw[Abbr`u`] >>
     fs[strong_limit_cardinal_def] >>
-    `({}:'U set) ≺ (UNIV:'U set)` by (
-      simp[cardleq_def] ) >>
-    `g (POW 
-    `{a; b} ≺ POW(POW(POW ({}:'U set)))` by (
-      simp[CARDLEQ_CARD,FINITE_POW,CARD_POW] >>
-      rw[] >> simp[] ) >>
-    match_mp_tac (INST_TYPE[gamma|->``:'U set set set``]cardlt_TRANS) >>
-    qexists_tac`POW(POW(POW {}))` >>
-    simp[] >>
-    first_assum match_mp_tac
-    metis_tac[]
-    metis_tac[]
-    first
-    metis_tac[cardlt_TRANS]
-    match_mp_tac (INST_TYPE[beta|->``:'U set set``]cardleq_lt_trans) >>
-    qexists_tac`POW (POW (f a))` >>
-    conj_tac >- (
-      simp[cardleq_def,INJ_DEF,IN_POW,SUBSET_DEF] >>
-      qexists_tac`f` >> simp[] >>
+    `({}:'U set) ≺ (UNIV:'U set)` by ( simp[cardleq_def] ) >>
+    last_assum(qspec_then`{}`mp_tac) >>
+    discharge_hyps >- rw[] >> strip_tac >>
+    `IMAGE g (POW {}) ≺ (UNIV:'U set)` by (
+      match_mp_tac (INST_TYPE[beta|->``:'U set``]cardleq_lt_trans) >>
+      qexists_tac`POW {}` >> simp[] ) >>
+    `POW (IMAGE g (POW {})) ≺ (UNIV:'U set)` by (
+      first_x_assum match_mp_tac >> rw[] ) >>
+    `IMAGE g (POW (IMAGE g (POW {}))) ≺ (UNIV:'U set)` by (
+      match_mp_tac (INST_TYPE[beta|->``:'U set``]cardleq_lt_trans) >>
+      qexists_tac`POW (IMAGE g (POW {}))` >> simp[]) >>
+    `POW (IMAGE g (POW (IMAGE g (POW {})))) ≺ (UNIV:'U set)` by (
+      first_x_assum match_mp_tac >> rw[] ) >>
+    `IMAGE g (POW (IMAGE g (POW (IMAGE g (POW {}))))) ≺ (UNIV:'U set)` by (
+      match_mp_tac (INST_TYPE[beta|->``:'U set``]cardleq_lt_trans) >>
+      qexists_tac`POW (IMAGE g (POW (IMAGE g (POW {}))))` >> simp[]) >>
+    match_mp_tac (INST_TYPE[gamma|->``:'U``]cardlt_TRANS) >>
+    qexists_tac`IMAGE g (POW (IMAGE g (POW (IMAGE g (POW {})))))` >>
+    simp[] >> simp[POW_DEF] >>
+    `{s | s ⊆ {g ∅}} = {{};{g {}}}` by (
+      simp[SUBSET_DEF,EXTENSION] >>
       metis_tac[] ) >>
-    metis_tac[] ) >>
-
-
-
-    print_find"cardleq"
-*)
+    simp[] >>
+    `{s | s ⊆ {g {}; g{g {}}}} = {{};{g {}};{g{g{}}};{g{};g{g{}}}}` by (
+       simp[SUBSET_DEF] >>
+       simp[EXTENSION,EQ_IMP_THM] >>
+       metis_tac[] ) >>
+    simp[] >>
+    `f (g {}) = {}` by metis_tac[] >>
+    `f (g {g ∅}) = {g ∅}` by (
+      first_x_assum match_mp_tac >> fs[POW_DEF] ) >>
+    `f (g {g {g ∅}}) = {g {g ∅}}` by (
+      first_x_assum match_mp_tac >> fs[POW_DEF] >>
+      `{g {g ∅}} ⊆ {g ∅; g {g ∅}}` by simp[SUBSET_DEF] >>
+      metis_tac[SUBSET_CARDLEQ,cardleq_lt_trans]) >>
+    simp[CARDLEQ_CARD] >>
+    rw[] >> simp[] >>
+    metis_tac[NOT_INSERT_EMPTY,EXTENSION,IN_INSERT] ) >>
+  rw[Abbr`z`,Abbr`R`])
 
 val _ = export_theory()
