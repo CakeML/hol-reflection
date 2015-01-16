@@ -7,24 +7,24 @@ val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
     ∀x. x ⊆ X ∧ x ≺ X ⇒ POW x ≺ X`
 
-val bijection_exists_def = Define`
-  bijection_exists X ⇔
+val limitation_of_size_def = Define`
+  limitation_of_size X ⇔
     ∃f. BIJ f X { x | x ⊆ X ∧ x ≺ X}`
 
 val regular_cardinal_def = Define`
-  regular_cardinal (X:α set) ⇔
-    ∀x (f:α->α set).
-      x ≺ X ∧ (∀a. a ∈ x ⇒ f a ≺ X) ⇒
+  regular_cardinal X ⇔
+    ∀x f.
+      x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
         BIGUNION (IMAGE f x) ≺ X`
 
 val implies_set_theory = store_thm("implies_set_theory",
   ``strong_limit_cardinal (UNIV:'U set) ∧
     regular_cardinal (UNIV:'U set) ∧
-    bijection_exists (UNIV:'U set)
+    limitation_of_size (UNIV:'U set)
     ⇒
     ∃(mem:'U reln). is_set_theory mem``,
   strip_tac >>
-  fs[bijection_exists_def] >>
+  fs[limitation_of_size_def] >>
   qexists_tac`combin$C f` >>
   simp[is_set_theory_def] >>
   conj_tac >- (
