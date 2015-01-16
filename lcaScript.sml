@@ -5,38 +5,27 @@ val _ = new_theory"lca"
 
 val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
-    ∀x. x ⊆ X ∧ ¬(cardleq X x) ⇒
-          ¬(cardleq X (POW x))`
+    ∀x. x ⊆ X ∧ x ≺ X ⇒ POW x ≺ X`
 
 val bijection_exists_def = Define`
-  bijection_exists X =
-    ∃f. BIJ f X { x | x ⊆ X ∧ ¬(cardleq X x)}`
+  bijection_exists X ⇔
+    ∃f. BIJ f X { x | x ⊆ X ∧ x ≺ X}`
 
-(* probably not true :( *)
-val strong_limit_cardinal_bijection_exists = store_thm("strong_limit_cardinal_bijection_exists",
-  ``∀X. strong_limit_cardinal X ⇒ bijection_exists X``,
-  rw[strong_limit_cardinal_def] >>
-  rw[BIJ_IFF_INV]>>
-  cheat)
+val regular_cardinal_def = Define`
+  regular_cardinal (X:α set) ⇔
+    ∀x (f:α->α set).
+      x ≺ X ∧ (∀a. a ∈ x ⇒ f a ≺ X) ⇒
+        BIGUNION (IMAGE f x) ≺ X`
 
-(*
-≺
-*)
-
-(* not true in general; make it just about UNIV:'U set
-val lemma = prove(
-  ``∀A X f. A ≺ X ∧ (∀a. a ∈ A ⇒ f a ≺ X) ⇒
-           BIGUNION (IMAGE f A) ≺ X``,
-  cheat)
-*)
-
-val bijection_implies_set_theory = store_thm("bijection_implies_set_theory",
-  ``strong_limit_cardinal (UNIV:'U set) ⇒
+val implies_set_theory = store_thm("implies_set_theory",
+  ``strong_limit_cardinal (UNIV:'U set) ∧
+    regular_cardinal (UNIV:'U set) ∧
+    bijection_exists (UNIV:'U set)
+    ⇒
     ∃(mem:'U reln). is_set_theory mem``,
   strip_tac >>
-  imp_res_tac strong_limit_cardinal_bijection_exists >>
   fs[bijection_exists_def] >>
-  qexists_tac`λx y. f y x` >>
+  qexists_tac`combin$C f` >>
   simp[is_set_theory_def] >>
   conj_tac >- (
     simp[extensional_def] >>
@@ -47,12 +36,12 @@ val bijection_implies_set_theory = store_thm("bijection_implies_set_theory",
     fs[BIJ_IFF_INV] >>
     qexists_tac`λy P. g (λx. f y x ∧ P x)` >>
     rw[] >>
-    qmatch_abbrev_tac`f (g z) x = R` >>
+    qmatch_abbrev_tac`f (g z) a = R` >>
     `f (g z) = z` suffices_by rw[Abbr`R`] >>
     first_x_assum match_mp_tac >>
     rw[Abbr`z`] >>
     match_mp_tac (INST_TYPE[beta|->``:'U``]cardleq_lt_trans) >>
-    qexists_tac`f y` >> simp[] >>
+    qexists_tac`f x` >> simp[] >>
     match_mp_tac SUBSET_CARDLEQ >>
     simp[SUBSET_DEF,IN_DEF] ) >>
   conj_tac >- (
@@ -76,7 +65,15 @@ val bijection_implies_set_theory = store_thm("bijection_implies_set_theory",
   conj_tac >- (
     simp[is_union_def] >>
     fs[BIJ_IFF_INV] >>
-    cheat) >>
+    qexists_tac`λx. g (BIGUNION (IMAGE f (f x)))` >>
+    simp[] >>
+    rpt gen_tac >>
+    qmatch_abbrev_tac`f (g z) c ⇔ R` >>
+    `f (g z) = z` suffices_by (
+      rw[Abbr`z`,PULL_EXISTS,IN_DEF] ) >>
+    first_x_assum match_mp_tac >>
+    rw[Abbr`z`] >>
+    fs[regular_cardinal_def]) >>
   simp[is_upair_def] >>
   fs[BIJ_IFF_INV] >>
   qexists_tac`λx y. g (λa. (a = x) ∨ (a = y))` >>
