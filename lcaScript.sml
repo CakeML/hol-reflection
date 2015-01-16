@@ -17,6 +17,29 @@ val regular_cardinal_def = Define`
       x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
         BIGUNION (IMAGE f x) ≺ X`
 
+val strong_regular_limitation = store_thm("strong_regular_limitation",
+  ``strong_limit_cardinal X ∧ regular_cardinal X ⇒
+    limitation_of_size X``,
+  rw[strong_limit_cardinal_def,regular_cardinal_def,limitation_of_size_def] >>
+  simp[GSYM cardeq_def] >>
+  match_mp_tac cardleq_ANTISYM >>
+  conj_tac >- (
+    simp[cardleq_def] >>
+    qexists_tac`λa. {a}` >>
+    simp[INJ_DEF] >> rw[] >>
+    spose_not_then strip_assume_tac >>
+    Cases_on`∃b. b ∈ X ∧ a ≠ b` >> fs[] >- metis_tac[] >>
+    `X = {a}` by (
+      simp[EXTENSION] >>
+      metis_tac[] ) >>
+    fs[] >>
+    last_x_assum(qspec_then`{}`mp_tac) >>
+    simp[CARDLEQ_CARD,POW_DEF] ) >>
+  simp[Once cardleq_def] >>
+  last_assum mp_tac >>
+  CONV_TAC(LAND_CONV(QUANT_CONV(RAND_CONV(RAND_CONV(REWR_CONV cardleq_def))))) >>
+  cheat)
+
 val implies_set_theory = store_thm("implies_set_theory",
   ``strong_limit_cardinal (UNIV:'U set) ∧
     regular_cardinal (UNIV:'U set) ∧
