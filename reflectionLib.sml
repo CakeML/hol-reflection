@@ -1745,8 +1745,11 @@ fun termsem_cert ctxt tm =
     val gc = good_context_thm |> ONCE_REWRITE_RULE[unpair_sig, unpair_int]
     val th3 = foldl (uncurry PROVE_HYP) th2 (gc::sig_assums@int_assums)
     val th4 = foldl (uncurry PROVE_HYP) th3 wf_to_inners
+    (* TODO: prove is_valuation hypothesis, use update_valuation? *)
   in
     CONJ models_thm th4
   end
+
+(* TODO: write prop_to_loeb_hyp using termsem_cert *)
 
 end

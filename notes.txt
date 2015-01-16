@@ -3,6 +3,26 @@ LCA l = ?f : num -> 'U. f zero = range ind_to_inner /\ !n<l. is_set_theory_model
           ?g : num -> 'U. g zero = f n /\ !m. g m subset g (suc m) /\ g m subset f (suc n)
 -----
 Ultimate desired theorem:
+
+val Provable_def = Define`
+  Provable thy tm ⇔ (thy,[]) |- tm`
+
+∀n:num.
+  Provable thy ``∀mem l. LCA mem l ⇒ ^^phi l ^(quote n)`` ⇒
+                 ∀mem l. LCA mem (SUC l) ⇒ ^phi l n
+
+quote : num -> term
+
+is_true tm ⇔
+  ∃sig int val. termsem sig int val tm = True
+
+LCA should satisfy:
+LCA mem (SUC l) ==> is_true ``?mem. LCA mem ^l``
+LCA mem l ==> is_set_theory mem
+
+
+-------
+
 ... (was written on a sheet of paper in Vienna) ...
 
 Tools:
