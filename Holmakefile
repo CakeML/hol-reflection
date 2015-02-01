@@ -3,7 +3,7 @@ VMLDIR = ../vml
 endif
 
 HOLHOL = $(VMLDIR)/hol-light
-INCLUDES = $(VMLDIR) $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics $(HOLDIR)/examples/countable
+INCLUDES = $(VMLDIR) $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics $(HOLDIR)/examples/countable $(HOLDIR)/examples/set-theory/hol_sets
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -16,7 +16,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = $(HOLHOL)/syntax-lib/holSyntaxLibTheory $(HOLHOL)/set-theory/setSpecTheory $(HOLHOL)/standard/syntax/holAxiomsSyntaxTheory
+BARE_THYS = $(HOLHOL)/syntax-lib/holSyntaxLibTheory $(HOLHOL)/set-theory/setSpecTheory $(HOLHOL)/standard/syntax/holAxiomsSyntaxTheory $(HOLDIR)/examples/set-theory/hol_sets/ordinalTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

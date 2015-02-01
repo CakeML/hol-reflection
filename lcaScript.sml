@@ -1,5 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs
 open pred_setTheory cardinalTheory
+open ordinalTheory wellorderTheory
 open setSpecTheory miscLib
 val _ = new_theory"lca"
 
@@ -16,6 +17,78 @@ val regular_cardinal_def = Define`
     ∀x f.
       x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
         BIGUNION (IMAGE f x) ≺ X`
+
+(*
+val cardinal_def = Define`
+  cardinal (X:α set) = oleast (k:α ordinal). preds k ≈ X`
+
+val cardbij_def = new_specification("cardbij_def",["cardbij"],
+  prove(``∃f. BIJ f (preds (cardinal X)) X``,
+    rw[cardinal_def] >>
+    rw[cardeq_def] >>
+    qho_match_abbrev_tac`∃f. BIJ f (preds ($oleast P)) X` >>
+    qho_match_abbrev_tac`Q ($oleast P)` >>
+    match_mp_tac oleast_intro >>
+    simp[Abbr`P`,Abbr`Q`] >>
+    qspec_then`X`strip_assume_tac allsets_wellorderable >> rw[] >>
+type_of``mkOrdinal``
+
+(λ(x,y). (f x, f y) WIN wo)
+val minWO_exists = prove(
+  ``∀s. ∃wo. elsOf wo = s ∧
+             (∀x. x ∈ s ⇒ iseg wo x ≺ s)``,
+  gen_tac >>
+  qspec_then`s`strip_assume_tac allsets_wellorderable >>
+  qho_match_abbrev_tac`∃wo. P wo ∧ Q wo` >>
+  Cases_on`Q wo` >- metis_tac[] >>
+  qunabbrev_tac`Q` >> pop_assum mp_tac >>
+  simp[] >>
+  strip_tac >>
+  `s ≈ iseg wo x` by (
+    match_mp_tac cardleq_ANTISYM >> simp[] >>
+    simp[cardleq_def] >>
+    qexists_tac`I` >>
+    simp[INJ_DEF] >>
+    simp[iseg_def] >>
+    metis_tac[WIN_elsOf] ) >>
+  `∃f. BIJ f (iseg wo x) s` by metis_tac[cardeq_def,BIJ_LINV_BIJ] >>
+  qabbrev_tac`wo2 = rrestrict (IMAGE (f ## f) (strict (destWO wo)))  s`>>
+  qexists_tac`mkWO wo2` >>
+  `wellorder wo2` by (
+    simp[Abbr`wo2`] >>
+    qspec_then`wo`strip_assume_tac wellorder_cases >>
+    simp[destWO_mkWO] >>
+  simp[Abbr`P`] >>
+  conj_tac >- (
+    simp[elsOf_def]
+    m``destWO(mkWO x)``
+    destWO_mkWO
+  simp[elsOf_wobound] >>
+
+  elsOf_def
+  f"wrange"
+  overload_info_for"wrange"
+
+
+type_of``mkOrdinal``
+m``oleast x. x ≈ X``
+f"oleast"
+  fs[Abbr`P`,Abbr`Q`] >>
+  qspec_then`
+  qexists_tac
+  f"elsOf"
+  Cases_on
+
+val aWO_def = new_specification
+
+val has_supremum_def = Define`
+  has_supremum x X ⇔
+  ∃y. 
+
+val regular_cardinal_supremums = prove(
+  ``∀X. regular_cardinal X ⇒
+      ∀x. x ⊆ X ∧ x ≺ X ⇒
+*)
 
 val strong_regular_limitation = store_thm("strong_regular_limitation",
   ``strong_limit_cardinal X ∧ regular_cardinal X ⇒
@@ -35,6 +108,7 @@ val strong_regular_limitation = store_thm("strong_regular_limitation",
     fs[] >>
     last_x_assum(qspec_then`{}`mp_tac) >>
     simp[CARDLEQ_CARD,POW_DEF] ) >>
+  (* SET_SQUARED_CARDEQ_SET *)
   simp[Once cardleq_def] >>
   last_assum mp_tac >>
   CONV_TAC(LAND_CONV(QUANT_CONV(RAND_CONV(RAND_CONV(REWR_CONV cardleq_def))))) >>
