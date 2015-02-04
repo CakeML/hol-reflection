@@ -90,10 +90,42 @@ val regular_cardinal_supremums = prove(
       ∀x. x ⊆ X ∧ x ≺ X ⇒
 *)
 
+(* TODO: move *)
+val MULT_LE_EXP = store_thm("MULT_LE_EXP",
+  ``∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b``,
+  Induct_on`b` >> simp[arithmeticTheory.MULT,arithmeticTheory.EXP] >>
+  Cases >> simp[] >> strip_tac >>
+  first_x_assum(qspec_then`SUC n`mp_tac) >>
+  simp[arithmeticTheory.MULT] >>
+  Cases_on`b=0` >- (
+    simp[arithmeticTheory.EXP] ) >>
+  `SUC b ≤ b + b * n` suffices_by simp[] >>
+  simp[arithmeticTheory.ADD1] >>
+  Cases_on`b * n` >> simp[] >>
+  fs[arithmeticTheory.MULT_EQ_0] >> fs[])
+
+val strong_infinite = store_thm("strong_infinite",
+  ``strong_limit_cardinal X ∧ X ≠ ∅ ⇒ INFINITE X``,
+  rpt strip_tac >>
+  fs[strong_limit_cardinal_def] >>
+  first_x_assum(qspec_then`REST X`mp_tac) >>
+  `CARD X ≠ 0` by simp[] >>
+  simp[REST_SUBSET] >>
+  simp[cardlt_lenoteq] >>
+  simp[CARDLEQ_CARD,FINITE_POW,CARD_POW] >>
+  simp[CARD_REST,CARDEQ_CARD_EQN] >>
+  qspecl_then[`CARD X`,`1`,`2`]mp_tac arithmeticTheory.EXP_SUB >>
+  simp[] >> strip_tac >>
+  simp[arithmeticTheory.X_LE_DIV] >>
+  simp[MULT_LE_EXP])
+
 val strong_regular_limitation = store_thm("strong_regular_limitation",
   ``strong_limit_cardinal X ∧ regular_cardinal X ⇒
     limitation_of_size X``,
-  rw[strong_limit_cardinal_def,regular_cardinal_def,limitation_of_size_def] >>
+  strip_tac >>
+  Cases_on`X = ∅` >- ( rw[limitation_of_size_def] ) >>
+  imp_res_tac strong_infinite >>
+  fs[strong_limit_cardinal_def,regular_cardinal_def,limitation_of_size_def] >>
   simp[GSYM cardeq_def] >>
   match_mp_tac cardleq_ANTISYM >>
   conj_tac >- (
@@ -108,7 +140,9 @@ val strong_regular_limitation = store_thm("strong_regular_limitation",
     fs[] >>
     last_x_assum(qspec_then`{}`mp_tac) >>
     simp[CARDLEQ_CARD,POW_DEF] ) >>
-  (* SET_SQUARED_CARDEQ_SET *)
+  qmatch_abbrev_tac`a ≼ X` >>
+  `a ≼ X × X` suffices_by metis_tac[cardleq_TRANS,SET_SQUARED_CARDEQ_SET,cardleq_lteq] >>
+  qunabbrev_tac`a` >>
   simp[Once cardleq_def] >>
   last_assum mp_tac >>
   CONV_TAC(LAND_CONV(QUANT_CONV(RAND_CONV(RAND_CONV(REWR_CONV cardleq_def))))) >>
