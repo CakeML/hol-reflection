@@ -4,6 +4,20 @@ open ordinalTheory wellorderTheory
 open setSpecTheory miscLib
 val _ = new_theory"lca"
 
+(* TODO: move *)
+val MULT_LE_EXP = store_thm("MULT_LE_EXP",
+  ``∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b``,
+  Induct_on`b` >> simp[arithmeticTheory.MULT,arithmeticTheory.EXP] >>
+  Cases >> simp[] >> strip_tac >>
+  first_x_assum(qspec_then`SUC n`mp_tac) >>
+  simp[arithmeticTheory.MULT] >>
+  Cases_on`b=0` >- (
+    simp[arithmeticTheory.EXP] ) >>
+  `SUC b ≤ b + b * n` suffices_by simp[] >>
+  simp[arithmeticTheory.ADD1] >>
+  Cases_on`b * n` >> simp[] >>
+  fs[arithmeticTheory.MULT_EQ_0] >> fs[])
+
 val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
     ∀x. x ⊆ X ∧ x ≺ X ⇒ POW x ≺ X`
@@ -32,8 +46,20 @@ val cardbij_def = new_specification("cardbij_def",["cardbij"],
     simp[Abbr`P`,Abbr`Q`] >>
     qspec_then`X`strip_assume_tac allsets_wellorderable >> rw[] >>
 type_of``mkOrdinal``
+*)
 
-(λ(x,y). (f x, f y) WIN wo)
+val domain_rrestrict_subset = store_thm("domain_rrestrict_subset",
+  ``domain (rrestrict r s) ⊆ domain r ∩ s``,
+  rw[set_relationTheory.domain_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
+val range_rrestrict_subset = store_thm("range_rrestrict_subset",
+  ``range (rrestrict r s) ⊆ range r ∩ s``,
+  rw[set_relationTheory.range_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
 val minWO_exists = prove(
   ``∀s. ∃wo. elsOf wo = s ∧
              (∀x. x ∈ s ⇒ iseg wo x ≺ s)``,
@@ -52,35 +78,43 @@ val minWO_exists = prove(
     simp[iseg_def] >>
     metis_tac[WIN_elsOf] ) >>
   `∃f. BIJ f (iseg wo x) s` by metis_tac[cardeq_def,BIJ_LINV_BIJ] >>
-  qabbrev_tac`wo2 = rrestrict (IMAGE (f ## f) (strict (destWO wo)))  s`>>
-  qexists_tac`mkWO wo2` >>
+  qabbrev_tac`wo2 = IMAGE (f ## f) (rrestrict (destWO wo) (iseg wo x))` >>
   `wellorder wo2` by (
     simp[Abbr`wo2`] >>
-    qspec_then`wo`strip_assume_tac wellorder_cases >>
-    simp[destWO_mkWO] >>
+    match_mp_tac (GEN_ALL INJ_preserves_wellorder) >>
+    REWRITE_TAC[RIGHT_EXISTS_AND_THM] >>
+    conj_tac >- (
+      metis_tac[wellorder_cases,wellorder_rrestrict,destWO_mkWO] ) >>
+    qexists_tac`s` >>
+    match_mp_tac INJ_SUBSET >>
+    fs[BIJ_DEF] >>
+    first_assum(match_exists_tac o concl) >>
+    simp[] >>
+    metis_tac[SUBSET_TRANS,SUBSET_INTER,domain_rrestrict_subset,range_rrestrict_subset]) >>
+  qexists_tac`mkWO wo2` >>
   simp[Abbr`P`] >>
   conj_tac >- (
-    simp[elsOf_def]
-    m``destWO(mkWO x)``
-    destWO_mkWO
-  simp[elsOf_wobound] >>
+    simp[elsOf_def,destWO_mkWO] >>
+    simp[Abbr`wo2`,domain_IMAGE_ff,range_IMAGE_ff] >>
+    `s = IMAGE f (iseg wo x)` by (
+      match_mp_tac EQ_SYM >>
+      REWRITE_TAC[GSYM IMAGE_SURJ] >>
+      metis_tac[BIJ_DEF] ) >>
+    pop_assum SUBST1_TAC >>
+    REWRITE_TAC[GSYM IMAGE_UNION] >>
+    AP_TERM_TAC >>
+    simp[SET_EQ_SUBSET] >>
+    conj_tac >- (
+      metis_tac[domain_rrestrict_subset,range_rrestrict_subset,SUBSET_TRANS,SUBSET_INTER] ) >>
+    simp[SUBSET_DEF,set_relationTheory.domain_def,set_relationTheory.range_def,set_relationTheory.rrestrict_def] >>
+    simp[iseg_def] >>
+    qx_gen_tac`y` >> strip_tac >>
+    simp[WLE_WIN_EQ] >>
+    metis_tac[WIN_elsOf] ) >>
+  qx_gen_tac`z` >> strip_tac >>
+  cheat)
 
-  elsOf_def
-  f"wrange"
-  overload_info_for"wrange"
-
-
-type_of``mkOrdinal``
-m``oleast x. x ≈ X``
-f"oleast"
-  fs[Abbr`P`,Abbr`Q`] >>
-  qspec_then`
-  qexists_tac
-  f"elsOf"
-  Cases_on
-
-val aWO_def = new_specification
-
+(*
 val has_supremum_def = Define`
   has_supremum x X ⇔
   ∃y. 
@@ -89,20 +123,6 @@ val regular_cardinal_supremums = prove(
   ``∀X. regular_cardinal X ⇒
       ∀x. x ⊆ X ∧ x ≺ X ⇒
 *)
-
-(* TODO: move *)
-val MULT_LE_EXP = store_thm("MULT_LE_EXP",
-  ``∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b``,
-  Induct_on`b` >> simp[arithmeticTheory.MULT,arithmeticTheory.EXP] >>
-  Cases >> simp[] >> strip_tac >>
-  first_x_assum(qspec_then`SUC n`mp_tac) >>
-  simp[arithmeticTheory.MULT] >>
-  Cases_on`b=0` >- (
-    simp[arithmeticTheory.EXP] ) >>
-  `SUC b ≤ b + b * n` suffices_by simp[] >>
-  simp[arithmeticTheory.ADD1] >>
-  Cases_on`b * n` >> simp[] >>
-  fs[arithmeticTheory.MULT_EQ_0] >> fs[])
 
 val strong_infinite = store_thm("strong_infinite",
   ``strong_limit_cardinal X ∧ X ≠ ∅ ⇒ INFINITE X``,
@@ -143,6 +163,7 @@ val strong_regular_limitation = store_thm("strong_regular_limitation",
   qmatch_abbrev_tac`a ≼ X` >>
   `a ≼ X × X` suffices_by metis_tac[cardleq_TRANS,SET_SQUARED_CARDEQ_SET,cardleq_lteq] >>
   qunabbrev_tac`a` >>
+
   simp[Once cardleq_def] >>
   last_assum mp_tac >>
   CONV_TAC(LAND_CONV(QUANT_CONV(RAND_CONV(RAND_CONV(REWR_CONV cardleq_def))))) >>
