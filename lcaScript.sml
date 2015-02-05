@@ -18,6 +18,18 @@ val MULT_LE_EXP = store_thm("MULT_LE_EXP",
   Cases_on`b * n` >> simp[] >>
   fs[arithmeticTheory.MULT_EQ_0] >> fs[])
 
+val domain_rrestrict_subset = store_thm("domain_rrestrict_subset",
+  ``domain (rrestrict r s) ⊆ domain r ∩ s``,
+  rw[set_relationTheory.domain_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
+val range_rrestrict_subset = store_thm("range_rrestrict_subset",
+  ``range (rrestrict r s) ⊆ range r ∩ s``,
+  rw[set_relationTheory.range_def,
+     set_relationTheory.rrestrict_def,
+     SUBSET_DEF] >> metis_tac[])
+
 val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
     ∀x. x ⊆ X ∧ x ≺ X ⇒ POW x ≺ X`
@@ -32,34 +44,6 @@ val regular_cardinal_def = Define`
       x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
         BIGUNION (IMAGE f x) ≺ X`
 
-(*
-val cardinal_def = Define`
-  cardinal (X:α set) = oleast (k:α ordinal). preds k ≈ X`
-
-val cardbij_def = new_specification("cardbij_def",["cardbij"],
-  prove(``∃f. BIJ f (preds (cardinal X)) X``,
-    rw[cardinal_def] >>
-    rw[cardeq_def] >>
-    qho_match_abbrev_tac`∃f. BIJ f (preds ($oleast P)) X` >>
-    qho_match_abbrev_tac`Q ($oleast P)` >>
-    match_mp_tac oleast_intro >>
-    simp[Abbr`P`,Abbr`Q`] >>
-    qspec_then`X`strip_assume_tac allsets_wellorderable >> rw[] >>
-type_of``mkOrdinal``
-*)
-
-val domain_rrestrict_subset = store_thm("domain_rrestrict_subset",
-  ``domain (rrestrict r s) ⊆ domain r ∩ s``,
-  rw[set_relationTheory.domain_def,
-     set_relationTheory.rrestrict_def,
-     SUBSET_DEF] >> metis_tac[])
-
-val range_rrestrict_subset = store_thm("range_rrestrict_subset",
-  ``range (rrestrict r s) ⊆ range r ∩ s``,
-  rw[set_relationTheory.range_def,
-     set_relationTheory.rrestrict_def,
-     SUBSET_DEF] >> metis_tac[])
-
 val minWO_exists = prove(
   ``∀s. ∃wo. elsOf wo = s ∧
              (∀x. x ∈ s ⇒ iseg wo x ≺ s)``,
@@ -69,7 +53,17 @@ val minWO_exists = prove(
   Cases_on`Q wo` >- metis_tac[] >>
   qunabbrev_tac`Q` >> pop_assum mp_tac >>
   simp[] >>
+  qho_match_abbrev_tac`(∃x. A x) ⇒ B` >>
+  `(∃x. A x ∧ ∀z. (z,x) WIN wo ⇒ ¬A z) ⇒ B` suffices_by (
+    rw[] >> first_x_assum match_mp_tac >>
+    qabbrev_tac`R = λp. p WIN wo` >>
+    `wellfounded R` by (
+      simp[Abbr`R`,WIN_WF] ) >>
+    fs[wellfounded_def,Abbr`R`] >>
+    pop_assum(qspec_then`A`mp_tac) >>
+    simp[IN_DEF] >> metis_tac[]) >>
   strip_tac >>
+  fs[Abbr`A`,Abbr`B`] >>
   `s ≈ iseg wo x` by (
     match_mp_tac cardleq_ANTISYM >> simp[] >>
     simp[cardleq_def] >>
@@ -112,7 +106,59 @@ val minWO_exists = prove(
     simp[WLE_WIN_EQ] >>
     metis_tac[WIN_elsOf] ) >>
   qx_gen_tac`z` >> strip_tac >>
-  cheat)
+  `LINV f (iseg wo x) z ∈ iseg wo x` by (
+    metis_tac[BIJ_LINV_BIJ,BIJ_DEF,INJ_DEF] ) >>
+  `(LINV f (iseg wo x) z,x) WIN wo` by ( fs[iseg_def] ) >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  `LINV f (iseg wo x) z ∈ s` by (
+    fs[iseg_def] >>
+    metis_tac[WIN_elsOf] ) >>
+  simp[] >>
+  qabbrev_tac`invf = LINV f (iseg wo x)` >>
+  qmatch_abbrev_tac`a ≺ s ⇒ a' ≺ s` >>
+  `a ≈ a'` suffices_by metis_tac[cardleq_lt_trans,cardleq_lteq,cardeq_SYM] >>
+  unabbrev_all_tac >>
+  simp[cardeq_def] >>
+  qexists_tac`f` >>
+  qabbrev_tac`invf = LINV f (iseg wo x)` >>
+  qmatch_abbrev_tac`BIJ f a b` >>
+  `∃c. z = f c ∧ c ∈ iseg wo x` by PROVE_TAC[BIJ_DEF,SURJ_DEF] >>
+  `invf z = c` by (
+    fs[BIJ_DEF] >> imp_res_tac LINV_DEF >> rfs[] ) >>
+  `b = IMAGE f a` by (
+    map_every qunabbrev_tac[`a`,`b`] >>
+    simp[EXTENSION,Once iseg_def,destWO_mkWO] >>
+    simp[Once iseg_def,SimpRHS] >>
+    qx_gen_tac`y` >>
+    EQ_TAC >- (
+      simp[Once set_relationTheory.strict_def,pairTheory.EXISTS_PROD] >>
+      simp[set_relationTheory.rrestrict_def] >> strip_tac >>
+      first_assum(match_exists_tac o concl) >> rw[] >>
+      fs[BIJ_DEF] >> imp_res_tac LINV_DEF >> rfs[] >>
+      metis_tac[WLE_WIN_EQ] ) >>
+    strip_tac >>
+    simp[Once set_relationTheory.strict_def,pairTheory.EXISTS_PROD] >>
+    simp[set_relationTheory.rrestrict_def] >>
+    fs[] >>
+    qmatch_assum_rename_tac`(d,c) WIN wo` >>
+    conj_tac >- (
+      map_every qexists_tac[`d`,`c`] >> simp[] >>
+      fs[iseg_def] >>
+      metis_tac[WLE_WIN_EQ,WIN_TRANS] ) >>
+    `d ∈ iseg wo x` by (
+      fs[iseg_def] >>
+      metis_tac[WIN_TRANS] ) >>
+    metis_tac[BIJ_DEF,INJ_DEF,WIN_REFL] ) >>
+  BasicProvers.VAR_EQ_TAC >>
+  match_mp_tac (GEN_ALL INJ_BIJ_SUBSET) >>
+  map_every qexists_tac[`s`,`iseg wo x`] >>
+  fs[BIJ_DEF] >>
+  simp[SUBSET_DEF,iseg_def,Abbr`a`] >>
+  fs[iseg_def] >>
+  metis_tac[WIN_TRANS])
+
+val minWO_def = new_specification("minWO_def",["minWO"],
+  minWO_exists |> SIMP_RULE std_ss [SKOLEM_THM] )
 
 (*
 val has_supremum_def = Define`
