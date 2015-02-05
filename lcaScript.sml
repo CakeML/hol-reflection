@@ -311,6 +311,27 @@ val my_regular_cardinal_supremums2 = prove(
     ) >>
 *)
 
+val wsuc_def = Define`
+  wsuc wo x = wleast wo (COMPL {a | (x,a) WIN wo})`
+
+val IS_SOME_wsuc = store_thm("IS_SOME_wsuc",
+  ``INFINITE X ∧ x ∈ X ⇒ IS_SOME (wsuc (minWO X) x)``,
+  rw[] >> imp_res_tac larger_exists >>
+  simp[wsuc_def] >> spose_not_then strip_assume_tac >> fs[] >>
+  imp_res_tac wleast_EQ_NONE >> fs[minWO_def] >>
+  fs[SUBSET_DEF] >> metis_tac[WIN_elsOf,minWO_def])
+
+val wsuc_elsOf = store_thm("wsuc_elsOf",
+  ``wsuc wo x = SOME y ⇒ y ∈ elsOf wo``,
+  rw[wsuc_def] >>
+  imp_res_tac wleast_IN_wo)
+
+val wsuc_WIN = store_thm("wsuc_WIN",
+  ``wsuc wo x = SOME y ⇒ (x,y) WIN wo``,
+  rw[wsuc_def] >>
+  imp_res_tac wleast_IN_wo >>
+  fs[])
+
 val strong_regular_limitation = store_thm("strong_regular_limitation",
   ``strong_limit_cardinal X ∧ regular_cardinal X ⇒
     limitation_of_size X``,
@@ -335,19 +356,65 @@ val strong_regular_limitation = store_thm("strong_regular_limitation",
   qmatch_abbrev_tac`a ≼ X` >>
   `a ≼ X × X` suffices_by metis_tac[cardleq_TRANS,SET_SQUARED_CARDEQ_SET,cardleq_lteq] >>
   qunabbrev_tac`a` >>
-
+  `∃f. ∀x. x ∈ X ⇒ INJ (f x) (POW (iseg (minWO X) x)) X` by (
+    simp[GSYM SKOLEM_THM] >> rw[RIGHT_EXISTS_IMP_THM] >>
+    simp[GSYM cardleq_def] >>
+    `POW (iseg (minWO X) x) ≺ X` suffices_by metis_tac[cardlt_lenoteq] >>
+    first_x_assum match_mp_tac >>
+    conj_tac >- (
+      simp[iseg_def,SUBSET_DEF] >>
+      metis_tac[WIN_elsOf,minWO_def] ) >>
+    metis_tac[minWO_def] ) >>
   simp[Once cardleq_def] >>
-  last_assum mp_tac >>
-  CONV_TAC(LAND_CONV(QUANT_CONV(RAND_CONV(RAND_CONV(REWR_CONV cardleq_def))))) >>
-  cheat)
+  qexists_tac`λx. (THE (wsup (minWO X) x),
+    f (THE (wsuc (minWO X) (THE (wsup (minWO X) x)))) x)` >>
+  simp[INJ_DEF] >>
+  conj_asm1_tac >- (
+    gen_tac >> strip_tac >>
+    conj_tac >- (
+      metis_tac[miscTheory.IS_SOME_EXISTS,optionTheory.THE_DEF,
+                wsup_elsOf,minWO_def] ) >>
+    fsrw_tac[boolSimps.DNF_ss][INJ_DEF] >>
+    first_x_assum (match_mp_tac o MP_CANON) >>
+    conj_tac >- (
+      metis_tac[IS_SOME_wsuc,miscTheory.IS_SOME_EXISTS,optionTheory.THE_DEF,
+                wsuc_elsOf,wsup_elsOf,minWO_def] ) >>
+    simp[IN_POW,iseg_def,SUBSET_DEF] >> rw[] >>
+    fs[miscTheory.IS_SOME_EXISTS] >> res_tac >> simp[] >>
+    imp_res_tac wsup_greater >>
+    imp_res_tac wsup_elsOf >>
+    fs[minWO_def] >> rw[] >>
+    imp_res_tac IS_SOME_wsuc >>
+    fs[miscTheory.IS_SOME_EXISTS] >>
+    imp_res_tac wsuc_WIN >>
+    metis_tac[WLE_WIN_EQ,WIN_TRANS] ) >>
+  fs[INJ_DEF] >>
+  rw[] >> rfs[] >>
+  fsrw_tac[boolSimps.DNF_ss][] >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  qmatch_assum_abbrev_tac`f a x1 = f a x2` >>
+  qexists_tac`a` >> simp[] >>
+  simp[Abbr`a`,IN_POW,SUBSET_DEF,iseg_def] >>
+  conj_tac >- (
+    metis_tac[miscTheory.IS_SOME_EXISTS,optionTheory.THE_DEF,IS_SOME_wsuc,
+              wsuc_elsOf,wsup_elsOf,minWO_def] ) >>
+  rw[] >>
+  fs[miscTheory.IS_SOME_EXISTS] >> res_tac >> simp[] >>
+  imp_res_tac wsup_greater >>
+  imp_res_tac wsup_elsOf >>
+  fs[minWO_def] >> rw[] >>
+  imp_res_tac IS_SOME_wsuc >>
+  fs[miscTheory.IS_SOME_EXISTS] >>
+  imp_res_tac wsuc_WIN >>
+  metis_tac[WLE_WIN_EQ,WIN_TRANS] )
 
 val implies_set_theory = store_thm("implies_set_theory",
   ``strong_limit_cardinal (UNIV:'U set) ∧
-    regular_cardinal (UNIV:'U set) ∧
-    limitation_of_size (UNIV:'U set)
+    regular_cardinal (UNIV:'U set)
     ⇒
     ∃(mem:'U reln). is_set_theory mem``,
   strip_tac >>
+  imp_res_tac strong_regular_limitation >>
   fs[limitation_of_size_def] >>
   qexists_tac`combin$C f` >>
   simp[is_set_theory_def] >>
