@@ -34,15 +34,24 @@ val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
     ∀x. x ⊆ X ∧ x ≺ X ⇒ POW x ≺ X`
 
+val strong_infinite = store_thm("strong_infinite",
+  ``strong_limit_cardinal X ∧ X ≠ ∅ ⇒ INFINITE X``,
+  rpt strip_tac >>
+  fs[strong_limit_cardinal_def] >>
+  first_x_assum(qspec_then`REST X`mp_tac) >>
+  `CARD X ≠ 0` by simp[] >>
+  simp[REST_SUBSET] >>
+  simp[cardlt_lenoteq] >>
+  simp[CARDLEQ_CARD,FINITE_POW,CARD_POW] >>
+  simp[CARD_REST,CARDEQ_CARD_EQN] >>
+  qspecl_then[`CARD X`,`1`,`2`]mp_tac arithmeticTheory.EXP_SUB >>
+  simp[] >> strip_tac >>
+  simp[arithmeticTheory.X_LE_DIV] >>
+  simp[MULT_LE_EXP])
+
 val limitation_of_size_def = Define`
   limitation_of_size X ⇔
     ∃f. BIJ f X { x | x ⊆ X ∧ x ≺ X}`
-
-val regular_cardinal_def = Define`
-  regular_cardinal X ⇔
-    ∀x f.
-      x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
-        BIGUNION (IMAGE f x) ≺ X`
 
 val minWO_exists = prove(
   ``∀s. ∃wo. elsOf wo = s ∧
@@ -160,30 +169,147 @@ val minWO_exists = prove(
 val minWO_def = new_specification("minWO_def",["minWO"],
   minWO_exists |> SIMP_RULE std_ss [SKOLEM_THM] )
 
-(*
-val has_supremum_def = Define`
-  has_supremum x X ⇔
-  ∃y. 
+val wsup_def = Define`
+  wsup wo Y = wleast wo (COMPL { b | ∀y. y ∈ Y ⇒ (y,b) WLE wo })`
 
-val regular_cardinal_supremums = prove(
-  ``∀X. regular_cardinal X ⇒
-      ∀x. x ⊆ X ∧ x ≺ X ⇒
+val regular_cardinal_def = Define`
+  regular_cardinal X ⇔
+    ∀y. y ⊆ X ∧ y ≺ X ⇒ IS_SOME (wsup (minWO X) y)`
+
+val larger_exists = store_thm("larger_exists",
+  ``∀X x. INFINITE X ∧ x ∈ X ⇒ ∃y. (x,y) WIN (minWO X)``,
+  rpt strip_tac >>
+  imp_res_tac(CONJUNCT2(Q.SPEC`X`minWO_def)) >>
+  spose_not_then strip_assume_tac >>
+  `iseg (minWO X) x = X DELETE x` by (
+    simp[EXTENSION,iseg_def,EQ_IMP_THM] >>
+    gen_tac >> conj_tac >- (
+      metis_tac[WIN_elsOf,minWO_def,WIN_REFL] ) >>
+    strip_tac >>
+    qmatch_assum_rename_tac`y ≠ x` >>
+    qspecl_then[`minWO X`,`x`,`y`]mp_tac (GEN_ALL WIN_trichotomy) >>
+    simp[minWO_def] ) >>
+  `X = x INSERT (X DELETE x)` by simp[] >>
+  fs[cardlt_lenoteq] >>
+  metis_tac[cardeq_INSERT,FINITE_DELETE,cardeq_TRANS,cardeq_SYM])
+
+val wsup_elsOf = store_thm("wsup_elsOf",
+  ``wsup wo x = SOME y ⇒ y ∈ elsOf wo``,
+  rw[wsup_def] >>
+  imp_res_tac wleast_IN_wo)
+
+val wsup_greater = store_thm("wsup_greater",
+  ``wsup wo x = SOME y ⇒ ∀z. z ∈ x ⇒ (z,y) WLE wo``,
+  rw[wsup_def] >>
+  imp_res_tac wleast_IN_wo >> fs[] >>
+  metis_tac[] )
+
+val regular_cardinal_smaller = store_thm("regular_cardinal_smaller",
+  ``regular_cardinal X ∧ INFINITE X ⇒
+    ∀x f.
+      x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
+        BIGUNION (IMAGE f x) ≺ X``,
+  rw[regular_cardinal_def] >>
+  `∃b. b ∈ X ∧ BIGUNION (IMAGE f x) ⊆ iseg (minWO X) b` suffices_by (
+    strip_tac >>
+    imp_res_tac(CONJUNCT2 (Q.SPEC`X`minWO_def)) >>
+    metis_tac[SUBSET_CARDLEQ,cardleq_lt_trans] ) >>
+  `∀a. a ∈ x ⇒ IS_SOME (wsup (minWO X) (f a))` by metis_tac[] >>
+  qabbrev_tac`g = λa. THE(wsup(minWO X)(f a))` >>
+  `IMAGE g x ⊆ X` by (
+    simp[Abbr`g`,SUBSET_DEF,PULL_EXISTS] >>
+    metis_tac[wsup_elsOf,minWO_def,
+              miscTheory.IS_SOME_EXISTS,
+              optionTheory.THE_DEF] ) >>
+  `IMAGE g x ≺ X` by (
+    metis_tac[cardleq_lt_trans,IMAGE_cardleq] ) >>
+  last_x_assum(qspec_then`IMAGE g x`mp_tac) >>
+  simp[miscTheory.IS_SOME_EXISTS] >>
+  disch_then(qx_choose_then`b`strip_assume_tac) >>
+  qspecl_then[`X`,`b`]mp_tac larger_exists >>
+  `b ∈ X` by metis_tac[wsup_elsOf,minWO_def] >>
+  simp[] >> strip_tac >>
+  qexists_tac`y` >>
+  conj_tac >- metis_tac[WIN_elsOf,minWO_def] >>
+  `∀z. z ∈ BIGUNION (IMAGE f x) ⇒ (z,y) WIN minWO X` by (
+    simp[PULL_EXISTS] >> gen_tac >>
+    qx_gen_tac`a` >> strip_tac >>
+    `(z,g a) WLE minWO X` by (
+      simp[Abbr`g`] >>
+      metis_tac[miscTheory.IS_SOME_EXISTS,
+                optionTheory.THE_DEF,
+                wsup_greater] ) >>
+    `(g a,b) WLE minWO X` by (
+      imp_res_tac wsup_greater >>
+      fs[PULL_EXISTS] ) >>
+    `(z,b) WLE minWO X` by metis_tac[WLE_TRANS] >>
+    metis_tac[WLE_WIN_EQ,WIN_TRANS] ) >>
+  REWRITE_TAC[SUBSET_DEF,iseg_def] >>
+  rpt strip_tac >> res_tac >> simp[])
+
+(*
+val my_regular_cardinal_def = Define`
+  my_regular_cardinal X ⇔
+    ∀x f.
+      x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
+        BIGUNION (IMAGE f x) ≺ X`
+
+val my_regular_cardinal_supremums1 = prove(
+  ``∀X. my_regular_cardinal X ⇒
+      ∀y. y ⊆ X ∧ y ≺ X ⇒ IS_SOME (wsup (minWO X) y)``,
+  rw[my_regular_cardinal_def] >>
+  spose_not_then strip_assume_tac >> fs[] >>
+  first_x_assum(qspec_then`y`mp_tac) >> simp[] >>
+  qexists_tac`λz. { x | (x,z) WIN minWO X }` >>
+  simp[GSYM iseg_def] >>
+  conj_tac >- (
+    gen_tac >> strip_tac >>
+    `a ∈ X` by fs[SUBSET_DEF] >>
+    simp[minWO_def] >>
+    simp[iseg_def,SUBSET_DEF] >>
+    metis_tac[WIN_elsOf,minWO_def] ) >>
+  match_mp_tac SUBSET_CARDLEQ >>
+  simp[SUBSET_DEF] >>
+  qx_gen_tac`b` >> strip_tac >>
+  simp[PULL_EXISTS] >>
+  spose_not_then strip_assume_tac >>
+  `∀z. z ∈ y ⇒ (z,b) WLE minWO X` by (
+    rw[] >> fs[iseg_def] >>
+    simp[WLE_WIN_EQ,minWO_def] >>
+    fs[SUBSET_DEF] >>
+    metis_tac[WIN_trichotomy,minWO_def] ) >>
+  fs[wsup_def] >>
+  imp_res_tac wleast_EQ_NONE >> fs[minWO_def] >>
+  fs[SUBSET_DEF] >>
+  pop_assum(qspec_then`b`mp_tac) >> simp[] >>
+  metis_tac[] )
 *)
 
-val strong_infinite = store_thm("strong_infinite",
-  ``strong_limit_cardinal X ∧ X ≠ ∅ ⇒ INFINITE X``,
-  rpt strip_tac >>
-  fs[strong_limit_cardinal_def] >>
-  first_x_assum(qspec_then`REST X`mp_tac) >>
-  `CARD X ≠ 0` by simp[] >>
-  simp[REST_SUBSET] >>
-  simp[cardlt_lenoteq] >>
-  simp[CARDLEQ_CARD,FINITE_POW,CARD_POW] >>
-  simp[CARD_REST,CARDEQ_CARD_EQN] >>
-  qspecl_then[`CARD X`,`1`,`2`]mp_tac arithmeticTheory.EXP_SUB >>
-  simp[] >> strip_tac >>
-  simp[arithmeticTheory.X_LE_DIV] >>
-  simp[MULT_LE_EXP])
+(*
+ false: see 3 = {0,1,2}
+val my_regular_cardinal_supremums2 = prove(
+  ``(∀y. y ⊆ X ∧ y ≺ X ⇒ IS_SOME (wsup (minWO X) y)) ⇒
+    my_regular_cardinal X``,
+  rw[my_regular_cardinal_def] >>
+  `∃b. b ∈ X ∧ ∀z. z ∈ BIGUNION (IMAGE f x) ⇒ (z,b) WIN minWO X` suffices_by (
+    strip_tac >>
+    imp_res_tac(CONJUNCT2 (Q.SPEC`X`minWO_def)) >>
+    qmatch_abbrev_tac`a ≺ X` >>
+    `a ⊆ iseg (minWO X) b` suffices_by metis_tac[SUBSET_CARDLEQ,cardleq_lt_trans] >>
+    simp[iseg_def,SUBSET_DEF] (* >>
+    qx_gen_tac`z` >> strip_tac >>
+    first_x_assum(qspec_then`z`mp_tac) >>
+    rw[WLE_WIN_EQ,minWO_def] >>
+    fs[Abbr`a`] >> rw[] >>
+    qmatch_assum_rename_tac`z ∈ x` >>
+    first_x_assum(qspec_then`z`mp_tac) >>
+    rw[SUBSET_DEF]
+    rw[] >> res_tac >>
+    fs[WLE_WIN_EQ] >> rw[] >>
+    fs[Abbr`a`] >> rw[] >>
+    res_tac *)
+    ) >>
+*)
 
 val strong_regular_limitation = store_thm("strong_regular_limitation",
   ``strong_limit_cardinal X ∧ regular_cardinal X ⇒
@@ -271,7 +397,9 @@ val implies_set_theory = store_thm("implies_set_theory",
       rw[Abbr`z`,PULL_EXISTS,IN_DEF] ) >>
     first_x_assum match_mp_tac >>
     rw[Abbr`z`] >>
-    fs[regular_cardinal_def]) >>
+    imp_res_tac strong_infinite >> fs[] >>
+    imp_res_tac regular_cardinal_smaller >>
+    fs[]) >>
   simp[is_upair_def] >>
   fs[BIJ_IFF_INV] >>
   qexists_tac`λx y. g (λa. (a = x) ∨ (a = y))` >>
