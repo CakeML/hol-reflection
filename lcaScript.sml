@@ -546,4 +546,15 @@ val implies_set_theory = store_thm("implies_set_theory",
     metis_tac[NOT_INSERT_EMPTY,EXTENSION,IN_INSERT] ) >>
   rw[Abbr`z`,Abbr`R`])
 
+val strongly_inaccessible_def = Define`
+  strongly_inaccessible X ⇔
+    regular_cardinal X ∧
+    strong_limit_cardinal X ∧
+    ¬(countable X)`
+
+val strongly_inaccessible_imp = store_thm("strongly_inaccessible_infinite",
+  ``strongly_inaccessible (UNIV:'U set) ⇒
+    ∃(mem:'U reln). is_set_theory mem ∧ ∃inf. is_infinite mem inf``,
+  rw[strongly_inaccessible_def] >> metis_tac[implies_set_theory])
+
 val _ = export_theory()
