@@ -53,6 +53,49 @@ val limitation_of_size_def = Define`
   limitation_of_size X ⇔
     ∃f. BIJ f X { x | x ⊆ X ∧ x ≺ X}`
 
+(*
+val limitation_of_size_alt = store_thm("limitation_of_size_alt",
+  ``limitation_of_size X ⇔
+    {x | x ⊆ X ∧ x ≺ X} ≼ X``,
+  rw[GSYM cardeq_def,limitation_of_size_def] >>
+  EQ_TAC >- metis_tac[CARDEQ_SUBSET_CARDLEQ,cardeq_SYM] >>
+  strip_tac >>
+  match_mp_tac cardleq_ANTISYM >> simp[] >>
+  Cases_on`∃x. X ⊆ {x}` >- (
+    fs[] >>
+    simp[Once cardleq_def] >>
+    qexists_tac`K {}` >>
+    simp[INJ_DEF] >>
+    Cases_on`X = {}` >> simp[] >>
+    `X = {x}` by (
+      fs[SUBSET_DEF,EXTENSION] >>
+      metis_tac[] ) >>
+    simp[cardleq_def] ) >>
+  simp[Once cardleq_def] >>
+  qexists_tac`λx. {x}` >>
+  simp[INJ_DEF] >> rw[] >>
+  simp[Once cardleq_lteq] >>
+  conj_tac >- (
+    match_mp_tac SUBSET_CARDLEQ >>
+    simp[] ) >>
+
+  rw[limitation_of_size_def,EQ_IMP_THM] >- (
+    simp[Once cardleq_def] >>
+    metis_tac[BIJ_LINV_BIJ,BIJ_DEF] ) >>
+  pop_assum (strip_assume_tac o SIMP_RULE std_ss [Once cardleq_def]) >>
+  qho_match_abbrev_tac`∃f. BIJ f a b` >>
+  `∃f. BIJ f b a` suffices_by metis_tac[BIJ_LINV_BIJ] >>
+  qunabbrev_tac`a` >>
+  f"cardeq"
+  simp[BIJ_DEF] >> qexists_tac`f` >> simp[] >>
+  simp[Abbr`b`,SURJ_DEF] >>
+  conj_tac >- fs[INJ_DEF]
+
+  fs[
+    fs[BIJ_DEF] >>
+    first_assum(match_exists_tac o conc
+*)
+
 val minWO_exists = prove(
   ``∀s. ∃wo. elsOf wo = s ∧
              (∀x. x ∈ s ⇒ iseg wo x ≺ s)``,
@@ -247,7 +290,6 @@ val regular_cardinal_smaller = store_thm("regular_cardinal_smaller",
   REWRITE_TAC[SUBSET_DEF,iseg_def] >>
   rpt strip_tac >> res_tac >> simp[])
 
-(*
 val my_regular_cardinal_def = Define`
   my_regular_cardinal X ⇔
     ∀x f.
@@ -255,9 +297,8 @@ val my_regular_cardinal_def = Define`
         BIGUNION (IMAGE f x) ≺ X`
 
 val my_regular_cardinal_supremums1 = prove(
-  ``∀X. my_regular_cardinal X ⇒
-      ∀y. y ⊆ X ∧ y ≺ X ⇒ IS_SOME (wsup (minWO X) y)``,
-  rw[my_regular_cardinal_def] >>
+  ``∀X. my_regular_cardinal X ⇒ regular_cardinal X``,
+  rw[regular_cardinal_def,my_regular_cardinal_def] >>
   spose_not_then strip_assume_tac >> fs[] >>
   first_x_assum(qspec_then`y`mp_tac) >> simp[] >>
   qexists_tac`λz. { x | (x,z) WIN minWO X }` >>
@@ -283,6 +324,28 @@ val my_regular_cardinal_supremums1 = prove(
   fs[SUBSET_DEF] >>
   pop_assum(qspec_then`b`mp_tac) >> simp[] >>
   metis_tac[] )
+
+(*
+val my_regular_cardinal_alt = prove(
+  ``my_regular_cardinal X ⇔
+    ¬∃(x:α set)(f:α -> α set).
+      x ⊆ X ∧ x ≺ X ∧
+      (∀a. a ∈ x ⇒ f a ≺ X) ∧
+      (∀a. a ∈ X ⇒ ∃y. y ∈ x ∧ a ∈ f y)``,
+  simp[my_regular_cardinal_def,PROVE[]``a ∨ b ⇔ ¬a ⇒ b``,AND_IMP_INTRO] >>
+  simp[AND_IMP_INTRO] >>
+  EQ_TAC >> strip_tac >- (
+    rpt strip_tac >>
+    `∃g. ∀a. a ∈ x ⇒ g a ⊆ X ∧ g a ≺ X ∧ (g a = f a INTER X)` by (
+      simp[GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >> rw[] >>
+      `f a ∩ X ≼ f a` suffices_by metis_tac[cardleq_lt_trans] >>
+      simp[cardleq_def] >>
+      qexists_tac`I` >> simp[INJ_DEF] ) >>
+    first_x_assum(qspecl_then[`x`,`g`]mp_tac) >>
+    simp[] >>
+    cheat ) >>
+  rpt gen_tac >> strip_tac >>
+
 *)
 
 (*
