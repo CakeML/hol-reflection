@@ -412,11 +412,37 @@ val implies_set_theory = store_thm("implies_set_theory",
   ``strong_limit_cardinal (UNIV:'U set) ∧
     regular_cardinal (UNIV:'U set)
     ⇒
-    ∃(mem:'U reln). is_set_theory mem``,
+    ∃(mem:'U reln). is_set_theory mem ∧
+      (¬countable (UNIV:'U set) ⇒ ∃inf. is_infinite mem inf)``,
   strip_tac >>
   imp_res_tac strong_regular_limitation >>
   fs[limitation_of_size_def] >>
   qexists_tac`combin$C f` >>
+  reverse conj_tac >- (
+    strip_tac >>
+    simp[is_infinite_def] >>
+    `(UNIV:num set) ≺ (UNIV:'U set)` by (
+      spose_not_then strip_assume_tac >>
+      fs[cardleq_def,countable_def] ) >>
+    pop_assum mp_tac >> rw[cardlt_lenoteq,cardleq_def] >>
+    qmatch_assum_rename_tac`INJ g _ (UNIV:'U set)` >>
+    qabbrev_tac`s = IMAGE g UNIV` >>
+    qmatch_assum_abbrev_tac`BIJ f a b` >>
+    `s ∈ b` by (
+      simp[Abbr`b`] >>
+      `(UNIV:num set) ≺ a` by (
+        simp[cardlt_lenoteq,cardleq_def] >>
+        metis_tac[] ) >>
+      metis_tac[IMAGE_cardleq,cardleq_lt_trans] ) >>
+    qexists_tac`LINV f a s` >>
+    `f (LINV f a s) = s` by metis_tac[BIJ_LINV_INV] >>
+    pop_assum SUBST1_TAC >>
+    qmatch_abbrev_tac`INFINITE s'` >>
+    `s' = s` by simp[EXTENSION,Abbr`s'`,IN_DEF] >>
+    pop_assum SUBST1_TAC >> qunabbrev_tac`s'` >>
+    simp[Abbr`s`] >>
+    match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
+    fs[INJ_DEF] ) >>
   simp[is_set_theory_def] >>
   conj_tac >- (
     simp[extensional_def] >>
