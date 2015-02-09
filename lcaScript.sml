@@ -413,12 +413,21 @@ val implies_set_theory = store_thm("implies_set_theory",
     regular_cardinal (UNIV:'U set)
     ⇒
     ∃(mem:'U reln). is_set_theory mem ∧
+      (∀s. s ≺ (UNIV:'U set) ⇒ ∃x. s = { a | a <: x }) ∧
       (¬countable (UNIV:'U set) ⇒ ∃inf. is_infinite mem inf)``,
   strip_tac >>
   imp_res_tac strong_regular_limitation >>
   fs[limitation_of_size_def] >>
   qexists_tac`combin$C f` >>
   reverse conj_tac >- (
+    conj_asm1_tac >- (
+      rw[] >>
+      qmatch_assum_abbrev_tac`BIJ f a b` >>
+      `s ∈ b` by ( simp[Abbr`b`] ) >>
+      qexists_tac`LINV f a s` >>
+      `f (LINV f a s) = s` by metis_tac[BIJ_LINV_INV] >>
+      pop_assum SUBST1_TAC >>
+      simp[EXTENSION,IN_DEF] ) >>
     strip_tac >>
     simp[is_infinite_def] >>
     `(UNIV:num set) ≺ (UNIV:'U set)` by (
@@ -427,19 +436,16 @@ val implies_set_theory = store_thm("implies_set_theory",
     pop_assum mp_tac >> rw[cardlt_lenoteq,cardleq_def] >>
     qmatch_assum_rename_tac`INJ g _ (UNIV:'U set)` >>
     qabbrev_tac`s = IMAGE g UNIV` >>
-    qmatch_assum_abbrev_tac`BIJ f a b` >>
-    `s ∈ b` by (
-      simp[Abbr`b`] >>
-      `(UNIV:num set) ≺ a` by (
+    first_x_assum(qspec_then`s`mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`s`] >>
+      `(UNIV:num set) ≺ (UNIV:'U set)` by (
         simp[cardlt_lenoteq,cardleq_def] >>
         metis_tac[] ) >>
       metis_tac[IMAGE_cardleq,cardleq_lt_trans] ) >>
-    qexists_tac`LINV f a s` >>
-    `f (LINV f a s) = s` by metis_tac[BIJ_LINV_INV] >>
-    pop_assum SUBST1_TAC >>
-    qmatch_abbrev_tac`INFINITE s'` >>
-    `s' = s` by simp[EXTENSION,Abbr`s'`,IN_DEF] >>
-    pop_assum SUBST1_TAC >> qunabbrev_tac`s'` >>
+    simp[] >> strip_tac >>
+    qexists_tac`x` >>
+    pop_assum(SUBST1_TAC o SYM) >>
     simp[Abbr`s`] >>
     match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
     fs[INJ_DEF] ) >>
@@ -552,9 +558,16 @@ val strongly_inaccessible_def = Define`
     strong_limit_cardinal X ∧
     ¬(countable X)`
 
-val strongly_inaccessible_imp = store_thm("strongly_inaccessible_infinite",
+val strongly_inaccessible_imp = store_thm("strongly_inaccessible_imp",
   ``strongly_inaccessible (UNIV:'U set) ⇒
-    ∃(mem:'U reln). is_set_theory mem ∧ ∃inf. is_infinite mem inf``,
+    ∃(mem:'U reln). is_set_theory mem ∧
+    (∀s. s ≺ (UNIV:'U set) ⇒ ∃x. s = { a | a <: x }) ∧
+    (∃inf. is_infinite mem inf)``,
   rw[strongly_inaccessible_def] >> metis_tac[implies_set_theory])
+
+val LCA_def = Define`
+  (LCA P 0 ⇔ T) ∧
+  (LCA P (SUC n) ⇔ strongly_inaccessible P ∧
+     ∃Q. Q ⊆ P ∧ Q ≺ P ∧ LCA Q n)`
 
 val _ = export_theory()
