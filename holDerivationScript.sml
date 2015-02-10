@@ -27,12 +27,12 @@ val tymatch_def = tDefine"tymatch"`
 val tymatch_ind = fetch "-" "tymatch_ind"
 
 val arities_match_def = tDefine"arities_match"`
-  (arities_match [] [] = T) ∧
-  (arities_match [] _ = F) ∧
-  (arities_match _ [] = F) ∧
-  (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) =
+  (arities_match [] [] ⇔ T) ∧
+  (arities_match [] _ ⇔ F) ∧
+  (arities_match _ [] ⇔ F) ∧
+  (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
    ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
-  (arities_match (_::xs) (_::ys) = arities_match xs ys)`
+  (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)`
   (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`)
 val arities_match_ind = fetch "-" "arities_match_ind"
 
