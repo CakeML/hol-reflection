@@ -30,6 +30,8 @@ val range_rrestrict_subset = store_thm("range_rrestrict_subset",
      set_relationTheory.rrestrict_def,
      SUBSET_DEF] >> metis_tac[])
 
+(* -- *)
+
 val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
     ∀x. x ⊆ X ∧ x ≺ X ⇒ POW x ≺ X`
@@ -325,14 +327,15 @@ val my_regular_cardinal_supremums1 = prove(
   pop_assum(qspec_then`b`mp_tac) >> simp[] >>
   metis_tac[] )
 
-(*
+val not_imp = PROVE[]``a ∨ b ⇔ ¬a ⇒ b``
+
 val my_regular_cardinal_alt = prove(
   ``my_regular_cardinal X ⇔
     ¬∃(x:α set)(f:α -> α set).
       x ⊆ X ∧ x ≺ X ∧
       (∀a. a ∈ x ⇒ f a ≺ X) ∧
       (∀a. a ∈ X ⇒ ∃y. y ∈ x ∧ a ∈ f y)``,
-  simp[my_regular_cardinal_def,PROVE[]``a ∨ b ⇔ ¬a ⇒ b``,AND_IMP_INTRO] >>
+  simp[my_regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
   simp[AND_IMP_INTRO] >>
   EQ_TAC >> strip_tac >- (
     rpt strip_tac >>
@@ -342,11 +345,28 @@ val my_regular_cardinal_alt = prove(
       simp[cardleq_def] >>
       qexists_tac`I` >> simp[INJ_DEF] ) >>
     first_x_assum(qspecl_then[`x`,`g`]mp_tac) >>
-    simp[] >>
-    cheat ) >>
+    simp[] >> strip_tac >>
+    qmatch_assum_abbrev_tac`b ≺ X` >>
+    `¬(X ⊆ b)` by metis_tac[SUBSET_CARDLEQ] >>
+    pop_assum mp_tac >> simp[SUBSET_DEF] >>
+    disch_then(qx_choose_then`a`strip_assume_tac) >>
+    qexists_tac`a` >> simp[] >>
+    rpt strip_tac >>
+    `a ∈ g y` by (
+      metis_tac[EXTENSION,IN_INTER] ) >>
+    qpat_assum`a ∉ b`mp_tac >>
+    simp[Abbr`b`] >>
+    metis_tac[] ) >>
   rpt gen_tac >> strip_tac >>
-
-*)
+  simp[cardlt_lenoteq] >>
+  conj_tac >- (
+    match_mp_tac SUBSET_CARDLEQ >>
+    fs[SUBSET_DEF,PULL_EXISTS] >>
+    metis_tac[] ) >>
+  simp[cardeq_def] >>
+  qx_gen_tac`g` >> strip_tac >>
+  qmatch_assum_abbrev_tac`BIJ g b X` >>
+  cheat)
 
 (*
  false: see 3 = {0,1,2}
