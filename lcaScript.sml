@@ -298,7 +298,7 @@ val my_regular_cardinal_def = Define`
       x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
         BIGUNION (IMAGE f x) ≺ X`
 
-val my_regular_cardinal_supremums1 = prove(
+val my_regular_cardinal_regular = store_thm("my_regular_cardinal_regular",
   ``∀X. my_regular_cardinal X ⇒ regular_cardinal X``,
   rw[regular_cardinal_def,my_regular_cardinal_def] >>
   spose_not_then strip_assume_tac >> fs[] >>
@@ -335,9 +335,8 @@ val my_regular_cardinal_alt = prove(
       x ⊆ X ∧ x ≺ X ∧
       (∀a. a ∈ x ⇒ f a ≺ X) ∧
       (∀a. a ∈ X ⇒ ∃y. y ∈ x ∧ a ∈ f y)``,
-  simp[my_regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
-  simp[AND_IMP_INTRO] >>
-  EQ_TAC >> strip_tac >- (
+  EQ_TAC >- (
+    simp[my_regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
     rpt strip_tac >>
     `∃g. ∀a. a ∈ x ⇒ g a ⊆ X ∧ g a ≺ X ∧ (g a = f a INTER X)` by (
       simp[GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >> rw[] >>
@@ -357,7 +356,8 @@ val my_regular_cardinal_alt = prove(
     qpat_assum`a ∉ b`mp_tac >>
     simp[Abbr`b`] >>
     metis_tac[] ) >>
-  rpt gen_tac >> strip_tac >>
+  simp[my_regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
+  strip_tac >> rpt gen_tac >> strip_tac >>
   simp[cardlt_lenoteq] >>
   conj_tac >- (
     match_mp_tac SUBSET_CARDLEQ >>
@@ -366,7 +366,22 @@ val my_regular_cardinal_alt = prove(
   simp[cardeq_def] >>
   qx_gen_tac`g` >> strip_tac >>
   qmatch_assum_abbrev_tac`BIJ g b X` >>
-  cheat)
+  first_x_assum(qspecl_then[`x`,`IMAGE g o f`]mp_tac) >>
+  simp[not_imp,PULL_EXISTS] >>
+  conj_tac >- (
+    rw[] >> res_tac >> fs[cardleq_def] >>
+    qx_gen_tac`h` >> strip_tac >>
+    first_x_assum(qspec_then`LINV g b o h`mp_tac) >>
+    fs[INJ_DEF] >>
+    `∀x. x ∈ X ⇒ LINV g b (h x) = x` by (
+      metis_tac[BIJ_LINV_INV] ) >>
+    simp[] >> metis_tac[] ) >>
+  rw[] >>
+  `LINV g b a ∈ b` by (
+    metis_tac[BIJ_LINV_BIJ,BIJ_DEF,INJ_DEF] ) >>
+  pop_assum mp_tac >> simp[Abbr`b`,PULL_EXISTS] >>
+  rw[] >>
+  metis_tac[BIJ_LINV_INV])
 
 (*
  false: see 3 = {0,1,2}
