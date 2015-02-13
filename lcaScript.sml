@@ -649,7 +649,6 @@ val implies_set_theory = store_thm("implies_set_theory",
     rw[] >> simp[] >>
     metis_tac[NOT_INSERT_EMPTY,EXTENSION,IN_INSERT] ) >>
   rw[Abbr`z`,Abbr`R`])
-
 val strongly_inaccessible_def = Define`
   strongly_inaccessible X ⇔
     regular_cardinal X ∧
@@ -662,6 +661,23 @@ val strongly_inaccessible_imp = store_thm("strongly_inaccessible_imp",
     (∀s. s ≺ (UNIV:'U set) ⇒ ∃x. s = { a | a <: x }) ∧
     (∃inf. is_infinite mem inf)``,
   rw[strongly_inaccessible_def] >> metis_tac[implies_set_theory])
+
+val regular_imp_my_regular = prove(
+  ``regular_cardinal X ∧ INFINITE X ⇒ my_regular_cardinal X``,
+  metis_tac[regular_cardinal_smaller,my_regular_cardinal_def])
+
+val my_regular_empty = prove(
+  ``my_regular_cardinal ∅``,
+  rw[my_regular_cardinal_def])
+
+val strongly_inaccessible_alt = store_thm("strongly_inaccessible_alt",
+  ``strongly_inaccessible X ⇔
+      my_regular_cardinal X ∧
+      strong_limit_cardinal X ∧
+      ¬(countable X)``,
+  rw[strongly_inaccessible_def,EQ_IMP_THM] >>
+  metis_tac[regular_imp_my_regular,strong_infinite,
+            my_regular_empty,my_regular_cardinal_regular])
 
 val LCA_def = Define`
   (LCA P 0 ⇔ T) ∧
