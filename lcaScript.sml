@@ -684,4 +684,10 @@ val LCA_def = Define`
   (LCA P (SUC n) ⇔ strongly_inaccessible P ∧
      ∃Q. Q ⊆ P ∧ Q ≺ P ∧ LCA Q n)`
 
+val LCA_holds = store_thm("LCA_holds",
+  ``(∀X:'U set. ∃Y:'U set.
+        X ⊆ Y ∧ X ≺ Y ∧ strongly_inaccessible Y) ⇒
+    (∀n. ∃P:'U set. LCA P n)``,
+  strip_tac >> Induct >> fs[LCA_def] >> metis_tac[])
+
 val _ = export_theory()
