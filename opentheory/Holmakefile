@@ -1,0 +1,21 @@
+suc-rep.art : suc-rep.thy HOL4.art SUC_REP.art
+	opentheory info --article -o $@ $<
+
+SUC_REP.art : SUC_REPScript.sml
+	Holmake --ot SUC_REPTheory.uo
+	opentheory info --article -o $@ $@
+
+HOL4.art : HOL4.thy HOL4Bool.art HOL4Sat.art HOL4Imp.art
+	opentheory info --article -o $@ theory:$<
+
+HOL4Bool.art : HOL4BoolScript.sml
+	Holmake --ot HOL4BoolTheory.uo
+	opentheory info --article -o $@ $@
+
+HOL4Sat.art : HOL4SatScript.sml
+	Holmake --ot HOL4SatTheory.uo
+	opentheory info --article -o $@ $@
+
+HOL4Imp.art : HOL4ImpScript.sml
+	Holmake --ot HOL4ImpTheory.uo
+	opentheory info --article -o $@ $@
