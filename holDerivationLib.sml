@@ -232,6 +232,8 @@ fun add_name_map ot ml =
 
 val () = add_name_map ([],"->") ``strlit"fun"``
 val () = add_name_map ([],"select") ``strlit"@"``
+val () = add_name_map (["Function"],"surjective") ``strlit"ONTO"``
+val () = add_name_map (["Function"],"injective") ``strlit"ONE_ONE"``
 
 datatype object =
     Num of int
