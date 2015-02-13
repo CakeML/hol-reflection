@@ -1708,7 +1708,7 @@ fun build_ConstDef extends_init_thm def =
     val constrainable_thm = prove(``constrainable_update ^inner_upd``,
       ho_match_mp_tac (GEN_ALL ConstSpec_constrainable) >>
       exists_tac ctxt >> conj_tac >- ACCEPT_TAC updates_thm >>
-      EVAL_TAC)
+      EVAL_TAC >> rw[])
     val upd:update =
       { sound_update_thm  = sound_update_thm
       , constrainable_thm = constrainable_thm
