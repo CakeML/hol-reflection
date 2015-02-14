@@ -145,11 +145,9 @@ val (upd:update) = {
   consts = [``SUC_REP``],
   tys = [],
   axs = [numTheory.SUC_REP_DEF]}
-
 val extends_init_thm =
   MATCH_MP updates_extends_trans
     (CONJ updates_thm extends_init_thm)
-
 val ctxt = rand(rator(concl extends_init_thm))
 
 val SUC_REP_name = ``strlit"SUC_REP"``
@@ -218,6 +216,59 @@ val ZERO_REP_witness =
     |> Net.listItems |> hd
     before TextIO.closeIn istr
   end
+val inner_th = ZERO_REP_witness
+val eqs = inner_th |> concl |> rator |> rand |> rand |> mk_eqs
+val prop = inner_th |> concl |> rand
+val inner_upd = ``ConstSpec ^eqs ^prop``
+val updates_thm = prove(
+  ``^inner_upd updates ^ctxt``,
+  match_mp_tac (updates_rules |> CONJUNCTS |> el 3) >>
+  conj_tac >- (
+    CONV_TAC(LAND_CONV(RAND_CONV(computeLib.CBV_CONV cs))) >>
+    CONV_TAC(LAND_CONV(RAND_CONV(MAP_EVERY_CONV unmk_eq_conv))) >>
+    ACCEPT_TAC ZERO_REP_witness ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] >> PROVE_TAC[] ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] ) >>
+  EVAL_TAC)
+val theory_ok = prove(
+  ``theory_ok (thyof ^ctxt)``,
+    match_mp_tac(MATCH_MP extends_theory_ok extends_init_thm) >>
+    rw[init_theory_ok] )
+val sound_update_thm = prove(
+  ``is_set_theory ^mem ⇒
+    sound_update ^ctxt ^inner_upd``,
+  strip_tac >>
+  ho_match_mp_tac (UNDISCH new_specification_correct) >>
+  conj_asm1_tac >- ACCEPT_TAC theory_ok >>
+  (updates_thm |> SIMP_RULE bool_ss [updates_cases,update_distinct,update_11] |> strip_assume_tac) >>
+  rpt conj_tac >>
+  first_assum ACCEPT_TAC) |> UNDISCH
+val constrainable_thm = prove(
+  ``constrainable_update ^inner_upd``,
+  rw[constrainable_update_def] >> rw[] >>
+  rw[conexts_of_upd_def] >>
+  rw[listTheory.EVERY_MAP] >>
+  unabbrev_all_tac >> rw[] >>
+  TRY(pop_assum mp_tac) >>
+  EVAL_TAC >> rw[])
+
+val (upd:update) = {
+  sound_update_thm = sound_update_thm,
+  constrainable_thm = constrainable_thm,
+  updates_thm = updates_thm,
+  extends_init_thm = extends_init_thm,
+  consts = [``ZERO_REP``],
+  tys = [],
+  axs = [numTheory.ZERO_REP_DEF]}
+val extends_init_thm =
+  MATCH_MP updates_extends_trans
+    (CONJ updates_thm extends_init_thm)
+val ctxt = rand(rator(concl extends_init_thm))
+
+(* IS_NUM_REP *)
+val def = preprocess numTheory.IS_NUM_REP
+val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 
 (* IN *)
 val def = IN_DEF
