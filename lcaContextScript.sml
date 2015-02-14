@@ -5,6 +5,20 @@ val _ = new_theory"lcaContext"
 
 val _ = Globals.max_print_depth := 15
 
+(* stolen from holDerivationScript.sml - TODO: move? *)
+fun replace_term from to =
+  let
+    fun f tm =
+      if tm = from then to else
+        case dest_term tm of
+          COMB(t1,t2) => mk_comb(f t1, f t2)
+        | LAMB(t1,t2) => mk_abs(f t1, f t2)
+        | _ => tm
+  in
+    f
+  end
+(* -- *)
+
 val uneta = prove(
   ``(∀x. f x = g x) ⇔ f = \x. g x``,
   rw[FUN_EQ_THM])
@@ -146,10 +160,12 @@ val FLOOKUP_tmsof = MATCH_MP FLOOKUP_tmsof_updates updates_thm
 val FLOOKUP_tysof = MATCH_MP FLOOKUP_tysof_updates updates_thm
 val proves = MATCH_MP updates_proves updates_thm
 
+val SUC_REP_ty = rand(rhs(concl FLOOKUP_SUC_REP))
+
 val term_ok_reduce = prove(
   ``∀tm.
     term_ok (sigof (thyof ^ctxt)) tm ⇒
-    ($~ o (VFREE_IN (Const ^SUC_REP_name ^(rand(rhs(concl FLOOKUP_SUC_REP)))))) tm ⇒
+    ($~ o (VFREE_IN (Const ^SUC_REP_name ^SUC_REP_ty))) tm ⇒
     term_ok (sigof (thyof ^(rand ctxt))) tm``,
   ho_match_mp_tac term_induction >> rw[term_ok_def] >>
   rfs[finite_mapTheory.FLOOKUP_UPDATE] >>
@@ -164,18 +180,44 @@ fun reduce_term_ok th =
     MP th1 th2
   end
 
+val SUC_REP_ax =
+  replace_term
+    (mk_Var(SUC_REP_name,SUC_REP_ty))
+    (mk_Const(SUC_REP_name,SUC_REP_ty))
+  prop
+
+val theory_ok =
+  MATCH_MP (MATCH_MP extends_theory_ok extends_init_thm)
+  init_theory_ok
+
+val SUC_REP_axiom = prove(
+  ``(thyof ^ctxt,[]) |- ^SUC_REP_ax``,
+  match_mp_tac (last (CONJUNCTS proves_rules)) >>
+  conj_tac >- ACCEPT_TAC theory_ok >>
+  EVAL_TAC)
+
 val (reader:reader) = {
-  theory_ok =
-    MATCH_MP (MATCH_MP extends_theory_ok extends_init_thm)
-    init_theory_ok,
+  theory_ok = theory_ok,
   const = (fn name =>
     if name = SUC_REP_name then FLOOKUP_SUC_REP
     else MATCH_MP FLOOKUP_tmsof (#const hol_ctxt_reader name)),
   typeOp = (fn name =>
     MATCH_MP FLOOKUP_tysof (#typeOp hol_ctxt_reader name)),
   axiom = (fn term_oks =>
-    MATCH_MP proves (#axiom hol_ctxt_reader (List.map reduce_term_ok term_oks)))
+    if aconv (rand(concl SUC_REP_axiom)) (rand(concl(hd term_oks)))
+    then SUC_REP_axiom
+    else MATCH_MP proves (#axiom hol_ctxt_reader (List.map reduce_term_ok term_oks)))
   }
+
+(* ZERO_REP *)
+val ZERO_REP_witness =
+  let
+    val istr = TextIO.openIn("opentheory/zero-rep.art")
+  in
+    istr |> readArticle reader
+    |> Net.listItems |> hd
+    before TextIO.closeIn istr
+  end
 
 (* IN *)
 val def = IN_DEF
