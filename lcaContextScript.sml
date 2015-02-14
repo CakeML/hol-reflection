@@ -269,6 +269,102 @@ val ctxt = rand(rator(concl extends_init_thm))
 (* IS_NUM_REP *)
 val def = preprocess numTheory.IS_NUM_REP
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
+val ctxt = rand(rator(concl extends_init_thm))
+
+val ZERO_REP_name = ``strlit"ZERO_REP"``
+val FLOOKUP_ZERO_REP =
+  ``FLOOKUP (tmsof (thyof ^ctxt)) ^ZERO_REP_name`` |> EVAL
+val ZERO_REP_ty = rand(rhs(concl FLOOKUP_ZERO_REP))
+
+val IS_NUM_REP_name = ``strlit"IS_NUM_REP"``
+val FLOOKUP_IS_NUM_REP =
+  ``FLOOKUP (tmsof (thyof ^ctxt)) ^IS_NUM_REP_name`` |> EVAL
+val IS_NUM_REP_ty = rand(rhs(concl FLOOKUP_IS_NUM_REP))
+
+val IMP_TRANS = METIS_PROVE[]``(P ==> Q) ==> (Q ==> R) ==> (P ==> R)``
+val FLOOKUP_tmsof = MATCH_MP
+  (MATCH_MP IMP_TRANS (MATCH_MP FLOOKUP_tmsof_updates updates_thm))
+  (MATCH_MP FLOOKUP_tmsof_updates (#updates_thm upd))
+val FLOOKUP_tysof = MATCH_MP
+  (MATCH_MP IMP_TRANS (MATCH_MP FLOOKUP_tysof_updates updates_thm))
+  (MATCH_MP FLOOKUP_tysof_updates (#updates_thm upd))
+
+val IMP_TRANS = METIS_PROVE[]``(∀h c. P h c ==> Q h c) ==> (∀h c. Q h c ==> R h c) ==> (∀h c. P h c ==> R h c)``
+val proves = HO_MATCH_MP
+  (HO_MATCH_MP IMP_TRANS (MATCH_MP updates_proves updates_thm))
+  (MATCH_MP updates_proves (#updates_thm upd))
+
+val term_ok_reduce = prove(
+  ``∀tm.
+    term_ok (sigof (thyof ^ctxt)) tm ⇒
+    ($~ o (VFREE_IN (Const ^ZERO_REP_name ^ZERO_REP_ty))) tm ⇒
+    ($~ o (VFREE_IN (Const ^IS_NUM_REP_name ^IS_NUM_REP_ty))) tm ⇒
+    term_ok (sigof (thyof ^(rand (rand ctxt)))) tm``,
+  ho_match_mp_tac term_induction >> rw[term_ok_def] >>
+  rfs[finite_mapTheory.FLOOKUP_UPDATE] >>
+  BasicProvers.EVERY_CASE_TAC >> rw[] >> fs[] >>
+  PROVE_TAC[])
+
+fun reduce_term_ok th =
+  let
+    val th1 = MATCH_MP term_ok_reduce th
+    val th2 = EVAL_not_VFREE_IN (fst(dest_imp(concl th1)))
+    val th3 = MP th1 th2
+    val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
+  in
+    MP th3 th4
+  end
+
+val ZERO_REP_ax =
+  replace_term
+    (mk_Var(ZERO_REP_name,ZERO_REP_ty))
+    (mk_Const(ZERO_REP_name,ZERO_REP_ty))
+  prop
+
+val theory_ok =
+  MATCH_MP (MATCH_MP extends_theory_ok extends_init_thm)
+  init_theory_ok
+
+val ZERO_REP_axiom = prove(
+  ``(thyof ^ctxt,[]) |- ^ZERO_REP_ax``,
+  match_mp_tac (last (CONJUNCTS proves_rules)) >>
+  conj_tac >- ACCEPT_TAC theory_ok >>
+  EVAL_TAC)
+
+val IS_NUM_REP_ax =
+  term_to_deep(concl(def))
+
+val IS_NUM_REP_axiom = prove(
+  ``(thyof ^ctxt,[]) |- ^IS_NUM_REP_ax``,
+  match_mp_tac (last (CONJUNCTS proves_rules)) >>
+  conj_tac >- ACCEPT_TAC theory_ok >>
+  EVAL_TAC)
+
+val (reader:reader) = {
+  theory_ok = theory_ok,
+  const = (fn name =>
+    if name = ZERO_REP_name then FLOOKUP_ZERO_REP
+    else if name = IS_NUM_REP_name then FLOOKUP_IS_NUM_REP
+    else MATCH_MP FLOOKUP_tmsof (#const reader name)),
+  typeOp = (fn name =>
+    MATCH_MP FLOOKUP_tysof (#typeOp reader name)),
+  axiom = (fn term_oks =>
+    if aconv (rand(concl ZERO_REP_axiom)) (rand(concl(hd term_oks)))
+    then ZERO_REP_axiom
+    else if aconv (rand(concl IS_NUM_REP_axiom)) (rand(concl(hd term_oks)))
+    then IS_NUM_REP_axiom
+    else MATCH_MP proves (#axiom reader (List.map reduce_term_ok term_oks)))
+  }
+
+(* :num *)
+val NUM_REP_witness =
+  let
+    val istr = TextIO.openIn("opentheory/num-rep.art")
+  in
+    istr |> readArticle reader
+    |> Net.listItems |> hd
+    before TextIO.closeIn istr
+  end
 
 (* IN *)
 val def = IN_DEF
@@ -315,7 +411,7 @@ Proof: somehow get something like num_Axiom from the below
 ConstDef: SUC_DEF
 ConstDef: ZERO_DEF
 (* :num *)
-Proof: TypeDefn EXISTS_NUM_REP
+Proof: TypeDefn NUM_REP_ZERO
 Const_Def: IS_NUM_REP
 Proof: ZERO_REP: ConstSpec ZERO_REP_EXISTS
 Proof: SUC_REP: ConstSpec infinity_ax
