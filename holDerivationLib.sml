@@ -830,15 +830,13 @@ in
   }
 end
 
-(*
-val istr = TextIO.openIn("opentheory/prodWitness.art")
-fun run s 0 = s
-  | run s n =
-      case TextIO.inputLine istr of NONE => s
-      | SOME l => run (readLine hol_ctxt_reader s (trimr l)) (n-1)
-        handle HOL_ERR e => (print l; print(Feedback.format_ERR e); s)
-val s = init_state
-val s = run s 100
-*)
+fun run reader istr =
+  let
+    fun f s 0 = s
+      | f s n =
+          case TextIO.inputLine istr of NONE => s
+          | SOME l => f (readLine reader s (trimr l)) (n-1)
+            handle HOL_ERR e => (print l; print(Feedback.format_ERR e); s)
+  in f end
 
 end
