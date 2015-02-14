@@ -1,6 +1,9 @@
 signature holDerivationLib = sig
   include Abbrev
 
+  (* TODO: move to another lib? *)
+  val EVAL_typeof : conv
+
   type reader = {
     theory_ok : thm, (* |- theory_ok thy *)
     axiom : thm list -> thm, (* map (|- term_ok thy) (c::h) -> |- (thy,h) |- c *)
