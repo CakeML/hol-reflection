@@ -42,8 +42,36 @@ val unmk_eq_conv =
   REWR_CONV holSyntaxTheory.equation_def THENC
   LAND_CONV(LAND_CONV(EVAL_Equal_typeof))
 
-val mem = reflectionLib.mem
 open holSyntaxTheory holSyntaxExtraTheory holExtensionTheory holConstrainedExtensionTheory
+
+val mem = reflectionLib.mem
+
+val FLOOKUP_tmsof_updates = store_thm("FLOOKUP_tmsof_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+    FLOOKUP (tmsof (thyof ctxt)) name = SOME ty ⇒
+    FLOOKUP (tmsof (thyof (upd::ctxt))) name = SOME ty``,
+  rw[finite_mapTheory.FLOOKUP_FUNION] >>
+  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
+  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+  PROVE_TAC[alistTheory.ALOOKUP_MEM])
+
+val FLOOKUP_tysof_updates = store_thm("FLOOKUP_tysof_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+    FLOOKUP (tysof (thyof ctxt)) name = SOME a ⇒
+    FLOOKUP (tysof (thyof (upd::ctxt))) name = SOME a``,
+  rw[finite_mapTheory.FLOOKUP_FUNION] >>
+  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
+  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+  PROVE_TAC[alistTheory.ALOOKUP_MEM])
+
+val term_ok_updates = store_thm("term_ok_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      term_ok (sigof (thyof ctxt)) tm ⇒
+      term_ok (sigof (thyof (upd::ctxt))) tm``,
+  rw[] >> match_mp_tac term_ok_extend >>
+  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+  simp[] >> conj_tac >> match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
+  metis_tac[updates_DISJOINT,finite_mapTheory.SUBMAP_REFL,pred_setTheory.DISJOINT_SYM])
 
 (* SUC_REP *)
 val SUC_REP_witness =
@@ -107,6 +135,47 @@ val (upd:update) = {
 val extends_init_thm =
   MATCH_MP updates_extends_trans
     (CONJ updates_thm extends_init_thm)
+
+val ctxt = rand(rator(concl extends_init_thm))
+
+val SUC_REP_name = ``strlit"SUC_REP"``
+val FLOOKUP_SUC_REP =
+  ``FLOOKUP (tmsof (thyof ^ctxt)) ^SUC_REP_name`` |> EVAL
+
+val FLOOKUP_tmsof = MATCH_MP FLOOKUP_tmsof_updates updates_thm
+val FLOOKUP_tysof = MATCH_MP FLOOKUP_tysof_updates updates_thm
+val proves = MATCH_MP updates_proves updates_thm
+
+val term_ok_reduce = prove(
+  ``∀tm.
+    term_ok (sigof (thyof ^ctxt)) tm ⇒
+    ($~ o (VFREE_IN (Const ^SUC_REP_name ^(rand(rhs(concl FLOOKUP_SUC_REP)))))) tm ⇒
+    term_ok (sigof (thyof ^(rand ctxt))) tm``,
+  ho_match_mp_tac term_induction >> rw[term_ok_def] >>
+  rfs[finite_mapTheory.FLOOKUP_UPDATE] >>
+  BasicProvers.EVERY_CASE_TAC >> rw[] >> fs[] >>
+  PROVE_TAC[])
+
+fun reduce_term_ok th =
+  let
+    val th1 = MATCH_MP term_ok_reduce th
+    val th2 = EVAL_not_VFREE_IN (fst(dest_imp(concl th1)))
+  in
+    MP th1 th2
+  end
+
+val (reader:reader) = {
+  theory_ok =
+    MATCH_MP (MATCH_MP extends_theory_ok extends_init_thm)
+    init_theory_ok,
+  const = (fn name =>
+    if name = SUC_REP_name then FLOOKUP_SUC_REP
+    else MATCH_MP FLOOKUP_tmsof (#const hol_ctxt_reader name)),
+  typeOp = (fn name =>
+    MATCH_MP FLOOKUP_tysof (#typeOp hol_ctxt_reader name)),
+  axiom = (fn term_oks =>
+    MATCH_MP proves (#axiom hol_ctxt_reader (List.map reduce_term_ok term_oks)))
+  }
 
 (* IN *)
 val def = IN_DEF

@@ -3,6 +3,7 @@ signature holDerivationLib = sig
 
   (* TODO: move to another lib? *)
   val EVAL_typeof : conv
+  val EVAL_not_VFREE_IN : conv
 
   type reader = {
     theory_ok : thm, (* |- theory_ok thy *)
