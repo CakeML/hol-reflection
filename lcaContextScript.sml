@@ -365,6 +365,45 @@ val NUM_REP_witness =
     |> Net.listItems |> hd
     before TextIO.closeIn istr
   end
+val inner_upd = ``TypeDefn (strlit"num") ^(mk_Const(IS_NUM_REP_name,IS_NUM_REP_ty))
+                    (strlit"ABS_num") (strlit"REP_num")``
+val updates_thm = prove(
+  ``^inner_upd updates ^ctxt``,
+  match_mp_tac (updates_rules |> CONJUNCTS |> el 5) >>
+  exists_tac(mk_Const(ZERO_REP_name,ZERO_REP_ty)) >>
+  conj_tac >- ACCEPT_TAC NUM_REP_witness >>
+  conj_tac >- (EVAL_TAC >> rw[]) >>
+  EVAL_TAC)
+val sound_update_thm = prove(
+  ``is_set_theory ^mem ⇒
+      sound_update ^ctxt ^inner_upd``,
+  strip_tac >>
+  ho_match_mp_tac (UNDISCH new_type_definition_correct) >>
+  (updates_thm |> SIMP_RULE (srw_ss()) [updates_cases] |> strip_assume_tac) >>
+  simp[] >> PROVE_TAC[]) |> UNDISCH
+val constrainable_thm = prove(
+  ``constrainable_update ^inner_upd``,
+  REWRITE_TAC[constrainable_update_def] >>
+  qexists_tac`set(tvars(HD(axioms_of_upd ^inner_upd)))` >>
+  conj_tac >- (EVAL_TAC >> rw[]) >>
+  conj_tac >- EVAL_TAC >>
+  conj_tac >- EVAL_TAC >>
+  conj_tac >- ( EVAL_TAC >> rw[] ) >>
+  REWRITE_TAC[mlstring_sort_SET_TO_LIST_set_tvars] >>
+  EVAL_TAC >> rw[] >> fs[] >> rw[] >>
+  rpt(fs[subtype_Tyvar,subtype_Tyapp] >> rw[]))
+val (upd:update) = {
+  sound_update_thm  = sound_update_thm,
+  constrainable_thm = constrainable_thm,
+  updates_thm = updates_thm,
+  extends_init_thm = extends_init_thm,
+  tys = [``:num``],
+  consts = [``ABS_num``,``REP_num``],
+  axs = map SPEC_ALL (CONJUNCTS numTheory.num_ISO_DEF) }
+val extends_init_thm =
+  MATCH_MP updates_extends_trans
+    (CONJ updates_thm extends_init_thm)
+val ctxt = rand(rator(concl extends_init_thm))
 
 (* IN *)
 val def = IN_DEF
