@@ -405,6 +405,16 @@ val extends_init_thm =
     (CONJ updates_thm extends_init_thm)
 val ctxt = rand(rator(concl extends_init_thm))
 
+(* ZERO *)
+val def = numTheory.ZERO_DEF
+val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
+
+(* SUC *)
+val def = preprocess numTheory.SUC_DEF
+val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
+
+(* num_Axiom *)
+
 (* IN *)
 val def = IN_DEF
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
