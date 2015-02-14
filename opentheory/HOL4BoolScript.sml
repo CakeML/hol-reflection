@@ -70,4 +70,25 @@ val RIGHT_OR_OVER_AND =
    end;
 val _ = save_thm("RIGHT_OR_OVER_AND", RIGHT_OR_OVER_AND);
 
+val SELECT_ELIM_THM = let
+  val P = mk_var("P", alpha --> bool)
+  val Q = mk_var("Q", alpha --> bool)
+  val x = mk_var("x", alpha)
+  val Px = mk_comb(P, x)
+  val Qx = mk_comb(Q, x)
+  val PimpQ = mk_imp(Px, Qx)
+  val allPimpQ = mk_forall(x, PimpQ)
+  val exPx = mk_exists (x, Px)
+  val selP = mk_comb(prim_mk_const{Thy = "min", Name = "@"}, P)
+  val asm_t = mk_conj(exPx, allPimpQ)
+  val asm = ASSUME asm_t
+  val (ex_th, forall_th) = CONJ_PAIR asm
+  val imp_th = SPEC selP forall_th
+  val Px_th = ASSUME Px
+  val PselP_th0 = UNDISCH (SPEC_ALL SELECT_AX)
+  val PselP_th = CHOOSE(x, ex_th) PselP_th0
+in
+  save_thm("SELECT_ELIM_THM", GENL [P, Q] (DISCH_ALL (MP imp_th PselP_th)))
+end
+
 val _ = export_theory()
