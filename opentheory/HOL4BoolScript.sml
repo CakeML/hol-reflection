@@ -91,4 +91,11 @@ in
   save_thm("SELECT_ELIM_THM", GENL [P, Q] (DISCH_ALL (MP imp_th PselP_th)))
 end
 
+val ONTO_THM = save_thm(
+  "ONTO_THM",
+  let val f = mk_var("f", Type.alpha --> Type.beta)
+  in
+      GEN f (RIGHT_BETA (AP_THM ONTO_DEF f))
+  end);
+
 val _ = export_theory()
