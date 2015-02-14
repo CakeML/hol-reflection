@@ -665,7 +665,7 @@ fun readLine (r:reader) s l =
           in
             mk_comb(P,x)
             |> BETA_CONV |> SYM
-            |> EQ_MP (CONJ term_ok_x (EVAL_typeof x))
+            |> C EQ_MP (CONJ term_ok_x (EVAL_typeof (mk_typeof x)))
           end
         val th4 = MATCH_MP th3 (join_EVERY P (map f hs3))
         val th5 = MATCH_MP th4 (prove_hypset_ok (fst(dest_imp(concl th4))))
