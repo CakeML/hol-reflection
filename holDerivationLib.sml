@@ -149,9 +149,22 @@ val match_type_rws = [
   tymatch_def,
   holSyntaxLibTheory.REV_ASSOCD]
 
+fun MEM_CONV eval =
+  (REWR_CONV(CONJUNCT1 listTheory.MEM)) ORELSEC
+  (REWR_CONV(CONJUNCT2 listTheory.MEM) THENC eval)
+
+fun fix_list_compset c =
+  let
+    val () = computeLib.scrub_const c ``set``
+    val () = computeLib.scrub_thms [listTheory.MEM] c
+    val () = computeLib.add_conv(``$IN``,2,
+      MEM_CONV (computeLib.CBV_CONV c)) c
+  in () end
+
 local
   val c = listLib.list_compset()
-  val () = computeLib.scrub_const c ``set`` (* TODO: list_compset is arguably broken because of this *)
+  (* TODO: list_compset is arguably broken because of this *)
+  val () = fix_list_compset c
   val () = optionLib.OPTION_rws c
   val () = pairLib.add_pair_compset c
   val () = computeLib.add_thms match_type_rws c
