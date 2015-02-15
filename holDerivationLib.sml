@@ -247,6 +247,9 @@ val () = add_name_map ([],"->") ``strlit"fun"``
 val () = add_name_map ([],"select") ``strlit"@"``
 val () = add_name_map (["Function"],"surjective") ``strlit"ONTO"``
 val () = add_name_map (["Function"],"injective") ``strlit"ONE_ONE"``
+val () = add_name_map (["Number","Natural"],"natural") ``strlit"num"``
+val () = add_name_map (["Number","Natural"],"zero") ``strlit"0"``
+val () = add_name_map (["Number","Natural"],"suc") ``strlit"SUC"``
 
 datatype object =
     Num of int
