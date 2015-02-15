@@ -7,48 +7,20 @@ fun FALSITY_CONV tm = DISCH F (SPEC tm (EQ_MP F_DEF (ASSUME F)))
 val tb = mk_var("t",bool)
 val _ = save_thm("FALSITY", GEN tb (FALSITY_CONV tb))
 
-val IMP_CLAUSE1 =
-   let val t = ``t:bool``
-       val th1 = DISCH (``T ==> ^t``) (MP (ASSUME (``T ==> ^t``)) TRUTH)
-       and th2 = DISCH t (DISCH (``T``) (ADD_ASSUM (``T``) (ASSUME t)))
-   in
-   GEN t (IMP_ANTISYM_RULE th1 th2)
-   end;
+val ths = CONJUNCTS (SPEC tb boolTheory.IMP_CLAUSES)
+val ths = map (GEN tb) ths
+val () = app delete_proof ths
+val _ = save_thm("IMP_CLAUSES", GEN tb (LIST_CONJ (map (SPEC tb) ths)))
 
-val IMP_CLAUSE2 =
-   let val t = ``t:bool``
-   in GEN t (EQT_INTRO(SPEC t FALSITY))
-   end;
+val ths = CONJUNCTS (SPEC tb boolTheory.AND_CLAUSES)
+val ths = map (GEN tb) ths
+val () = app delete_proof ths
+val _ = save_thm("AND_CLAUSES", GEN tb (LIST_CONJ (map (SPEC tb) ths)))
 
-val IMP_CLAUSE3 =
-   let val t = ``t:bool``
-   in GEN t (EQT_INTRO(DISCH t (ADD_ASSUM t TRUTH)))
-   end;
-
-val IMP_CLAUSE4 =
-   let val th1 = DISCH (``T ==> F``) (MP (ASSUME (``T ==> F``)) TRUTH)
-       and th2 = SPEC (``T ==> F``) FALSITY
-       and th3 = EQT_INTRO(DISCH (``F``) (ASSUME (``F``)))
-   in
-   CONJ(IMP_ANTISYM_RULE th1 th2) th3
-   end;
-
-val IMP_CLAUSE5 =
-    let val t = ``t:bool``
-        val th1 = SPEC t IMP_F
-        and th2 = SPEC t F_IMP
-    in
-    GEN t (IMP_ANTISYM_RULE th1 th2)
-    end;
-
-val IMP_CLAUSES =
-   let val t = ``t:bool``
-   in GEN t
-      (LIST_CONJ [SPEC t IMP_CLAUSE1, SPEC t IMP_CLAUSE3,
-                  SPEC t IMP_CLAUSE2, EQT_INTRO(DISCH t (ASSUME t)),
-                  SPEC t IMP_CLAUSE5])
-   end;
-val _ = save_thm("IMP_CLAUSES", IMP_CLAUSES);
+val ths = CONJUNCTS (SPEC tb boolTheory.EQ_CLAUSES)
+val ths = map (GEN tb) ths
+val () = app delete_proof ths
+val _ = save_thm("EQ_CLAUSES", GEN tb (LIST_CONJ (map (SPEC tb) ths)))
 
 val RIGHT_OR_OVER_AND =
    let val t1 = ``A:bool``

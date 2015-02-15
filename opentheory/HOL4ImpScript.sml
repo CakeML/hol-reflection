@@ -3,6 +3,9 @@ val _ = new_theory"HOL4Imp"
 
 fun FALSITY_CONV tm = DISCH F (SPEC tm (EQ_MP F_DEF (ASSUME F)))
 
+val tb = mk_var("t",bool)
+val FALSITY = save_thm("FALSITY", GEN tb (FALSITY_CONV tb))
+
 fun UNFOLD_OR_CONV tm =
   let val (disj1,disj2) = dest_disj tm in
   RIGHT_BETA(AP_THM (RIGHT_BETA(AP_THM OR_DEF disj1)) disj2)
