@@ -22,6 +22,18 @@ val ths = map (GEN tb) ths
 val () = app delete_proof ths
 val _ = save_thm("EQ_CLAUSES", GEN tb (LIST_CONJ (map (SPEC tb) ths)))
 
+val th = boolTheory.MONO_AND |> Q.GENL[`w`,`z`,`y`,`x`]
+val () = delete_proof th
+val _ = save_thm("MONO_AND", SPEC_ALL th)
+
+val th = boolTheory.MONO_OR |> Q.GENL[`w`,`z`,`y`,`x`]
+val () = delete_proof th
+val _ = save_thm("MONO_OR", SPEC_ALL th)
+
+val th = boolTheory.MONO_EXISTS |> Q.GENL[`Q`,`P`]
+val () = delete_proof th
+val _ = save_thm("MONO_EXISTS", SPEC_ALL th)
+
 val RIGHT_OR_OVER_AND =
    let val t1 = ``A:bool``
        and t2 = ``B:bool``

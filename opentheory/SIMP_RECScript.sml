@@ -97,7 +97,7 @@ val lemma1 =
       POP_ASSUM MATCH_MP_TAC THEN ACCEPT_TAC RAR,
       FIRST_ASSUM MATCH_ACCEPT_TAC]);
 
-val INDUCTION = store_thm("INDUCTION",
+val INDUCTION = prove(
     --`!P. P 0 /\ (!n. P n ==> P(SUC n)) ==> !n. P n`--,
      GEN_TAC THEN STRIP_TAC THEN
      MP_TAC (SPEC (--`\i. ((P(ABS_num i)):bool)`--) ind_lemma2) THEN
@@ -114,15 +114,93 @@ val INDUCTION = store_thm("INDUCTION",
       CONV_TAC(RAND_CONV(REWR_CONV(SYM ISO1))) THEN
       FIRST_ASSUM ACCEPT_TAC]);
 
-(*
-val ax = num_Axiom_old
-  |> CONV_RULE(QUANT_CONV(QUANT_CONV(
-       RATOR_CONV(REWR_CONV EXISTS_UNIQUE_DEF) THENC
-       BETA_CONV) THENC HO_REWR_CONV FORALL_AND_THM)
-       THENC HO_REWR_CONV FORALL_AND_THM)
+val th1 =
+  ISO2 |> EQ_IMP_RULE |> fst
+  |> C MATCH_MP IS_NUM_REP_ZERO
+val th2 =
+  ISO2 |> EQ_IMP_RULE |> fst
+  |> C MATCH_MP (SPEC_ALL IS_NUM_REP_SUC_REP)
+
+val NOT_SUC = prove(concl(NOT_SUC),
+  GEN_TAC THEN
+  CONV_TAC(RAND_CONV
+    (LAND_CONV(REWR_CONV SUC_DEF) THENC
+    RAND_CONV(REWR_CONV ZERO_DEF))) THEN
+  DISCH_THEN(MP_TAC o SYM o
+    CONV_RULE(LAND_CONV(REWR_CONV th2) THENC
+              RAND_CONV(REWR_CONV th1)) o
+    AP_TERM``REP_num``) THEN
+  ACCEPT_TAC(NOT_ELIM(Q.SPEC`REP_num n`ZERO_REP_DEF)))
+
+val th3 =
+  th2 |> CONV_RULE(LAND_CONV(RAND_CONV(REWR_CONV(SYM SUC_DEF))))
+
+val SUC_REP_11 =
+  SUC_REP_DEF
   |> CONJUNCT1
-  |> Q.SPECL[`z`,`\x y. f x`]
-  |> CONV_RULE(QUANT_CONV(RAND_CONV(QUANT_CONV(RAND_CONV(RATOR_CONV BETA_CONV THENC BETA_CONV)))))
+  |> CONV_RULE(RATOR_CONV(REWR_CONV ONE_ONE_DEF) THENC BETA_CONV)
+
+val SUC_INJ = prove(
+  ``(SUC m = SUC n) ==> (m = n)``,
+  DISCH_THEN(ACCEPT_TAC o
+    CONV_RULE(LAND_CONV(REWR_CONV ISO1) THENC
+              RAND_CONV(REWR_CONV ISO1)) o
+    AP_TERM``ABS_num`` o
+    MATCH_MP SUC_REP_11 o
+    CONV_RULE(LAND_CONV(REWR_CONV th3) THENC
+              RAND_CONV(REWR_CONV th3)) o
+    AP_TERM``REP_num``))
+
+open InductiveDefinition
+
+val PR = mk_var("PR",``:num -> 'a -> bool``)
+val th1 =
+  derive_nonschematic_inductive_relations
+  ``PR 0 z ∧ (∀b n. PR n b ⇒ PR (SUC n) (f b))``
+  |> prove_monotonicity_hyps bool_monoset
+val th2 = EXISTS(mk_exists(PR,concl th1),PR) th1
+val eq = hd(hyp th2)
+val th3 = INST[PR|->rhs eq] th2 |> PROVE_HYP(REFL(rhs eq))
+
+val ax = prove(
+  ``∃fn. (fn 0 = z) ∧ (∀n. fn (SUC n) = f (fn n))``,
+  STRIP_ASSUME_TAC th3 THEN
+  `∀n y. PR n y ⇒ ∀x. PR n x ⇒ (y = x)` by (
+    FIRST_X_ASSUM HO_MATCH_MP_TAC THEN
+    CONJ_TAC THEN1 (
+      GEN_TAC THEN
+      LAST_X_ASSUM(Q.SPECL_THEN[`0`,`x`]SUBST1_TAC) THEN
+      STRIP_TAC THEN1 ( FIRST_ASSUM(ACCEPT_TAC o SYM) ) THEN
+      FIRST_ASSUM ( fn th =>
+        CONTR_TAC(MP(Q.SPEC`n`NOT_SUC |> NOT_ELIM)(SYM th)))) THEN
+    REPEAT GEN_TAC THEN STRIP_TAC THEN GEN_TAC THEN
+    LAST_X_ASSUM(Q.SPECL_THEN[`SUC n`,`x`]SUBST1_TAC) THEN
+    STRIP_TAC THEN1 (
+      FIRST_ASSUM ( fn th =>
+        CONTR_TAC(MP(Q.SPEC`n`NOT_SUC |> NOT_ELIM)(th)))) THEN
+    FIRST_ASSUM(SUBST_ALL_TAC o MATCH_MP SUC_INJ) THEN
+    FIRST_ASSUM(CHANGED_TAC o SUBST1_TAC) THEN
+    AP_TERM_TAC THEN
+    FIRST_ASSUM MATCH_MP_TAC THEN
+    FIRST_ASSUM ACCEPT_TAC ) THEN
+  `∀n. ∃y. PR n y` by (
+    HO_MATCH_MP_TAC INDUCTION THEN
+    CONJ_TAC THEN1 (
+      Q.EXISTS_TAC`z` THEN FIRST_ASSUM ACCEPT_TAC) THEN
+    REPEAT STRIP_TAC THEN
+    Q.EXISTS_TAC`f y` THEN RES_TAC ) THEN
+  POP_ASSUM(Q.X_CHOOSE_THEN`fn`STRIP_ASSUME_TAC o
+    CONV_RULE(REWR_CONV SKOLEM_THM)) THEN
+  Q.EXISTS_TAC`fn` THEN
+  CONJ_TAC THEN1 (
+    FIRST_X_ASSUM(Q.SPEC_THEN`0`ASSUME_TAC) THEN
+    RES_TAC ) THEN
+  GEN_TAC THEN
+  FIRST_ASSUM(Q.SPEC_THEN`SUC n`ASSUME_TAC) THEN
+  FIRST_X_ASSUM(fn th =>
+    FIRST_X_ASSUM(MATCH_MP_TAC o MATCH_MP th)) THEN
+  FIRST_X_ASSUM MATCH_MP_TAC THEN
+  FIRST_X_ASSUM MATCH_ACCEPT_TAC)
 
 val GSKOLEM = GSYM SKOLEM_THM
 
@@ -140,6 +218,5 @@ val SIMP_REC_EXISTS = save_thm("SIMP_REC_EXISTS",
       MAP_EVERY Q.X_GEN_TAC[`z`,`f`] THEN
       ACCEPT_TAC ax) THEN
     GEN_TAC THEN DISCH_THEN ACCEPT_TAC));
-*)
 
 val _ = export_theory()
