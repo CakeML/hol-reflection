@@ -5,10 +5,10 @@ val _ = new_theory"lcaProof"
 (*
 intermediate theorem:
 
-``LCA UNIV (SUC l) ⇒
+``LCA (SUC l) UNIV ⇒
   ∃mem. is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
         termsem (sigof LCA_ctxt) (LCA_int) someval
-          [LCA UNIV ^(quote l)] = True``
+          [LCA ^(quote l) UNIV] = True``
 
 for someval, want:
   type valuation to map "U" to the Q from the definition of LCA
@@ -20,8 +20,8 @@ for LCA_int, want:
 
 master theorem...
 
-``∀n. (^thy,[]) |- [∀l. LCA UNIV l ⇒ ^^phi ^(quote n) l] ⇒
-    ∀l. LCA UNIV (SUC l) ⇒ ^phi n l``
+``∀n. (^thy,[]) |- [∀l. LCA l UNIV ⇒ ^^phi ^(quote n) l] ⇒
+    ∀l. LCA (SUC l) UNIV ⇒ ^phi n l``
 
 where thy extends (thyof LCA_ctxt)
 

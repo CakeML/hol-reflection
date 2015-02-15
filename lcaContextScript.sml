@@ -436,8 +436,7 @@ val def = preprocess POW_alt
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 (* plan for building context:
 
-LCA_def: ConstSpec LCA_exists
-Proof: LCA_exists (from num_Axiom)
+ConstDef: LCA_SIMP_REC
 ConstDef: strongly_inaccessible_alt
 ConstDef: countable_def
 ConstDef: strong_limit_cardinal_def
@@ -454,8 +453,8 @@ ConstDef: UNIV_DEF
 ConstDef: cardleq_def
 ConstDef: INJ_DEF
 ConstDef: IN_DEF
-(* recursive defn *)
-Proof: somehow get something like num_Axiom from the below
+(* SIMP_REC *)
+Proof: ...
 (* 0, SUC *)
 ConstDef: SUC_DEF
 ConstDef: ZERO_DEF

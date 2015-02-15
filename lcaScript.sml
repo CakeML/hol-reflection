@@ -680,14 +680,19 @@ val strongly_inaccessible_alt = store_thm("strongly_inaccessible_alt",
             my_regular_empty,my_regular_cardinal_regular])
 
 val LCA_def = Define`
-  (LCA P 0 ⇔ T) ∧
-  (LCA P (SUC n) ⇔ strongly_inaccessible P ∧
-     ∃Q. Q ⊆ P ∧ Q ≺ P ∧ LCA Q n)`
+  (LCA 0 P ⇔ T) ∧
+  (LCA (SUC n) P ⇔ strongly_inaccessible P ∧
+     ∃Q. Q ⊆ P ∧ Q ≺ P ∧ LCA n Q)`
 
 val LCA_holds = store_thm("LCA_holds",
   ``(∀X:'U set. ∃Y:'U set.
         X ⊆ Y ∧ X ≺ Y ∧ strongly_inaccessible Y) ⇒
-    (∀n. ∃P:'U set. LCA P n)``,
+    (∀n. ∃P:'U set. LCA n P)``,
   strip_tac >> Induct >> fs[LCA_def] >> metis_tac[])
+
+val LCA_SIMP_REC = store_thm("LCA_SIMP_REC",
+  ``LCA = SIMP_REC (λP. T) (λf P. strongly_inaccessible P ∧ ∃Q. Q ⊆ P ∧ Q ≺ P ∧ f Q)``,
+  simp[FUN_EQ_THM] >> Induct >> simp[LCA_def] >>
+  simp[prim_recTheory.SIMP_REC_THM])
 
 val _ = export_theory()
