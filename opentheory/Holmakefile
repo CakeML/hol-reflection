@@ -1,6 +1,13 @@
-all : num-rep.art zero-rep.art suc-rep.art
+all : simp-rec.art num-rep.art zero-rep.art suc-rep.art
 
 .PHONY: all
+
+simp-rec.art : simp-rec.thy HOL4.art SIMP_REC.art
+	opentheory info --article -o $@ $<
+
+SIMP_REC.art : SIMP_RECScript.sml
+	Holmake --ot SIMP_RECTheory.uo
+	opentheory info --article -o $@ $@
 
 num-rep.art : num-rep.thy HOL4.art NUM_REP.art
 	opentheory info --article -o $@ $<
