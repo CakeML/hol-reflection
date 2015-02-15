@@ -329,7 +329,7 @@ val my_regular_cardinal_regular = store_thm("my_regular_cardinal_regular",
 
 val not_imp = PROVE[]``a ∨ b ⇔ ¬a ⇒ b``
 
-val my_regular_cardinal_alt = prove(
+val my_regular_cardinal_alt = store_thm("my_regular_cardinal_alt",
   ``my_regular_cardinal X ⇔
     ¬∃(x:α set)(f:α -> α set).
       x ⊆ X ∧ x ≺ X ∧
