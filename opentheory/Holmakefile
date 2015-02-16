@@ -5,7 +5,7 @@ all : simp-rec.art num-rep.art zero-rep.art suc-rep.art
 EXTRA_CLEANS =\
 	simp-rec.art num-rep.art zero-rep.art suc-rep.art\
 	SIMP_REC.art NUM_REP.art ZERO_REP.art SUC_REP.art\
-	HOL4.art HOL4Bool.art HOL4Sat.art HOL4Imp.art
+	HOL4.art HOL4Bool.art HOL4Imp.art
 
 simp-rec.art : simp-rec.thy HOL4.art SIMP_REC.art
 	opentheory info --article -o $@ $<
@@ -35,15 +35,11 @@ SUC_REP.art : SUC_REPScript.sml
 	Holmake --ot SUC_REPTheory.uo
 	opentheory info --article -o $@ $@
 
-HOL4.art : HOL4.thy HOL4Bool.art HOL4Sat.art HOL4Imp.art
+HOL4.art : HOL4.thy HOL4Bool.art HOL4Imp.art
 	opentheory info --article -o $@ theory:$<
 
 HOL4Bool.art : HOL4BoolScript.sml
 	Holmake --ot HOL4BoolTheory.uo
-	opentheory info --article -o $@ $@
-
-HOL4Sat.art : HOL4SatScript.sml
-	Holmake --ot HOL4SatTheory.uo
 	opentheory info --article -o $@ $@
 
 HOL4Imp.art : HOL4ImpScript.sml

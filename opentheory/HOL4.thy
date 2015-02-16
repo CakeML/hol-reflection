@@ -12,17 +12,10 @@ hbool {
   import: himp
   article: "HOL4Bool.art"
 }
-hsat {
-  import: bool-int
-  import: bool-class
-  import: hbool
-  article: "HOL4Sat.art"
-}
 main {
   import: bool-int
   import: bool-class
   import: bool-ext
   import: hbool
   import: himp
-  import: hsat
 }
