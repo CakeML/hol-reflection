@@ -212,4 +212,69 @@ in
   val EVAL_SORTED_alpha_lt = computeLib.CBV_CONV c
 end
 
+local
+  val refl_thm = PROVE[]``(a = a) = T``
+in
+  val EQ_CONV = REWR_CONV refl_thm
+end
+
+val EVERY_NIL = CONJUNCT1 listTheory.EVERY_DEF
+val EVERY_CONS = CONJUNCT2 listTheory.EVERY_DEF
+fun every_conv conv tm = tm |> (
+  (REWR_CONV EVERY_NIL) ORELSEC
+  (REWR_CONV EVERY_CONS THENC
+   FORK_CONV(conv,every_conv conv)))
+
+fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
+  let
+    val clauses = is_std_sig
+      |> MATCH_MP holBoolSyntaxTheory.term_ok_clauses
+    val (term_ok_Var  ,clauses) = CONJ_PAIR clauses
+    val (type_ok_Tyvar,clauses) = CONJ_PAIR clauses
+    val (type_ok_Bool ,clauses) = CONJ_PAIR clauses
+    val (type_ok_Fun  ,clauses) = CONJ_PAIR clauses
+    val (term_ok_Comb ,clauses) = CONJ_PAIR clauses
+    val (term_ok_Equal,clauses) = CONJ_PAIR clauses
+    val (term_ok_eqn  ,clauses) = CONJ_PAIR clauses
+    val  term_ok_Abs            =           clauses
+    val sg = rand(concl is_std_sig)
+    val term_ok_Const =
+      term_ok_def |> CONJUNCTS |> el 2 |> SPEC sg
+    val type_ok_Tyapp =
+      type_ok_def |> CONJUNCTS |> el 2
+      |> SIMP_RULE (pure_ss++boolSimps.ETA_ss)[]
+      |> SPEC ``tysof ^sg``
+    (* fun f tm = let val () = fail := (tm::(!fail)) in tm end *)
+    fun f tm = tm
+    fun tyconv tm = (f tm) |> (
+      (REWR_CONV type_ok_Tyvar)    ORELSEC
+      (REWR_CONV type_ok_Bool)     ORELSEC
+      (REWR_CONV type_ok_Fun THENC
+       FORK_CONV (tyconv,tyconv))  ORELSEC
+      (REWR_CONV type_ok_Tyapp THENC
+       FORK_CONV (lookup_conv,
+         every_conv tyconv)))
+    fun tmconv tm = (f tm) |> (
+      (REWR_CONV term_ok_Var THENC tyconv)   ORELSEC
+      (REWR_CONV term_ok_Equal THENC tyconv) ORELSEC
+      (REWR_CONV term_ok_eqn THENC
+       FORK_CONV (tmconv,
+         FORK_CONV (tmconv,
+           FORK_CONV (EVAL_typeof,EVAL_typeof)
+           THENC EQ_CONV)))                  ORELSEC
+      (REWR_CONV term_ok_Comb THENC
+       FORK_CONV (tmconv,
+         FORK_CONV (tmconv,
+           EQT_INTRO o EVAL_welltyped)))     ORELSEC
+      (REWR_CONV term_ok_Abs THENC
+       FORK_CONV (tyconv,tmconv))            ORELSEC
+      (REWR_CONV term_ok_Const THENC
+       QUANT_CONV(
+         FORK_CONV(lookup_conv,
+           LAND_CONV tyconv)) THENC
+       HO_REWR_CONV UNWIND_THM1))
+  in
+    (tyconv,tmconv)
+  end
+
 end

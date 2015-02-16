@@ -16,6 +16,8 @@ signature holSyntaxLib = sig
 
   val EVAL_hypset : conv
 
+  val EVAL_type_ok_term_ok : conv -> thm -> conv * conv
+
   val add_type_info : computeLib.compset -> unit
 
   val fix_list_compset : computeLib.compset -> unit

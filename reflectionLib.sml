@@ -1682,21 +1682,19 @@ fun build_ConstDef extends_init_thm def =
     val {Name,Thy,Ty} = dest_thy_const c
     val tm = term_to_deep d
     val name = string_to_inner Name
+    val theory_ok =
+      MATCH_MP (
+        MATCH_MP extends_theory_ok extends_init_thm)
+        init_theory_ok
+    val is_std_sig = MATCH_MP theory_ok_sig theory_ok
+      |> REWRITE_RULE[of_sigof_rwt]
+    val (EVAL_type_ok,EVAL_term_ok) = holSyntaxLib.EVAL_type_ok_term_ok EVAL is_std_sig
     val conditions =
       prove(ConstDef_updates |> SPECL[name,tm,ctxt] |> concl |> dest_imp |> fst,
-        conj_asm1_tac >- (
-          match_mp_tac (MATCH_MP extends_theory_ok extends_init_thm) >>
-          ACCEPT_TAC init_theory_ok ) >>
+        conj_tac >- ACCEPT_TAC theory_ok >>
         conj_tac >- (
-          pop_assum(fn theory_ok =>
-            map_every (assume_tac o SIMP_RULE std_ss [] o GEN_ALL)
-              (CONJUNCTS (MATCH_MP holBoolSyntaxTheory.term_ok_clauses (MATCH_MP theory_ok_sig theory_ok)))) >>
-          ASM_SIMP_TAC std_ss [WELLTYPED_CLAUSES] >>
-          rpt conj_tac >>
-          TRY (EVAL_TAC >> rw[] >> NO_TAC) >>
-          TRY (rw[] >> NO_TAC) >>
-          simp[term_ok_def,type_ok_def] >>
-          EVAL_TAC >> rw[holSyntaxLibTheory.tyvar_inst_exists]) >>
+          CONV_TAC EVAL_term_ok >>
+          rw[holSyntaxLibTheory.tyvar_inst_exists]) >>
         conj_tac >- EVAL_TAC >>
         conj_tac >- ( EVAL_TAC >> rw[] >> PROVE_TAC[] ) >>
         EVAL_TAC >> rw[])
