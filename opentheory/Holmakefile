@@ -2,6 +2,11 @@ all : simp-rec.art num-rep.art zero-rep.art suc-rep.art
 
 .PHONY: all
 
+EXTRA_CLEANS =\
+	simp-rec.art num-rep.art zero-rep.art suc-rep.art\
+	SIMP_REC.art NUM_REP.art ZERO_REP.art SUC_REP.art\
+	HOL4.art HOL4Bool.art HOL4Sat.art HOL4Imp.art
+
 simp-rec.art : simp-rec.thy HOL4.art SIMP_REC.art
 	opentheory info --article -o $@ $<
 
