@@ -202,7 +202,7 @@ val SUC_REP_axiom = prove(
   conj_tac >- ACCEPT_TAC theory_ok >>
   EVAL_TAC)
 
-val (reader:reader) = {
+val (zero_rep_reader:reader) = {
   theory_ok = theory_ok,
   const = (fn name =>
     if name = SUC_REP_name then FLOOKUP_SUC_REP
@@ -220,7 +220,7 @@ val ZERO_REP_witness =
   let
     val istr = TextIO.openIn("opentheory/zero-rep.art")
   in
-    istr |> readArticle reader
+    istr |> readArticle zero_rep_reader
     |> Net.listItems |> hd
     before TextIO.closeIn istr
   end
@@ -350,20 +350,20 @@ val IS_NUM_REP_axiom = prove(
   conj_tac >- ACCEPT_TAC theory_ok >>
   EVAL_TAC)
 
-val (reader:reader) = {
+val (num_reader:reader) = {
   theory_ok = theory_ok,
   const = (fn name =>
     if name = ZERO_REP_name then FLOOKUP_ZERO_REP
     else if name = IS_NUM_REP_name then FLOOKUP_IS_NUM_REP
-    else MATCH_MP FLOOKUP_tmsof (#const reader name)),
+    else MATCH_MP FLOOKUP_tmsof (#const zero_rep_reader name)),
   typeOp = (fn name =>
-    MATCH_MP FLOOKUP_tysof (#typeOp reader name)),
+    MATCH_MP FLOOKUP_tysof (#typeOp zero_rep_reader name)),
   axiom = (fn term_oks =>
     if aconv (rand(concl ZERO_REP_axiom)) (rand(concl(hd term_oks)))
     then ZERO_REP_axiom
     else if aconv (rand(concl IS_NUM_REP_axiom)) (rand(concl(hd term_oks)))
     then IS_NUM_REP_axiom
-    else MATCH_MP proves (#axiom reader (List.map reduce_term_ok term_oks)))
+    else MATCH_MP proves (#axiom zero_rep_reader (List.map reduce_term_ok term_oks)))
   }
 
 (* :num *)
@@ -371,7 +371,7 @@ val NUM_REP_witness =
   let
     val istr = TextIO.openIn("opentheory/num-rep.art")
   in
-    istr |> readArticle reader
+    istr |> readArticle num_reader
     |> Net.listItems |> hd
     before TextIO.closeIn istr
   end
@@ -525,32 +525,82 @@ val term_ok_reduce = prove(
   simp[])
 
 local
-  val c = computeLib.bool_compset()
+  val c = listLib.list_compset()
   val () = pred_setLib.add_pred_set_compset c
   val () = computeLib.add_thms [types_in_def] c
-  val RTC = fst(strip_comb``x subtype y``)
-  val eval = computeLib.CBV_CONV c
-  val subtype_conv =
-    (REWR_CONV subtype_Tyvar ORELSEC
-     REWR_CONV subtype_Tyapp) THENC eval
-  val () = computeLib.add_conv(RTC,3,subtype_conv)c
+  val () = add_type_info c
 in
-  fun reduce_term_ok th =
-    let
-      val th1 = MATCH_MP term_ok_reduce th
-      val th2 = eval (fst(dest_imp(concl th1))) |> EQT_ELIM
-      val th3 = MP th1 th2
-      val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
-      val th3 = MP th3 th4
-      val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
-      val th3 = MP th3 th4
-      val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
-      val th3 = MP th3 th4
-      val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
-    in
-      MP th3 th4
-    end
+  val EVAL_types_in = computeLib.CBV_CONV c
 end
+
+val T_AND = prove(``T ∧ P ⇔ P``,rw[])
+
+local
+  local
+    val c = listLib.list_compset()
+    val () = fix_list_compset c
+    val () = add_type_info c
+  in
+    val EVAL_type = computeLib.CBV_CONV c
+  end
+  val FORALL_MEM_NIL = prove(
+    ``(∀x. MEM x [] ⇒ P x) ⇔ T``,rw[])
+  val FORALL_MEM_CONS = prove(
+    ``(∀x. MEM x (y::z) ⇒ P x) ⇔ P y ∧ (∀x. MEM x z ⇒ P x)``,
+    rw[EQ_IMP_THM] >> rw[])
+  val rw1 = AP_TERM``$~``subtype_Tyvar
+  val rw2 = AP_TERM``$~``subtype_Tyapp |>
+            CONV_RULE(RAND_CONV(SIMP_CONV bool_ss [PROVE[]``a ∨ b ⇔ ¬b ⇒ a``]))
+  fun not_subtype_conv tm =
+    ((REWR_CONV rw1 THENC EVAL_type) ORELSEC
+     (REWR_CONV rw2 THENC (LAND_CONV EVAL_type) THENC
+      REWR_CONV T_AND THENC all_not_subtype_conv)) tm
+  and all_not_subtype_conv tm =
+    ((HO_REWR_CONV FORALL_MEM_NIL) ORELSEC
+     (HO_REWR_CONV FORALL_MEM_CONS THENC
+      (LAND_CONV not_subtype_conv) THENC
+      REWR_CONV T_AND THENC
+      all_not_subtype_conv)) tm
+in
+  val not_subtype_conv = not_subtype_conv
+end
+
+local
+  val FORALL_IN_INSERT = prove(
+    ``(∀x. x ∈ y INSERT z ⇒ P x) ⇔ (P y ∧ ∀x. x ∈ z ⇒ P x)``,
+    rw[EQ_IMP_THM] >> rw[])
+  val FORALL_IN_EMPTY = prove(
+    ``(∀x. x ∈ ∅ ⇒ P x) ⇔ T``,
+    rw[])
+in
+  fun forall_not_subtype_conv tm =
+    ((HO_REWR_CONV FORALL_IN_EMPTY) ORELSEC
+     (HO_REWR_CONV FORALL_IN_INSERT THENC
+      (LAND_CONV not_subtype_conv) THENC
+      REWR_CONV T_AND THENC
+      forall_not_subtype_conv)) tm
+end
+
+val types_in_not_subtype_conv =
+  EQT_ELIM o
+  (QUANT_CONV(LAND_CONV(RAND_CONV EVAL_types_in))
+   THENC forall_not_subtype_conv)
+
+fun reduce_term_ok th =
+  let
+    val th1 = MATCH_MP term_ok_reduce th
+    val th2 = types_in_not_subtype_conv (fst(dest_imp(concl th1)))
+    val th3 = MP th1 th2
+    val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
+    val th3 = MP th3 th4
+    val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
+    val th3 = MP th3 th4
+    val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
+    val th3 = MP th3 th4
+    val th4 = EVAL_not_VFREE_IN (fst(dest_imp(concl th3)))
+  in
+    MP th3 th4
+  end
 
 val theory_ok =
   MATCH_MP (MATCH_MP extends_theory_ok extends_init_thm)
@@ -588,17 +638,20 @@ val SUC_axiom = prove(
   conj_tac >- ACCEPT_TAC theory_ok >>
   EVAL_TAC)
 
-val (reader:reader) = {
+val NUM_REP_ZERO_axiom =
+  MATCH_MP proves NUM_REP_witness
+
+val (simp_rec_reader:reader) = {
   theory_ok = theory_ok,
   const = (fn name =>
     if name = ABS_num_name then FLOOKUP_ABS_num
     else if name = REP_num_name then FLOOKUP_REP_num
     else if name = ZERO_name then FLOOKUP_ZERO
     else if name = SUC_name then FLOOKUP_SUC
-    else MATCH_MP FLOOKUP_tmsof (#const reader name)),
+    else MATCH_MP FLOOKUP_tmsof (#const num_reader name)),
   typeOp = (fn name =>
     if name = num_name then FLOOKUP_num
-    else MATCH_MP FLOOKUP_tysof (#typeOp reader name)),
+    else MATCH_MP FLOOKUP_tysof (#typeOp num_reader name)),
   axiom = (fn term_oks =>
     if aconv (rand(concl ISO1_axiom)) (rand(concl(hd term_oks)))
       then ISO1_axiom
@@ -608,10 +661,66 @@ val (reader:reader) = {
       then ZERO_axiom
     else if aconv (rand(concl SUC_axiom)) (rand(concl(hd term_oks)))
       then SUC_axiom
-    else MATCH_MP proves (#axiom reader (List.map reduce_term_ok term_oks)))
+    else if aconv (rand(concl NUM_REP_ZERO_axiom)) (rand(concl(hd term_oks)))
+      then NUM_REP_ZERO_axiom
+    else MATCH_MP proves (#axiom num_reader (List.map reduce_term_ok term_oks)))
   }
 
 (* SIMP_REC *)
+val SIMP_REC_witness =
+  let
+    val istr = TextIO.openIn("opentheory/simp-rec.art")
+  in
+    istr |> readArticle simp_rec_reader
+    |> Net.listItems |> hd
+    before TextIO.closeIn istr
+  end
+val inner_th = SIMP_REC_witness
+val eqs = inner_th |> concl |> rator |> rand |> rand |> mk_eqs
+val prop = inner_th |> concl |> rand
+val inner_upd = ``ConstSpec ^eqs ^prop``
+val updates_thm = prove(
+  ``^inner_upd updates ^inner_ctxt``,
+  match_mp_tac (updates_rules |> CONJUNCTS |> el 3) >>
+  conj_tac >- (
+    CONV_TAC(LAND_CONV(RAND_CONV(computeLib.CBV_CONV cs))) >>
+    CONV_TAC(LAND_CONV(RAND_CONV(MAP_EVERY_CONV unmk_eq_conv))) >>
+    ACCEPT_TAC SIMP_REC_witness ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] >> PROVE_TAC[] ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] ) >>
+  conj_tac >- ( EVAL_TAC >> rw[] ) >>
+  EVAL_TAC)
+val sound_update_thm = prove(
+  ``is_set_theory ^mem ⇒
+    sound_update ^inner_ctxt ^inner_upd``,
+  strip_tac >>
+  ho_match_mp_tac (UNDISCH new_specification_correct) >>
+  conj_asm1_tac >- ACCEPT_TAC theory_ok >>
+  (updates_thm |> SIMP_RULE bool_ss [updates_cases,update_distinct,update_11] |> strip_assume_tac) >>
+  rpt conj_tac >>
+  first_assum ACCEPT_TAC) |> UNDISCH
+val constrainable_thm = prove(
+  ``constrainable_update ^inner_upd``,
+  rw[constrainable_update_def] >> rw[] >>
+  rw[conexts_of_upd_def] >>
+  rw[listTheory.EVERY_MAP] >>
+  unabbrev_all_tac >> rw[] >>
+  TRY(pop_assum mp_tac) >>
+  EVAL_TAC >> rw[])
+
+val (upd:update) = {
+  sound_update_thm = sound_update_thm,
+  constrainable_thm = constrainable_thm,
+  updates_thm = updates_thm,
+  extends_init_thm = extends_init_thm,
+  consts = [``SIMP_REC``],
+  tys = [],
+  axs = [prim_recTheory.SIMP_REC_THM]}
+val extends_init_thm =
+  MATCH_MP updates_extends_trans
+    (CONJ updates_thm extends_init_thm)
+val ctxt = upd::ctxt
+val inner_ctxt = rand(rator(concl extends_init_thm))
 
 (* IN *)
 val def = IN_DEF
@@ -639,7 +748,7 @@ val def = preprocess POW_alt
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 val ctxt = upd::ctxt
 (* my_regular_cardinal *)
-val def = SIMP_RULE (pure_ss++boolSimps.ETA_ss) [uneta] (Q.GEN`X`my_regular_cardinal_alt)
+val def = preprocess (Q.GEN`X`my_regular_cardinal_alt)
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 val ctxt = upd::ctxt
 (* strong_limit_cardinal *)
