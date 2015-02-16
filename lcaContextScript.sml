@@ -1,6 +1,6 @@
-open HolKernel boolLib bossLib lcsymtacs
+open HolKernel boolLib bossLib lcsymtacs miscLib
 open pred_setTheory cardinalTheory reflectionTheory
-open lcaTheory reflectionLib holDerivationLib
+open lcaTheory reflectionLib holSyntaxLib holSyntaxSyntax holDerivationLib
 val _ = new_theory"lcaContext"
 
 val _ = Globals.max_print_depth := 15
