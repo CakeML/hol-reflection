@@ -1,6 +1,6 @@
 structure holSyntaxLib :> holSyntaxLib = struct
 
-open HolKernel boolLib lcsymtacs
+open HolKernel boolLib bossLib lcsymtacs
 open holSyntaxSyntax holSyntaxTheory holSyntaxExtraTheory
 open holDerivationTheory
 

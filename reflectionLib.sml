@@ -514,6 +514,48 @@ type update = {
   consts : term list,
   axs : thm list }
 
+(* TODO: stolen from ml_translatorLib.sml *)
+
+(* packers and unpackers for thms, terms and types *)
+
+fun pack_type ty = REFL (mk_var("ty",ty));
+fun unpack_type th = th |> concl |> dest_eq |> fst |> type_of;
+
+fun pack_term tm = REFL tm;
+fun unpack_term th = th |> concl |> dest_eq |> fst;
+
+fun pack_thm th = PURE_ONCE_REWRITE_RULE [GSYM markerTheory.Abbrev_def] th |> DISCH_ALL;
+fun unpack_thm th = th |> UNDISCH_ALL |> PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def];
+
+fun pack_list f xs = TRUTH :: map f xs |> LIST_CONJ |> PURE_ONCE_REWRITE_RULE [GSYM markerTheory.Abbrev_def];
+fun unpack_list f th = th |> PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def] |> CONJUNCTS |> tl |> map f;
+
+(* -- *)
+
+(* pack and unpack context *)
+fun pack_update upd =
+  pack_list I [pack_thm (#sound_update_thm upd),
+               pack_thm (#constrainable_thm upd),
+               pack_thm (#updates_thm upd),
+               pack_thm (#extends_init_thm upd),
+               pack_list pack_type (#tys upd),
+               pack_list pack_term (#consts upd),
+               pack_list pack_thm (#axs upd)]
+fun unpack_update th =
+  let
+    val ls = unpack_list I th
+  in
+    {sound_update_thm  = unpack_thm (el 1 ls),
+     constrainable_thm = unpack_thm (el 2 ls),
+     updates_thm       = unpack_thm (el 3 ls),
+     extends_init_thm  = unpack_thm (el 4 ls),
+     tys    = unpack_list unpack_type (el 5 ls),
+     consts = unpack_list unpack_term (el 6 ls),
+     axs    = unpack_list unpack_thm  (el 7 ls)}
+  end
+val pack_ctxt = pack_list pack_update
+val unpack_ctxt = unpack_list unpack_update
+
 fun find_type_instances toconstrain fromupdate =
   mk_set (
   foldl

@@ -1,11 +1,11 @@
-structure lcaCtxtLib :> lcaCtxtLib = struct
-
 open HolKernel boolLib bossLib lcsymtacs miscLib
 open pred_setTheory cardinalTheory
 open lcaTheory reflectionTheory reflectionLib
 open holSyntaxTheory holSyntaxExtraTheory holSyntaxLib holSyntaxSyntax
 open holExtensionTheory holConstrainedExtensionTheory
 open holDerivationTheory holDerivationLib
+
+val _ = new_theory"lcaCtxt"
 
 val _ = Globals.max_print_depth := 15
 
@@ -743,4 +743,7 @@ val def = LCA_SIMP_REC
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 val ctxt = upd::ctxt
 
-end
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0
+val _ = save_thm("lca_ctxt_thm", pack_ctxt ctxt)
+val _ = save_thm("lca_extends_init", extends_init_thm)
+val _ = export_theory()
