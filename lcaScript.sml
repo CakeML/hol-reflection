@@ -680,18 +680,37 @@ val strongly_inaccessible_alt = store_thm("strongly_inaccessible_alt",
             my_regular_empty,my_regular_cardinal_regular])
 
 val LCA_def = Define`
-  (LCA 0 P ⇔ T) ∧
+  (LCA 0 P ⇔ (UNIV:ind set) ≼ P) ∧
   (LCA (SUC n) P ⇔ strongly_inaccessible P ∧
      ∃Q. Q ⊆ P ∧ Q ≺ P ∧ LCA n Q)`
 
 val LCA_holds = store_thm("LCA_holds",
-  ``(∀X:'U set. ∃Y:'U set.
-        X ⊆ Y ∧ X ≺ Y ∧ strongly_inaccessible Y) ⇒
-    (∀n. ∃P:'U set. LCA n P)``,
-  strip_tac >> Induct >> fs[LCA_def] >> metis_tac[])
+  ``(∀X:'U set. X ≺ (UNIV:'U set) ⇒
+      ∃Y:'U set.
+        X ⊆ Y ∧ X ≺ Y ∧ strongly_inaccessible Y ∧
+        Y ≺ (UNIV:'U set)) ∧
+    (UNIV:ind set) ≺ (UNIV:'U set) ⇒
+    (∀n. ∃P:'U set. LCA n P ∧ P ≺ (UNIV:'U set))``,
+  strip_tac >> Induct >> fs[LCA_def] >- (
+    `∃f. INJ f (UNIV:ind set) (UNIV:'U set)` by
+      metis_tac[cardlt_lenoteq,cardleq_def] >>
+    qexists_tac`IMAGE f (UNIV:ind set)` >>
+    conj_asm1_tac >- (
+      simp[cardleq_def] >>
+      qexists_tac`f` >>
+      fs[INJ_DEF] ) >>
+    `IMAGE f (UNIV:ind set) ≈ (UNIV:ind set)` suffices_by
+      metis_tac[cardlt_leq_trans,cardleq_lteq] >>
+    match_mp_tac (cardeq_SYM|>SPEC_ALL|>EQ_IMP_RULE|>fst) >>
+    simp[cardeq_def] >>
+    qexists_tac`f` >>
+    simp[BIJ_DEF] >>
+    fs[INJ_DEF] ) >>
+  metis_tac[])
 
 val LCA_SIMP_REC = store_thm("LCA_SIMP_REC",
-  ``LCA = SIMP_REC (λP. T) (λf P. strongly_inaccessible P ∧ ∃Q. Q ⊆ P ∧ Q ≺ P ∧ f Q)``,
+  ``LCA = SIMP_REC (λP. (UNIV:ind set) ≼ P)
+      (λf P. strongly_inaccessible P ∧ ∃Q. Q ⊆ P ∧ Q ≺ P ∧ f Q)``,
   simp[FUN_EQ_THM] >> Induct >> simp[LCA_def] >>
   simp[prim_recTheory.SIMP_REC_THM])
 
