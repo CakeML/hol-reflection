@@ -174,6 +174,33 @@ val match_type_SOME = store_thm("match_type_SOME",
   qspecl_then[`[ty1]`,`[ty2]`,`[],[]`]mp_tac tymatch_SOME >>
   simp[] >>
   Cases_on`z`>>simp[])
+
+val FLOOKUP_tmsof_updates = store_thm("FLOOKUP_tmsof_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+    FLOOKUP (tmsof (thyof ctxt)) name = SOME ty ⇒
+    FLOOKUP (tmsof (thyof (upd::ctxt))) name = SOME ty``,
+  rw[finite_mapTheory.FLOOKUP_FUNION] >>
+  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
+  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+  PROVE_TAC[alistTheory.ALOOKUP_MEM])
+
+val FLOOKUP_tysof_updates = store_thm("FLOOKUP_tysof_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+    FLOOKUP (tysof (thyof ctxt)) name = SOME a ⇒
+    FLOOKUP (tysof (thyof (upd::ctxt))) name = SOME a``,
+  rw[finite_mapTheory.FLOOKUP_FUNION] >>
+  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
+  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
+  PROVE_TAC[alistTheory.ALOOKUP_MEM])
+
+val term_ok_updates = store_thm("term_ok_updates",
+  ``∀upd ctxt. upd updates ctxt ⇒
+      term_ok (sigof (thyof ctxt)) tm ⇒
+      term_ok (sigof (thyof (upd::ctxt))) tm``,
+  rw[] >> match_mp_tac term_ok_extend >>
+  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
+  simp[] >> conj_tac >> match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
+  metis_tac[updates_DISJOINT,finite_mapTheory.SUBMAP_REFL,pred_setTheory.DISJOINT_SYM])
 (* -- *)
 
 val term_ok_Abs = store_thm("term_ok_Abs",

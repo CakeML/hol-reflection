@@ -1,7 +1,11 @@
+structure lcaCtxtLib :> lcaCtxtLib = struct
+
 open HolKernel boolLib bossLib lcsymtacs miscLib
-open pred_setTheory cardinalTheory reflectionTheory
-open lcaTheory reflectionLib holSyntaxLib holSyntaxSyntax holDerivationLib
-val _ = new_theory"lcaContext"
+open pred_setTheory cardinalTheory
+open lcaTheory reflectionTheory reflectionLib
+open holSyntaxTheory holSyntaxExtraTheory holSyntaxLib holSyntaxSyntax
+open holExtensionTheory holConstrainedExtensionTheory
+open holDerivationTheory holDerivationLib
 
 val _ = Globals.max_print_depth := 15
 
@@ -56,36 +60,7 @@ val unmk_eq_conv =
   REWR_CONV holSyntaxTheory.equation_def THENC
   LAND_CONV(LAND_CONV(EVAL_Equal_typeof))
 
-open holSyntaxTheory holSyntaxExtraTheory holExtensionTheory holConstrainedExtensionTheory
-
 val mem = reflectionLib.mem
-
-val FLOOKUP_tmsof_updates = store_thm("FLOOKUP_tmsof_updates",
-  ``∀upd ctxt. upd updates ctxt ⇒
-    FLOOKUP (tmsof (thyof ctxt)) name = SOME ty ⇒
-    FLOOKUP (tmsof (thyof (upd::ctxt))) name = SOME ty``,
-  rw[finite_mapTheory.FLOOKUP_FUNION] >>
-  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
-  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
-  PROVE_TAC[alistTheory.ALOOKUP_MEM])
-
-val FLOOKUP_tysof_updates = store_thm("FLOOKUP_tysof_updates",
-  ``∀upd ctxt. upd updates ctxt ⇒
-    FLOOKUP (tysof (thyof ctxt)) name = SOME a ⇒
-    FLOOKUP (tysof (thyof (upd::ctxt))) name = SOME a``,
-  rw[finite_mapTheory.FLOOKUP_FUNION] >>
-  BasicProvers.CASE_TAC >> imp_res_tac updates_DISJOINT >>
-  fs[pred_setTheory.IN_DISJOINT,listTheory.MEM_MAP,pairTheory.EXISTS_PROD] >>
-  PROVE_TAC[alistTheory.ALOOKUP_MEM])
-
-val term_ok_updates = store_thm("term_ok_updates",
-  ``∀upd ctxt. upd updates ctxt ⇒
-      term_ok (sigof (thyof ctxt)) tm ⇒
-      term_ok (sigof (thyof (upd::ctxt))) tm``,
-  rw[] >> match_mp_tac term_ok_extend >>
-  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`] >>
-  simp[] >> conj_tac >> match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
-  metis_tac[updates_DISJOINT,finite_mapTheory.SUBMAP_REFL,pred_setTheory.DISJOINT_SYM])
 
 val IMP_TRANS1 = METIS_PROVE[]``(P ==> Q) ==> (Q ==> R) ==> (P ==> R)``
 val IMP_TRANS2 = METIS_PROVE[]``(∀h c. P h c ==> Q h c) ==> (∀h c. Q h c ==> R h c) ==> (∀h c. P h c ==> R h c)``
@@ -768,4 +743,4 @@ val def = LCA_SIMP_REC
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 val ctxt = upd::ctxt
 
-val _ = export_theory()
+end
