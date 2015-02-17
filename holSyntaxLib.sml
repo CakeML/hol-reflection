@@ -244,9 +244,21 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
       type_ok_def |> CONJUNCTS |> el 2
       |> SIMP_RULE (pure_ss++boolSimps.ETA_ss)[]
       |> SPEC ``tysof ^sg``
-    (* fun f tm = let val () = fail := (tm::(!fail)) in tm end *)
-    fun f tm = tm
-    fun tyconv tm = (f tm) |> (
+    val db = ref Net.empty
+    fun memo f x =
+      let
+        val ls = Net.index x (!db)
+      in
+        if List.null ls then
+          let
+            val th = f x
+            val () = db := Net.insert(x,th) (!db)
+          in
+            th
+          end
+        else List.hd ls
+      end
+    fun tyconv tm = tm |> (memo ((
       (REWR_CONV type_ok_Tyvar)    ORELSEC
       (REWR_CONV type_ok_Bool)     ORELSEC
       (REWR_CONV type_ok_Fun THENC
@@ -254,7 +266,8 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
       (REWR_CONV type_ok_Tyapp THENC
        FORK_CONV (lookup_conv,
          every_conv tyconv)))
-    fun tmconv tm = (f tm) |> (
+      THENC DEPTH_CONV reduceLib.AND_CONV))
+    fun tmconv tm = tm |> (memo ((
       (REWR_CONV term_ok_Var THENC tyconv)   ORELSEC
       (REWR_CONV term_ok_Equal THENC tyconv) ORELSEC
       (REWR_CONV term_ok_eqn THENC
@@ -273,6 +286,7 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
          FORK_CONV(lookup_conv,
            LAND_CONV tyconv)) THENC
        HO_REWR_CONV UNWIND_THM1))
+      THENC DEPTH_CONV reduceLib.AND_CONV))
   in
     (tyconv,tmconv)
   end
