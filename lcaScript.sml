@@ -714,4 +714,25 @@ val LCA_SIMP_REC = store_thm("LCA_SIMP_REC",
   simp[FUN_EQ_THM] >> Induct >> simp[LCA_def] >>
   simp[prim_recTheory.SIMP_REC_THM])
 
+val LCA_alt = store_thm("LCA_alt",
+  ``∀n P. LCA n P =
+      ∃f. (UNIV:ind set) ≼ (f 0:'U set) ∧ (f n = P) ∧
+        ∀k. k < n ⇒
+          strongly_inaccessible (f (SUC k)) ∧
+          f k ⊆ f (SUC k) ∧
+          f k ≺ f (SUC k)``,
+  Induct >- (
+    simp[LCA_def] >> rw[EQ_IMP_THM] >> rw[] >>
+    qexists_tac`K P` >> simp[] ) >>
+  simp[LCA_def,PULL_EXISTS] >>
+  pop_assum kall_tac >>
+  gen_tac >> EQ_TAC >> strip_tac >- (
+    qexists_tac`λm. if m = SUC n then P else f m` >>
+    simp[] >>
+    gen_tac >> strip_tac >>
+    Cases_on`k=n`>>simp[]) >>
+  qexists_tac`f`>>simp[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[])
+
 val _ = export_theory()
