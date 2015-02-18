@@ -48,6 +48,69 @@ val (EVAL_type_ok,EVAL_term_ok) =
   holSyntaxLib.EVAL_type_ok_term_ok
     EVAL (MATCH_MP theory_ok_sig theory_ok_lca |> SIMP_RULE std_ss[])
 
+open holBoolTheory HolKernel
+
+val bool_interpretation_defs =
+  [is_true_interpretation_def,
+   is_and_interpretation_def,
+   is_implies_interpretation_def,
+   is_forall_interpretation_def,
+   is_exists_interpretation_def,
+   is_or_interpretation_def,
+   is_false_interpretation_def,
+   is_not_interpretation_def]
+
+val extends_axioms = store_thm("extends_axioms",
+  ``∀ctxt2 ctxt1. ctxt2 extends ctxt1 ⇒ axsof ctxt1 ⊆ axsof ctxt2``,
+  simp[extends_def] >>
+  ho_match_mp_tac relationTheory.RTC_INDUCT >>
+  simp[PULL_EXISTS] >>
+  metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.SUBSET_TRANS])
+
+(*
+val extends_is_bool_interpretation = store_thm("extends_is_bool_interpretation",
+  ``ctxt2 extends (mk_bool_ctxt ctxt) ∧
+    theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
+    i models (thyof ctxt2) ⇒
+    is_bool_interpretation i``,
+  strip_tac >>
+  `i models thyof (mk_bool_ctxt ctxt)` by (
+    fs[models_def] >>
+    f"is_inter"
+    is_valuation_reduce
+    f"assignment"
+    f"extends"
+    f"reduce"
+    f"valua"
+  `theory_ok (thyof ctxt2)`
+  bool_has_bool_interpretation
+  f"models"
+  simp[is_bool_interpretation_def] >>
+  fs[models_def] >>
+  simp bool_interpretation_defs >>
+  imp_res_tac extends_axioms >>
+  fs[pred_setTheory.SUBSET_DEF] >>
+  pop_assum mp_tac >>
+  CONV_TAC(LAND_CONV(QUANT_CONV(LAND_CONV EVAL)))
+  `MEM p (axiom_list (mk_bool_ctxt ctxt)) ⇒ MEM p (axiom_list ctxt2)` by (
+  f"extends"
+
+  is_true_interpretation_def
+  f"is_bool"
+
+val lca_is_bool_interpretation = 
+
+val termsem_exists = store_thm("termsem_exists",
+  ``is_bool_interpretation i ⇒
+    termsem s i v (Exists f y b) =
+    Boolean (∃
+  ``,
+  type_of``is_bool_interpretation``
+  f"is_bool_int"
+  f"bool_int"
+  hyp extends_bool_interpretation
+*)
+
 val intermediate_thm = store_thm("intermediate_thm",
   ``LCA (SUC l) (UNIV:'U set) ⇒
     ∃(mem:'U reln).
@@ -112,6 +175,8 @@ val intermediate_thm = store_thm("intermediate_thm",
   simp[holSyntaxLibTheory.tyvar_inst_exists] >>
   CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(EVAL)))) >>
   simp_tac bool_ss [Abbr`ty`] >> disch_then kall_tac >>
+  qmatch_abbrev_tac`termsem tmsig i vv (Exists ff fy pp) = True`
+  f"termsem_exists"
   (*
   use:
     Abstract
