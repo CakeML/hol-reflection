@@ -1,5 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs miscLib
-open lcaTheory reflectionLib
+open lcaTheory reflectionTheory reflectionLib
+open holSyntaxTheory holSyntaxExtraTheory
+open holSemanticsTheory holSemanticsExtraTheory
 open lcaCtxtTheory
 
 val _ = new_theory"lcaProof"
@@ -8,12 +10,25 @@ val _ = Globals.max_print_depth := 15
 
 val lca_ctxt = unpack_ctxt lca_ctxt_thm
 val lca_inner_ctxt = lca_extends_init |> concl |> rator |> rand
-val _ = overload_on("lca_ctxt",lca_inner_ctxt)
+val lca_ctxt_def = Define`
+  lca_ctxt = ^lca_inner_ctxt`
+
+val theory_ok_lca = store_thm("theory_ok_lca",
+  ``theory_ok (thyof lca_ctxt)``,
+  metis_tac[lca_extends_init |> REWRITE_RULE[GSYM lca_ctxt_def],
+            init_theory_ok,extends_theory_ok])
+
+val FLOOKUP_LCA = save_thm("FLOOKUP_LCA",
+  ``ALOOKUP (const_list lca_ctxt) (strlit"LCA")``
+  |> (PURE_ONCE_REWRITE_CONV[lca_ctxt_def] THENC EVAL))
+
+val FLOOKUP_UNIV = save_thm("FLOOKUP_UNIV",
+  ``ALOOKUP (const_list lca_ctxt) (strlit"UNIV")``
+  |> (PURE_ONCE_REWRITE_CONV[lca_ctxt_def] THENC EVAL))
 
 (*
 val test = termsem_cert lca_ctxt ``T``
 *)
-
 
 val _ = overload_on("Num", ``Tyapp(strlit"num")[]``)
 val quote_def = Define`
@@ -21,29 +36,28 @@ val quote_def = Define`
   (quote (SUC n) = Comb (Const(strlit"SUC")(Fun Num Num))
                         (quote n))`
 
+val type_ok_Num = store_thm("type_ok_Num",
+  ``type_ok (tysof lca_ctxt) Num``,
+  rw[type_ok_def] >>
+  ONCE_REWRITE_TAC[lca_ctxt_def] >>
+  EVAL_TAC)
+
 val LCA_l_UNIV = term_to_deep ``LCA l (UNIV:'U set)``
 
-open holSemanticsTheory
+val (EVAL_type_ok,EVAL_term_ok) =
+  holSyntaxLib.EVAL_type_ok_term_ok
+    EVAL (MATCH_MP theory_ok_sig theory_ok_lca |> SIMP_RULE std_ss[])
 
-val axslca = EVAL ``axsof lca_ctxt``
-axslca |> concl |> rhs |> rand |> listSyntax.dest_list |> fst |> hd
-
-val termsem_comb2 = prove(
-  ``i models thyof ctxt ∧
-    f
-    (Const f ty) === (Abs x (Abs y (t x y))) ∈ axsof ctxt
-    ⇒
-    termsem (tmsof ctxt) i v (Comb (Comb (Const f ty) a) b) =
-    termsem (tmsof ctxt) i v (t a b)``,
-  rw[termsem_def]
-
-``LCA (SUC l) (UNIV:'U set) ⇒
-  ∃(mem:'U reln).
-    is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
-    (i models (thyof lca_ctxt) ⇒
-       ∃v.
-         (tmvof v (strlit"l",Num) = to_inner Num l) ∧
-         (termsem (tmsof lca_ctxt) i v ^LCA_l_UNIV = True))``,
+val intermediate_thm = store_thm("intermediate_thm",
+  ``LCA (SUC l) (UNIV:'U set) ⇒
+    ∃(mem:'U reln).
+      is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
+      (i models (thyof lca_ctxt) ∧
+       to_inner Num l <: tyaof i (strlit "num") [] ⇒
+         ∃v.
+           is_valuation (tysof lca_ctxt) (tyaof i) v ∧
+           (tmvof v (strlit"l",Num) = to_inner Num l) ∧
+           (termsem (tmsof lca_ctxt) i v ^LCA_l_UNIV = True))``,
   CONV_TAC(LAND_CONV(REWR_CONV LCA_alt)) >> strip_tac >>
   first_assum(qspec_then`l`mp_tac) >>
   discharge_hyps >- simp[] >>
@@ -56,19 +70,57 @@ val termsem_comb2 = prove(
   first_assum(qspec_then`f l`mp_tac) >>
   discharge_hyps >- simp[] >>
   disch_then(qx_choose_then`fl`strip_assume_tac) >>
-  qexists_tac`(K fl, K (to_inner Num l))` >>
+  `is_type_valuation (K fl)` by (
+    simp[is_type_valuation_def] >>
+    `(UNIV:ind set) ≼ f l` by (
+      `∀k. k < SUC l ⇒ f k ≺ f (SUC k)` by metis_tac[] >>
+      pop_assum mp_tac >>
+      qid_spec_tac`l` >>
+      last_x_assum mp_tac >>
+      rpt(pop_assum kall_tac) >>
+      strip_tac >>
+      Induct >> simp[] >>
+      strip_tac >>
+      qpat_assum`X ⇒ Y`mp_tac >>
+      discharge_hyps >- (
+        rw[] >>
+        `k < SUC(SUC l)` by simp[] >>
+        res_tac ) >>
+      rw[] >>
+      first_x_assum(qspec_then`l`mp_tac) >> simp[] >>
+      metis_tac[cardinalTheory.cardleq_lt_trans,cardinalTheory.cardlt_lenoteq] ) >>
+    spose_not_then strip_assume_tac >> fs[] >>
+    rfs[cardinalTheory.cardleq_empty] ) >>
+  qspecl_then[`tysof lca_ctxt`,`tyaof i`,`K fl`]mp_tac(UNDISCH constrained_term_valuation_exists) >>
+  simp[] >>
+  discharge_hyps >- fs[models_def,is_interpretation_def] >>
+  disch_then(qspec_then`[((strlit"l",Num),to_inner Num l)]`mp_tac) >>
+  discharge_hyps >- (
+    simp[type_ok_Num] >>
+    simp[typesem_def] ) >>
+  simp[] >> strip_tac >>
+  qexists_tac`(K fl,σ)` >>
+  conj_asm1_tac >- simp[is_valuation_def] >>
   conj_tac >- simp[] >>
-  ONCE_REWRITE_TAC[termsem_def] >>
-
-  use the definition of LCA in the lca_ctxt, which means
-  we have to provide an f and show it satisfies certain
-  properties. for that f, use:
+  qmatch_abbrev_tac`termsem (tmsof ctxt) i v (Comb (Comb (Const g ty) a) b) = True` >>
+  qspecl_then[`ctxt`,`i`,`v`,`g`,`ty`,`a`,`b`]mp_tac(UNDISCH termsem_comb2_ax) >>
+  simp[Abbr`ctxt`,theory_ok_lca,Abbr`g`,FLOOKUP_LCA,Abbr`a`,Abbr`b`] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(LAND_CONV EVAL_term_ok)))) >> simp[] >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(LAND_CONV EVAL_term_ok)))) >> simp[] >>
+  simp[holSyntaxLibTheory.tyvar_inst_exists] >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(EVAL)))) >>
+  simp_tac bool_ss [Abbr`ty`] >> disch_then kall_tac >>
+  (*
+  use:
     Abstract
       (range ((to_inner Num):num->'U))
       (Funspace fl boolset)
       (λm. Abstract fl boolset
              (bool_to_inner o (f (finv (to_inner Num) m))))
 
+   *) cheat)
 
 master theorem...
 
