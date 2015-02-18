@@ -54,18 +54,6 @@ val STRING_SORT_SET_TO_LIST_set_tvars = store_thm("STRING_SORT_SET_TO_LIST_set_t
 
 (* -- *)
 
-val types_in_def = Define`
-  types_in (Var x ty) = {ty} ∧
-  types_in (Const c ty) = {ty} ∧
-  types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
-  types_in (Abs v t) = types_in v ∪ types_in t`
-val _ = export_rewrites["types_in_def"]
-
-val type_ok_types_in = store_thm("type_ok_types_in",
-  ``∀sig. is_std_sig sig ⇒ ∀tm ty. term_ok sig tm ∧ ty ∈ types_in tm ⇒ type_ok (tysof sig) ty``,
-  gen_tac >> strip_tac >> Induct >> simp[] >> rw[] >>
-  TRY (imp_res_tac term_ok_def >> NO_TAC) >> fs[term_ok_def])
-
 val (subtype1_rules,subtype1_ind,subtype1_cases) = Hol_reln`
   MEM a args ⇒ subtype1 a (Tyapp name args)`
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
@@ -109,10 +97,6 @@ val typesem_consts = store_thm("typesem_consts",
   discharge_hyps >- rw[] >> strip_tac >- (
     rw[] >> AP_TERM_TAC >> simp[MAP_EQ_f] >> metis_tac[] ) >>
   simp[MAP_MAP_o,combinTheory.o_DEF,typesem_def,ETA_AX])
-
-val VFREE_IN_types_in = store_thm("VFREE_IN_types_in",
-  ``∀t2 t1. VFREE_IN t1 t2 ⇒ typeof t1 ∈ types_in t2``,
-  ho_match_mp_tac term_induction >> rw[] >> rw[])
 
 val (subterm1_rules,subterm1_ind,subterm1_cases) = Hol_reln`
   subterm1 t1 (Comb t1 t2) ∧
