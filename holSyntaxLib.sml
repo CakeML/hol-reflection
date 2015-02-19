@@ -261,7 +261,8 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
        FORK_CONV (tyconv,tyconv))  ORELSEC
       (REWR_CONV type_ok_Tyapp THENC
        FORK_CONV (lookup_conv,
-         every_conv tyconv)))
+         every_conv tyconv))       ORELSEC
+      (ALL_CONV o (assert (is_var o rand))))
       THENC DEPTH_CONV reduceLib.AND_CONV))
     fun tmconv tm = tm |> (memo ((
       (REWR_CONV term_ok_Var THENC tyconv)   ORELSEC
@@ -270,7 +271,7 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
        FORK_CONV (tmconv,
          FORK_CONV (tmconv,
            FORK_CONV (EVAL_typeof,EVAL_typeof)
-           THENC EQ_CONV)))                  ORELSEC
+           THENC (TRY_CONV EQ_CONV))))       ORELSEC
       (REWR_CONV term_ok_Comb THENC
        FORK_CONV (tmconv,
          FORK_CONV (tmconv,EVAL_welltyped))) ORELSEC
@@ -280,7 +281,8 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
        QUANT_CONV(
          FORK_CONV(lookup_conv,
            LAND_CONV tyconv)) THENC
-       HO_REWR_CONV UNWIND_THM1))
+       HO_REWR_CONV UNWIND_THM1)             ORELSEC
+       (ALL_CONV o (assert (is_var o rand))))
       THENC DEPTH_CONV reduceLib.AND_CONV))
   in
     (tyconv,tmconv)
