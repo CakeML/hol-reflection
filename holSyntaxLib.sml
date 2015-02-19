@@ -244,7 +244,8 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
       let
         val ls = Net.index x (!db)
       in
-        if List.null ls then
+        if List.null ls orelse
+           not (aconv x (lhs(concl(List.hd ls)))) then
           let
             val th = f x
             val () = db := Net.insert(x,th) (!db)
