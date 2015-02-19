@@ -8,7 +8,7 @@ val _ = new_theory"lcaProof"
 
 val _ = Globals.max_print_depth := 15
 
-open holBoolSyntaxTheory holBoolTheory setSpecTheory
+open holSyntaxLibTheory holBoolSyntaxTheory holBoolTheory setSpecTheory
 
 (* TODO: move *)
 val abstract_in_funspace_matchable = prove(
@@ -109,6 +109,45 @@ val termsem_and = store_thm("termsem_and",
     imp_res_tac typesem_Bool >> simp[] ) >>
   simp[boolean_in_boolset] )
 
+val extends_sub = store_thm("extends_sub",
+  ``∀ctxt2 ctxt1. ctxt2 extends ctxt1 ⇒
+      tmsof ctxt1 ⊑ tmsof ctxt2 ∧
+      tysof ctxt1 ⊑ tysof ctxt2 ∧
+      axsof ctxt1 ⊆ axsof ctxt2``,
+  simp[extends_def] >>
+  ho_match_mp_tac relationTheory.RTC_INDUCT >>
+  simp[PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >>
+  rpt conj_tac >>
+  TRY (
+    match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
+    disj2_tac >> simp[] >>
+    imp_res_tac updates_DISJOINT >> fs[] >>
+    fs[finite_mapTheory.SUBMAP_DEF,pred_setTheory.IN_DISJOINT] >>
+    metis_tac[] ) >>
+  metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.SUBSET_TRANS])
+
+val extends_is_bool_interpretation = store_thm("extends_is_bool_interpretation",
+  ``is_set_theory ^mem ∧
+    ctxt2 extends (mk_bool_ctxt ctxt) ∧
+    theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
+    i models (thyof ctxt2) ⇒
+    is_bool_interpretation i``,
+  strip_tac >>
+  `i models thyof (mk_bool_ctxt ctxt)` by (
+    `∃x y z. thyof (mk_bool_ctxt ctxt) = ((x,y),z)` by metis_tac[pairTheory.PAIR] >>
+    simp[] >>
+    match_mp_tac (UNDISCH models_reduce) >>
+    imp_res_tac theory_ok_sig >> rfs[] >>
+    `∃x y z. thyof ctxt2 = ((x,y),z)` by metis_tac[pairTheory.PAIR] >>
+    fs[] >>
+    CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(can(match_term``i models A``)))) >>
+    first_assum(match_exists_tac o concl) >> simp[] >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    imp_res_tac extends_sub >> fs[] >>
+    fs[theory_ok_def] ) >>
+  metis_tac[bool_has_bool_interpretation])
+
 val INST_CORE_NIL = store_thm("INST_CORE_NIL",
   ``∀env tyin tm. welltyped tm ∧ tyin = [] ∧
       (∀x ty. VFREE_IN (Var x ty) tm ⇒ REV_ASSOCD (Var x (TYPE_SUBST tyin ty)) env (Var x ty) = Var x ty) ⇒
@@ -171,58 +210,13 @@ val type_ok_Num = store_thm("type_ok_Num",
 
 val LCA_l_UNIV = term_to_deep ``LCA l (UNIV:'U set)``
 
-val (EVAL_type_ok,EVAL_term_ok) =
+val (EVAL_type_ok0,EVAL_term_ok) =
   EVAL_type_ok_term_ok
     EVAL (MATCH_MP theory_ok_sig theory_ok_lca |> SIMP_RULE std_ss[])
 
-val bool_interpretation_defs =
-  [is_true_interpretation_def,
-   is_and_interpretation_def,
-   is_implies_interpretation_def,
-   is_forall_interpretation_def,
-   is_exists_interpretation_def,
-   is_or_interpretation_def,
-   is_false_interpretation_def,
-   is_not_interpretation_def]
-
-val extends_sub = store_thm("extends_sub",
-  ``∀ctxt2 ctxt1. ctxt2 extends ctxt1 ⇒
-      tmsof ctxt1 ⊑ tmsof ctxt2 ∧
-      tysof ctxt1 ⊑ tysof ctxt2 ∧
-      axsof ctxt1 ⊆ axsof ctxt2``,
-  simp[extends_def] >>
-  ho_match_mp_tac relationTheory.RTC_INDUCT >>
-  simp[PULL_EXISTS] >>
-  rpt gen_tac >> strip_tac >>
-  rpt conj_tac >>
-  TRY (
-    match_mp_tac finite_mapTheory.SUBMAP_FUNION >>
-    disj2_tac >> simp[] >>
-    imp_res_tac updates_DISJOINT >> fs[] >>
-    fs[finite_mapTheory.SUBMAP_DEF,pred_setTheory.IN_DISJOINT] >>
-    metis_tac[] ) >>
-  metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.SUBSET_TRANS])
-
-val extends_is_bool_interpretation = store_thm("extends_is_bool_interpretation",
-  ``is_set_theory ^mem ∧
-    ctxt2 extends (mk_bool_ctxt ctxt) ∧
-    theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
-    i models (thyof ctxt2) ⇒
-    is_bool_interpretation i``,
-  strip_tac >>
-  `i models thyof (mk_bool_ctxt ctxt)` by (
-    `∃x y z. thyof (mk_bool_ctxt ctxt) = ((x,y),z)` by metis_tac[pairTheory.PAIR] >>
-    simp[] >>
-    match_mp_tac (UNDISCH models_reduce) >>
-    imp_res_tac theory_ok_sig >> rfs[] >>
-    `∃x y z. thyof ctxt2 = ((x,y),z)` by metis_tac[pairTheory.PAIR] >>
-    fs[] >>
-    CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(can(match_term``i models A``)))) >>
-    first_assum(match_exists_tac o concl) >> simp[] >> fs[] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    imp_res_tac extends_sub >> fs[] >>
-    fs[theory_ok_def] ) >>
-  metis_tac[bool_has_bool_interpretation])
+val th = prove(``tysof lca_ctxt = tysof(sigof lca_ctxt)``,rw[])
+val EVAL_type_ok =
+  (RATOR_CONV(RAND_CONV(REWR_CONV th))) THENC EVAL_type_ok0
 
 fun process n =
   ONCE_REWRITE_TAC[relationTheory.RTC_CASES1] >> disj2_tac >>
@@ -264,8 +258,89 @@ val tyvar_inst_exists2_diff = prove(
 
 fun EVAL_INST tm =
   assert (same_const``INST`` o fst o strip_comb) tm |> (
-  REWR_CONV(MATCH_MP holDerivationTheory.inst_eval_thm (EVAL_welltyped ``welltyped^(rand tm)``)) THENC
+  REWR_CONV(MATCH_MP holDerivationTheory.inst_eval_thm
+    (EQT_ELIM(EVAL_welltyped ``welltyped^(rand tm)``))) THENC
   EVAL_subst)
+
+val termsem_cardleq = store_thm("termsem_cardleq",
+  ``is_set_theory ^mem ∧
+    i models thyof lca_ctxt ∧
+    is_valuation (tysof lca_ctxt) (tyaof i) v ∧
+    a = INST tyin a0 ∧
+    b = INST tyin b0 ∧
+    tyin = [(tya,Tyvar(strlit"A"));(tyb,Tyvar(strlit"B"))] ∧
+    type_ok (tysof lca_ctxt) tya ∧
+    type_ok (tysof lca_ctxt) tyb ∧
+    term_ok (sigof lca_ctxt) a0 ∧
+    term_ok (sigof lca_ctxt) b0 ∧
+    typeof a0 = (Fun (Tyvar(strlit"A")) Bool) ∧
+    typeof b0 = (Fun (Tyvar(strlit"B")) Bool) ∧
+    DISJOINT {strlit"f"} {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u [a0;b0]} ∧
+    bv_names a0 = [] ∧ bv_names b0 = []
+    ⇒
+    termsem (tmsof lca_ctxt) i v
+      (Comb (Comb (Const (strlit "cardleq") (Fun (Fun tya Bool) (Fun (Fun tyb Bool) Bool))) a) b) =
+      Boolean (Holds (termsem (tmsof lca_ctxt) i v a) ≼ Holds (termsem (tmsof lca_ctxt) i v b))``,
+  strip_tac >>
+  qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Comb (Comb (Const g ty) a) b) = R` >>
+  qspecl_then[`lca_ctxt`,`i`,`v`,`g`,`ty`,`tyin`,`a`,`b`]mp_tac (UNDISCH termsem_comb2_ax) >>
+  qunabbrev_tac`g` >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(LAND_CONV EVAL)))) >>
+  simp[FLOOKUP_cardleq,Abbr`ty`,REV_ASSOCD] >>
+  disch_then(qspecl_then[`a0`,`b0`]mp_tac) >>
+  simp[theory_ok_lca] >>
+  discharge_hyps >- metis_tac[WELLTYPED,term_ok_welltyped] >>
+  disch_then SUBST1_TAC >>
+  Q.PAT_ABBREV_TAC`tm = Exists X Y Z` >>
+  Q.PAT_ABBREV_TAC`s = [(a0,Var X Y);Z]` >>
+  qspecl_then[`tm`,`s`]mp_tac VSUBST_simple_subst >>
+  discharge_hyps >- (
+    fs[Abbr`s`,Abbr`tm`] >>
+    metis_tac[] ) >>
+  disch_then SUBST1_TAC >>
+  simp[Abbr`s`,Abbr`tm`,REV_ASSOCD] >>
+  Q.PAT_ABBREV_TAC`tm = Exists X Y Z` >>
+  qspecl_then[`tyin`,`tm`]mp_tac INST_simple_inst >>
+  discharge_hyps >- (
+    fs[Abbr`tm`] >>
+    metis_tac[term_ok_welltyped] ) >>
+  simp[] >> disch_then kall_tac >>
+  simp[Abbr`tm`] >>
+  qspecl_then[`tyin`,`a0`]mp_tac INST_simple_inst >>
+  discharge_hyps >- ( simp[] >> metis_tac[term_ok_welltyped] ) >>
+  qpat_assum`a = X`(assume_tac o SYM) >>
+  disch_then(mp_tac o SYM) >> simp[] >> disch_then kall_tac >>
+  qspecl_then[`tyin`,`b0`]mp_tac INST_simple_inst >>
+  discharge_hyps >- ( simp[] >> metis_tac[term_ok_welltyped] ) >>
+  qpat_assum`b = X`(assume_tac o SYM) >>
+  disch_then(mp_tac o SYM) >> simp[] >> disch_then kall_tac >>
+  simp[REV_ASSOCD] >>
+  qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Exists f ty bd) = R` >>
+  qspecl_then[`sigof lca_ctxt`,`i`,`v`,`f`,`ty`,`bd`]mp_tac (UNDISCH termsem_exists) >>
+  discharge_hyps >- (
+    assume_tac lca_is_bool_sig >>
+    imp_res_tac models_lca_ctxt_has_bool_interpretation >>
+    fs[models_def,is_bool_interpretation_def,is_bool_sig_def,Abbr`bd`,Abbr`ty`] >>
+    conj_tac >- (CONV_TAC EVAL_type_ok >> simp[]) >>
+    CONV_TAC EVAL_term_ok >>
+    simp[tyvar_inst_exists2_diff] >>
+    `term_ok (sigof lca_ctxt) (INST tyin a0) ∧
+     term_ok (sigof lca_ctxt) (INST tyin b0)` by (
+       conj_tac >> match_mp_tac term_ok_INST >> simp[] ) >>
+    imp_res_tac term_ok_welltyped >>
+    BasicProvers.VAR_EQ_TAC >>
+    BasicProvers.VAR_EQ_TAC >>
+    `a0 has_type typeof a0 ∧
+     b0 has_type typeof b0` by metis_tac[WELLTYPED] >>
+    imp_res_tac INST_HAS_TYPE >>
+    rpt(first_x_assum(qspec_then`tyin`mp_tac)) >>
+    simp_tac std_ss [] >> ntac 2 strip_tac >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
+    first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
+    simp[REV_ASSOCD] ) >>
+  simp[Abbr`R`] >>
+  disch_then kall_tac >>
 
 val intermediate_thm = store_thm("intermediate_thm",
   ``LCA (SUC l) (UNIV:'U set) ⇒
@@ -390,8 +465,9 @@ val intermediate_thm = store_thm("intermediate_thm",
   simp[boolean_eq_true] >> disch_then kall_tac >>
   conj_tac >- (
     simp[Abbr`p1`,Abbr`p2`] >>
-    (* at this point delegate to termsem_cardleq *)
     qmatch_abbrev_tac`termsem (tmsof s) i vv (Comb (Comb (Const g gy) a) b) = True` >>
+
+    (* at this point delegate to termsem_cardleq *)
     qabbrev_tac`tyin = [(Ind,Tyvar(strlit"A"));(Tyvar(strlit"U"),Tyvar(strlit"B"))]` >>
     qspecl_then[`s`,`i`,`vv`,`g`,`gy`,`tyin`,`a`,`b`]mp_tac(UNDISCH termsem_comb2_ax) >>
     simp[Abbr`s`,theory_ok_lca,Abbr`g`,FLOOKUP_cardleq] >>
