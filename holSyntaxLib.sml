@@ -25,42 +25,37 @@ in
 end
 
 local
-  val [var,const,comb0,abs0] =
+  val [var0,const0,comb0,abs0] =
     WELLTYPED_CLAUSES
     |> CONJUNCTS
-  val comb = comb0 |> SPEC_ALL |> EQ_IMP_RULE |> snd
-             |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-  val abs = abs0 |> SPEC_ALL |> EQ_IMP_RULE |> snd
-             |> Ho_Rewrite.REWRITE_RULE[PULL_EXISTS]
+  val var = var0 |> SPEC_ALL |> EQT_INTRO |> GEN_ALL
+  val const = const0 |> SPEC_ALL |> EQT_INTRO |> GEN_ALL
+  val comb = comb0
+  val abs = abs0 |> SIMP_RULE bool_ss [LEFT_EXISTS_AND_THM]
+  val exists_var_lemma = prove(``(∃n ty. Var x y = Var n ty) = T``,rw[])
+  val exists_rty_lemma = prove(
+    ``(∃rty. Fun dty rty1 = Fun dty rty) = T``, rw[])
 in
   fun EVAL_welltyped tm =
-    if is_Var (rand tm) then PART_MATCH I var tm
-    else if is_Const (rand tm) then PART_MATCH I const tm
+    if is_Var (rand tm) then PART_MATCH lhs var tm
+    else if is_Const (rand tm) then PART_MATCH lhs const tm
     else if is_Comb (rand tm) then
-      let
-        val (f,x) = dest_Comb (rand tm)
-        val th1 = EVAL_welltyped (mk_welltyped f)
-        val th2 = EVAL_welltyped (mk_welltyped x)
-        val th3 = EVAL_typeof (mk_typeof f)
-        val th4 = EVAL_typeof (mk_typeof x)
-      in
-        MATCH_MP (MATCH_MP comb th1) th2
-        |> CONV_RULE(LAND_CONV(QUANT_CONV(
-               LAND_CONV(REWR_CONV th3) THENC
-               RAND_CONV(RAND_CONV(RATOR_CONV(RAND_CONV(
-                         REWR_CONV th4))))) THENC
-             REWR_CONV exists_rty_lemma))
-        |> C MATCH_MP TRUTH
-      end
-    else
-      let
-        val (v,t) = dest_Abs (rand tm)
-        val th1 = EVAL_welltyped (mk_welltyped t)
-        val (n,ty) = dest_Var v
-      in
-        SPECL [n,ty] abs
-        |> C MATCH_MP (CONJ (REFL v) th1)
-      end
+      tm |> (
+      REWR_CONV comb THENC
+      FORK_CONV(EVAL_welltyped,
+        FORK_CONV(EVAL_welltyped,
+          QUANT_CONV(FORK_CONV(EVAL_typeof,
+                               RAND_CONV(RATOR_CONV(RAND_CONV EVAL_typeof)))) THENC
+          TRY_CONV(REWR_CONV exists_rty_lemma)) THENC
+        TRY_CONV reduceLib.AND_CONV) THENC
+      TRY_CONV reduceLib.AND_CONV)
+    else if is_Abs (rand tm) then
+      tm |> (
+      REWR_CONV abs THENC
+      FORK_CONV(REWR_CONV exists_var_lemma,
+        EVAL_welltyped) THENC
+      reduceLib.AND_CONV)
+    else raise UNCHANGED
 end
 
 val term_info = valOf(TypeBase.fetch term_ty)
@@ -277,8 +272,7 @@ fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
            THENC EQ_CONV)))                  ORELSEC
       (REWR_CONV term_ok_Comb THENC
        FORK_CONV (tmconv,
-         FORK_CONV (tmconv,
-           EQT_INTRO o EVAL_welltyped)))     ORELSEC
+         FORK_CONV (tmconv,EVAL_welltyped))) ORELSEC
       (REWR_CONV term_ok_Abs THENC
        FORK_CONV (tyconv,tmconv))            ORELSEC
       (REWR_CONV term_ok_Const THENC

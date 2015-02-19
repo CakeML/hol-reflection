@@ -223,6 +223,7 @@ fun readLine (r:reader) s l =
                   term_ok_x |> concl |> rand)
           |> mk_welltyped
           |> EVAL_welltyped
+          |> EQT_ELIM
       in
         MATCH_MP term_ok_Comb
           (LIST_CONJ [term_ok_x,term_ok_f,wt])
@@ -235,7 +236,7 @@ fun readLine (r:reader) s l =
         val th1 =
           MATCH_MP (MATCH_MP appThm fg) xy
         val th2 = EVAL_welltyped (fst(dest_imp(concl th1)))
-        val th3 = MP th1 th2
+        val th3 = MP th1 (EQT_ELIM th2)
       in
         CONV_RULE(HYP_CONV EVAL_hypset) th3
         |> Thm |> push s

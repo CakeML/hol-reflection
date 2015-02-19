@@ -238,9 +238,6 @@ val type_ok_Tyapp = store_thm("type_ok_Tyapp",
   rw[type_ok_def] >>
   asm_simp_tac (std_ss++boolSimps.ETA_ss)[])
 
-val exists_rty_lemma = store_thm("exists_rty_lemma",
-  ``(∃rty. Fun dty rty1 = Fun dty rty) = T``, rw[])
-
 val is_instance_lemma = store_thm("is_instance_lemma",
   ``(TYPE_SUBST s ty1 = ty2) ⇒ is_instance ty1 ty2``,
   rw[] >> metis_tac[])
