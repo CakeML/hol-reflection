@@ -8,23 +8,13 @@ val _ = new_theory"lcaProof"
 
 val _ = Globals.max_print_depth := 15
 
-(* TODO: move *)
-val termsem_typesem_matchable = prove(
-``is_set_theory ^mem ⇒
-   ∀sig i tm v δ τ tmenv ty.
-     δ = tyaof i ∧ τ = tyvof v ∧ is_valuation (tysof sig) δ v ∧
-     is_interpretation sig i ∧ is_std_type_assignment δ ∧
-     term_ok sig tm ∧ tmenv = tmsof sig ∧
-     ty = typesem δ τ (typeof tm) ⇒
-     termsem tmenv i v tm <: ty``,
-  PROVE_TAC[termsem_typesem])
+open holBoolSyntaxTheory holBoolTheory setSpecTheory
 
+(* TODO: move *)
 val abstract_in_funspace_matchable = prove(
   ``is_set_theory ^mem ⇒
     ∀f s t fs. (∀x. x <: s ⇒ f x <: t) ∧ fs = Funspace s t ⇒ Abstract s t f <: fs``,
   PROVE_TAC[abstract_in_funspace])
-
-open holBoolSyntaxTheory holBoolTheory setSpecTheory
 
 val termsem_exists = store_thm("termsem_exists",
   ``is_set_theory ^mem ⇒
