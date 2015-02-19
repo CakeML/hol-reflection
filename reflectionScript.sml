@@ -1242,6 +1242,7 @@ val termsem_typesem_matchable = store_thm("termsem_typesem_matchable",
 val termsem_comb1_ax = store_thm("termsem_comb1_ax",
   ``is_set_theory ^mem ⇒
     ∀ctxt i v f ty tyin a ty0 a0 t x tya.
+    (Const f ty0) === (Abs (Var x tya) t) ∈ axsof ctxt ∧
     theory_ok (thyof ctxt) ∧
     i models thyof ctxt ∧
     is_valuation (tysof ctxt) (tyaof i) v ∧
@@ -1250,8 +1251,7 @@ val termsem_comb1_ax = store_thm("termsem_comb1_ax",
     EVERY (type_ok (tysof ctxt)) (MAP FST tyin) ∧
     term_ok (sigof ctxt) a0 ∧
     a0 has_type tya ∧
-    (a = INST tyin a0) ∧
-    (Const f ty0) === (Abs (Var x tya) t) ∈ axsof ctxt
+    (a = INST tyin a0)
     ⇒
     (termsem (tmsof ctxt) i v (Comb (Const f ty) a) =
      termsem (tmsof ctxt) i v
@@ -1342,6 +1342,7 @@ val termsem_comb1_ax = store_thm("termsem_comb1_ax",
 val termsem_comb2_ax = store_thm("termsem_comb2_ax",
   ``is_set_theory ^mem ⇒
     ∀ctxt i v f ty tyin a b ty0 a0 b0 t x y tya tyb.
+    (Const f ty0) === (Abs (Var x tya) (Abs (Var y tyb) t)) ∈ axsof ctxt ∧
     theory_ok (thyof ctxt) ∧
     i models thyof ctxt ∧
     is_valuation (tysof ctxt) (tyaof i) v ∧
@@ -1350,8 +1351,7 @@ val termsem_comb2_ax = store_thm("termsem_comb2_ax",
     EVERY (type_ok (tysof ctxt)) (MAP FST tyin) ∧
     term_ok (sigof ctxt) a0 ∧ term_ok (sigof ctxt) b0 ∧
     a0 has_type tya ∧ b0 has_type tyb ∧
-    (a = INST tyin a0) ∧ (b = INST tyin b0) ∧ x ≠ y ∧
-    (Const f ty0) === (Abs (Var x tya) (Abs (Var y tyb) t)) ∈ axsof ctxt
+    (a = INST tyin a0) ∧ (b = INST tyin b0) ∧ x ≠ y
     ⇒
     (termsem (tmsof ctxt) i v (Comb (Comb (Const f ty) a) b) =
      termsem (tmsof ctxt) i v
