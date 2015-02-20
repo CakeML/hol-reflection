@@ -667,84 +667,221 @@ val termsem_INJ = store_thm("termsem_INJ",
   cheat)
 
 val termsem_cardleq = store_thm("termsem_cardleq",
-  ``is_set_theory ^mem ∧
+  ``is_set_theory ^mem ⇒
+    ∀i v ty1 a b tya tyb a0 b0 tyin.
     i models thyof lca_ctxt ∧
     is_valuation (tysof lca_ctxt) (tyaof i) v ∧
     a = INST tyin a0 ∧
     b = INST tyin b0 ∧
     tyin = [(tya,Tyvar(strlit"A"));(tyb,Tyvar(strlit"B"))] ∧
-    type_ok (tysof lca_ctxt) tya ∧
-    type_ok (tysof lca_ctxt) tyb ∧
+    ty1 = Fun (Fun tya Bool) (Fun (Fun tyb Bool) Bool) ∧
+    tya = REV_ASSOCD(Tyvar(strlit"A"))tyin(Tyvar(strlit"A")) ∧
+    tyb = REV_ASSOCD(Tyvar(strlit"B"))tyin(Tyvar(strlit"B")) ∧
+    EVERY (type_ok (tysof lca_ctxt)) (MAP FST tyin) ∧
     term_ok (sigof lca_ctxt) a0 ∧
     term_ok (sigof lca_ctxt) b0 ∧
     typeof a0 = (Fun (Tyvar(strlit"A")) Bool) ∧
-    typeof b0 = (Fun (Tyvar(strlit"B")) Bool) ∧
-    DISJOINT {strlit"f"} {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u [a0;b0]} ∧
-    bv_names a0 = [] ∧ bv_names b0 = []
+    typeof b0 = (Fun (Tyvar(strlit"B")) Bool)
     ⇒
     termsem (tmsof lca_ctxt) i v
-      (Comb (Comb (Const (strlit "cardleq") (Fun (Fun tya Bool) (Fun (Fun tyb Bool) Bool))) a) b) =
-      Boolean (Holds (termsem (tmsof lca_ctxt) i v a) ≼ Holds (termsem (tmsof lca_ctxt) i v b))``,
-  strip_tac >>
+      (Comb (Comb (Const (strlit "cardleq") ty1) a) b) =
+      Boolean (ext(typesem (tyaof i) (tyvof v) tya) ∩ Holds (termsem (tmsof lca_ctxt) i v a) ≼
+               ext(typesem (tyaof i) (tyvof v) tyb) ∩ Holds (termsem (tmsof lca_ctxt) i v b))``,
+  rpt strip_tac >>
   qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Comb (Comb (Const g ty) a) b) = R` >>
   qspecl_then[`lca_ctxt`,`i`,`v`,`g`,`ty`,`tyin`,`a`,`b`]mp_tac (UNDISCH termsem_comb2_ax) >>
   qunabbrev_tac`g` >>
   CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(LAND_CONV EVAL)))) >>
-  simp[FLOOKUP_cardleq,Abbr`ty`,REV_ASSOCD] >>
+  qpat_assum`tya = X`Abbrev_intro_tac >>
+  qpat_assum`tyb = X`Abbrev_intro_tac >>
+  qpat_assum`a = X`Abbrev_intro_tac >>
+  qpat_assum`b = X`Abbrev_intro_tac >>
+  qpat_assum`tyin = X`Abbrev_intro_tac >>
+  simp[FLOOKUP_cardleq,Abbr`ty`] >>
   disch_then(qspecl_then[`a0`,`b0`]mp_tac) >>
   simp[theory_ok_lca] >>
   discharge_hyps >- metis_tac[WELLTYPED,term_ok_welltyped] >>
   disch_then SUBST1_TAC >>
+  Q.PAT_ABBREV_TAC`s = (a0,Var X Y)::Z` >>
   Q.PAT_ABBREV_TAC`tm = Exists X Y Z` >>
-  Q.PAT_ABBREV_TAC`s = [(a0,Var X Y);Z]` >>
-  qspecl_then[`tm`,`s`]mp_tac VSUBST_simple_subst >>
-  discharge_hyps >- (
-    fs[Abbr`s`,Abbr`tm`] >>
-    metis_tac[] ) >>
-  disch_then SUBST1_TAC >>
-  simp[Abbr`s`,Abbr`tm`,REV_ASSOCD] >>
-  Q.PAT_ABBREV_TAC`tm = Exists X Y Z` >>
-  qspecl_then[`tyin`,`tm`]mp_tac INST_simple_inst >>
-  discharge_hyps >- (
-    fs[Abbr`tm`] >>
-    metis_tac[term_ok_welltyped] ) >>
+  `term_ok (sigof lca_ctxt) tm` by (
+    qunabbrev_tac`tm` >>
+    CONV_TAC(EVAL_term_ok) ) >>
+  `term_ok (sigof lca_ctxt) (VSUBST s tm)` by (
+    match_mp_tac term_ok_VSUBST >>
+    simp[Abbr`s`] >> ntac 2 (pop_assum kall_tac) >> rw[] >>
+    metis_tac[WELLTYPED,term_ok_welltyped]) >>
+  qspecl_then[`sigof lca_ctxt`,`VSUBST s tm`,`tyin`]mp_tac termsem_INST >>
   simp[] >> disch_then kall_tac >>
+  Q.PAT_ABBREV_TAC`vvv:'U valuation = X Y` >>
+  `is_valuation (tysof lca_ctxt) (tyaof i) vvv` by (
+    qpat_assum`term_ok X tm`kall_tac >>
+    qpat_assum`term_ok X (VSUBST A Y)`kall_tac >>
+    qunabbrev_tac`tm` >>
+    simp[Abbr`vvv`] >>
+    fs[is_valuation_def,is_type_valuation_def,is_term_valuation_def] >>
+    conj_tac >- (
+      gen_tac >>
+      match_mp_tac(UNDISCH typesem_inhabited) >>
+      qexists_tac`tysof lca_ctxt` >>
+      simp[is_type_valuation_def] >>
+      fs[models_def,is_interpretation_def] >>
+      simp[holSyntaxLibTheory.REV_ASSOCD_ALOOKUP] >>
+      BasicProvers.CASE_TAC >> simp[type_ok_def] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+      metis_tac[]) >>
+     qx_genl_tac[`z`,`ty`] >> strip_tac >>
+     first_x_assum(qspecl_then[`z`,`TYPE_SUBST tyin ty`]mp_tac) >>
+     simp[type_ok_TYPE_SUBST,Once typesem_TYPE_SUBST] ) >>
+  qspecl_then[`tm`,`s`]mp_tac termsem_VSUBST >>
+  discharge_hyps >- (
+    imp_res_tac term_ok_welltyped >>
+    simp[Abbr`s`] >> ntac 9 (pop_assum kall_tac) >> rw[] >>
+    metis_tac[WELLTYPED,term_ok_welltyped]) >>
+  simp[] >> disch_then kall_tac >>
+  Q.PAT_ABBREV_TAC`vv:'U valuation = X Y` >>
+  `is_valuation (tysof lca_ctxt) (tyaof i) vv` by (
+    qpat_assum`term_ok X tm`kall_tac >>
+    qpat_assum`term_ok X (VSUBST A Y)`kall_tac >>
+    qunabbrev_tac`tm` >>
+    simp[Abbr`vv`,Abbr`s`,UPDATE_LIST_THM] >>
+    match_mp_tac is_valuation_extend >>
+    reverse conj_tac >- (
+      match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+      qexists_tac`sigof lca_ctxt`>>simp[] >>
+      fs[models_def,is_std_interpretation_def] ) >>
+    match_mp_tac is_valuation_extend >>
+    reverse conj_tac >- (
+      match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+      qexists_tac`sigof lca_ctxt`>>simp[] >>
+      fs[models_def,is_std_interpretation_def] ) >>
+    simp[] ) >>
   simp[Abbr`tm`] >>
-  qspecl_then[`tyin`,`a0`]mp_tac INST_simple_inst >>
-  discharge_hyps >- ( simp[] >> metis_tac[term_ok_welltyped] ) >>
-  qpat_assum`a = X`(assume_tac o SYM) >>
-  disch_then(mp_tac o SYM) >> simp[] >> disch_then kall_tac >>
-  qspecl_then[`tyin`,`b0`]mp_tac INST_simple_inst >>
-  discharge_hyps >- ( simp[] >> metis_tac[term_ok_welltyped] ) >>
-  qpat_assum`b = X`(assume_tac o SYM) >>
-  disch_then(mp_tac o SYM) >> simp[] >> disch_then kall_tac >>
-  simp[REV_ASSOCD] >>
-  qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Exists f ty bd) = R` >>
-  qspecl_then[`sigof lca_ctxt`,`i`,`v`,`f`,`ty`,`bd`]mp_tac (UNDISCH termsem_exists) >>
+  qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i vv (Exists f ty bd) = R` >>
+  qspecl_then[`sigof lca_ctxt`,`i`,`vv`,`f`,`ty`,`bd`]mp_tac (UNDISCH termsem_exists) >>
   discharge_hyps >- (
     assume_tac lca_is_bool_sig >>
     imp_res_tac models_lca_ctxt_has_bool_interpretation >>
-    fs[models_def,is_bool_interpretation_def,is_bool_sig_def,Abbr`bd`,Abbr`ty`] >>
-    conj_tac >- (CONV_TAC EVAL_type_ok >> simp[]) >>
-    CONV_TAC EVAL_term_ok >>
-    simp[tyvar_inst_exists2_diff] >>
-    `term_ok (sigof lca_ctxt) (INST tyin a0) ∧
-     term_ok (sigof lca_ctxt) (INST tyin b0)` by (
-       conj_tac >> match_mp_tac term_ok_INST >> simp[] ) >>
-    imp_res_tac term_ok_welltyped >>
-    BasicProvers.VAR_EQ_TAC >>
-    BasicProvers.VAR_EQ_TAC >>
-    `a0 has_type typeof a0 ∧
-     b0 has_type typeof b0` by metis_tac[WELLTYPED] >>
-    imp_res_tac INST_HAS_TYPE >>
-    rpt(first_x_assum(qspec_then`tyin`mp_tac)) >>
-    simp_tac std_ss [] >> ntac 2 strip_tac >>
-    imp_res_tac WELLTYPED_LEMMA >>
-    first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
-    first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
-    simp[REV_ASSOCD] ) >>
-  simp[Abbr`R`] >>
-  disch_then kall_tac >>
+    fs[models_def,is_bool_sig_def,is_bool_interpretation_def] >>
+    unabbrev_all_tac >>
+    conj_tac >- (CONV_TAC EVAL_type_ok) >>
+    conj_tac >- (CONV_TAC EVAL_term_ok) >>
+    CONV_TAC(LAND_CONV EVAL_typeof) >> REFL_TAC ) >>
+  simp[] >> disch_then kall_tac >>
+  simp[Abbr`R`,cardinalTheory.cardleq_def] >>
+  AP_TERM_TAC >>
+  EQ_TAC >- (
+    strip_tac >>
+    qmatch_assum_abbrev_tac`termsem (tmsof lca_ctxt) i vvx bd = True` >>
+    qexists_tac`$' x` >>
+    qpat_assum`X:'U = True`mp_tac >>
+    simp[Abbr`bd`] >>
+    qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i vvx (Comb(Comb(Comb(Const(strlit"INJ")ty0)aa)bb)cc) = True ⇒ R` >>
+    qspecl_then[`i`,`vvx`,`ty0`,`aa`,`bb`,`cc`]mp_tac(UNDISCH termsem_INJ) >>
+    simp[] >>
+    disch_then(qspecl_then[`aa`,`bb`,`cc`,`[]`]mp_tac) >>
+    discharge_hyps_keep >- (
+      conj_tac >- (
+        simp[Abbr`vvx`] >>
+        match_mp_tac is_valuation_extend >>
+        simp[] ) >>
+      unabbrev_all_tac >>
+      conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+      conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+      conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+      conj_tac >- (simp[REV_ASSOCD]) >>
+      conj_tac >- (simp[]) >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
+      conj_tac >- (CONV_TAC(LAND_CONV EVAL_typeof)>>REFL_TAC) >>
+      conj_tac >- (CONV_TAC(LAND_CONV EVAL_typeof)>>REFL_TAC) >>
+      (CONV_TAC(LAND_CONV EVAL_typeof)>>REFL_TAC)) >>
+    pop_assum(fn th =>
+      assume_tac(CONJUNCT1 th) >>
+      map_every (SUBST1_TAC o SYM) (List.take(tl(CONJUNCTS th),4))) >>
+    simp[] >> disch_then kall_tac >>
+    simp[boolean_eq_true,Abbr`R`] >>
+    simp[REV_ASSOCD,typesem_def] >>
+    simp[Abbr`aa`,Abbr`bb`,Abbr`cc`,termsem_def] >>
+    simp[Abbr`vvx`,APPLY_UPDATE_THM,Abbr`f`] >>
+    simp[Abbr`vv`,Abbr`s`,UPDATE_LIST_THM,APPLY_UPDATE_THM] >>
+    qspecl_then[`sigof lca_ctxt`,`a0`,`tyin`]mp_tac termsem_INST >>
+    simp[] >> disch_then kall_tac >>
+    qspecl_then[`sigof lca_ctxt`,`b0`,`tyin`]mp_tac termsem_INST >>
+    simp[] >> disch_then kall_tac >>
+    qmatch_assum_abbrev_tac`Abbrev(vvv=(vvy,vvz))` >>
+    `tyvof vvv=vvy`by simp[Abbr`vvv`] >>
+    pop_assum SUBST1_TAC >>
+    simp[Abbr`vvy`] ) >>
+  disch_then(qx_choose_then`g`strip_assume_tac) >>
+  qexists_tac`Abstract (typesem (tyaof i) (tyvof v) tya) (typesem (tyaof i) (tyvof v) tyb)
+                (λm. if Holds (termsem (tmsof lca_ctxt) i v a) m then g m
+                     else @x. x <: typesem (tyaof i) (tyvof v) tyb)` >>
+  conj_asm1_tac >- (
+    simp[Abbr`ty`] >>
+    fs[models_def,is_std_interpretation_def] >>
+    imp_res_tac typesem_Fun >> simp[] >>
+    simp[typesem_def] >>
+    simp[Abbr`vv`,Abbr`vvv`] >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    fs[INJ_DEF,IN_DEF,ext_def] >>
+    gen_tac >> strip_tac >>
+    IF_CASES_TAC >- PROVE_TAC[] >>
+    SELECT_ELIM_TAC >> simp[] >>
+    match_mp_tac(UNDISCH typesem_inhabited) >>
+    qexists_tac`tysof lca_ctxt` >>
+    fs[is_valuation_def,is_interpretation_def,Abbr`tyin`] ) >>
+  simp[Abbr`bd`] >>
+  qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i vvx (Comb(Comb(Comb(Const(strlit"INJ")ty0)aa)bb)cc) = True` >>
+  qspecl_then[`i`,`vvx`,`ty0`,`aa`,`bb`,`cc`]mp_tac(UNDISCH termsem_INJ) >>
+  simp[] >>
+  disch_then(qspecl_then[`aa`,`bb`,`cc`,`[]`]mp_tac) >>
+  discharge_hyps_keep >- (
+    conj_tac >- (
+      simp[Abbr`vvx`] >>
+      match_mp_tac is_valuation_extend >>
+      simp[] ) >>
+    unabbrev_all_tac >>
+    conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+    conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+    conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+    conj_tac >- (simp[REV_ASSOCD]) >>
+    conj_tac >- (simp[]) >>
+    conj_tac >- (CONV_TAC EVAL_term_ok) >>
+    conj_tac >- (CONV_TAC EVAL_term_ok) >>
+    conj_tac >- (CONV_TAC EVAL_term_ok) >>
+    conj_tac >- (CONV_TAC(LAND_CONV EVAL_typeof)>>REFL_TAC) >>
+    conj_tac >- (CONV_TAC(LAND_CONV EVAL_typeof)>>REFL_TAC) >>
+    (CONV_TAC(LAND_CONV EVAL_typeof)>>REFL_TAC)) >>
+  pop_assum(fn th =>
+    assume_tac(CONJUNCT1 th) >>
+    map_every (SUBST1_TAC o SYM) (List.take(tl(CONJUNCTS th),4))) >>
+  simp[REV_ASSOCD] >> disch_then kall_tac >>
+  simp[boolean_eq_true] >>
+  simp[Abbr`aa`,Abbr`bb`,Abbr`cc`,termsem_def] >>
+  simp[Abbr`vvx`,APPLY_UPDATE_THM,Abbr`f`] >>
+  simp[Abbr`vv`,UPDATE_LIST_THM,APPLY_UPDATE_THM,Abbr`s`] >>
+  rator_x_assum`INJ`mp_tac >>
+  qspecl_then[`sigof lca_ctxt`,`a0`,`tyin`]mp_tac termsem_INST >>
+  simp[] >> disch_then kall_tac >>
+  qspecl_then[`sigof lca_ctxt`,`b0`,`tyin`]mp_tac termsem_INST >>
+  simp[] >> disch_then kall_tac >>
+  qmatch_assum_abbrev_tac`Abbrev(vvv=(vvy,vvz))` >>
+  `tyvof vvv=vvy`by simp[Abbr`vvv`] >>
+  pop_assum SUBST1_TAC >>
+  simp[Abbr`vvy`,typesem_def] >>
+  strip_tac >>
+  qmatch_abbrev_tac`INJ h s1 s2` >>
+  `∀x. x ∈ s1 ⇒ h x = g x` by (
+    simp[Abbr`s1`,Abbr`h`,ext_def] >>
+    gen_tac >> strip_tac >>
+    match_mp_tac apply_abstract_matchable >>
+    simp[] >> fs[IN_DEF] >>
+    fs[INJ_DEF,ext_def,Abbr`s2`] >>
+    fs[IN_DEF] ) >>
+  fs[INJ_DEF])
 
 val intermediate_thm = store_thm("intermediate_thm",
   ``LCA (SUC l) (UNIV:'U set) ⇒
