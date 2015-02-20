@@ -1470,6 +1470,167 @@ val termsem_comb2_ax = store_thm("termsem_comb2_ax",
   qexists_tac`sigof ctxt` >> simp[] >>
   fs[models_def])
 
+val termsem_comb3_ax = store_thm("termsem_comb3_ax",
+  ``is_set_theory ^mem ⇒
+    ∀ctxt i v f ty tyin a b c ty0 a0 b0 c0 t x y z tya tyb tyc.
+    (Const f ty0) === (Abs (Var x tya) (Abs (Var y tyb) (Abs (Var z tyc) t))) ∈ axsof ctxt ∧
+    theory_ok (thyof ctxt) ∧
+    i models thyof ctxt ∧
+    is_valuation (tysof ctxt) (tyaof i) v ∧
+    FLOOKUP (tmsof ctxt) f = SOME ty0 ∧
+    (ty = TYPE_SUBST tyin ty0) ∧
+    EVERY (type_ok (tysof ctxt)) (MAP FST tyin) ∧
+    term_ok (sigof ctxt) a0 ∧ term_ok (sigof ctxt) b0 ∧ term_ok (sigof ctxt) c0 ∧
+    a0 has_type tya ∧ b0 has_type tyb ∧ c0 has_type tyc ∧
+    (a = INST tyin a0) ∧ (b = INST tyin b0) ∧ (c = INST tyin c0) ∧ ALL_DISTINCT [x;y;z]
+    ⇒
+    (termsem (tmsof ctxt) i v (Comb (Comb (Comb (Const f ty) a) b) c) =
+     termsem (tmsof ctxt) i v
+       (INST tyin (VSUBST [(a0,Var x tya);(b0,Var y tyb);(c0,Var z tyc)] t)))``,
+  rpt strip_tac >>
+  Q.PAT_ABBREV_TAC`s = (a0,Var x tyia)::Y	` >>
+  `term_ok (sigof ctxt) t` by (
+    fs[theory_ok_def] >> res_tac >>
+    qpat_assum`is_std_sig X`assume_tac >>
+    fs[term_ok_equation,term_ok_def] ) >>
+  `term_ok (sigof ctxt) (VSUBST s t)` by (
+    match_mp_tac term_ok_VSUBST >>
+    simp[Abbr`s`] >> metis_tac[] ) >>
+  simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
+  Q.PAT_ABBREV_TAC`vvv:'U valuation = X Y` >>
+  qspecl_then[`t`,`s`]mp_tac termsem_VSUBST >>
+  discharge_hyps >- (
+    simp[Abbr`s`] >> metis_tac[term_ok_welltyped] ) >>
+  simp[] >> disch_then kall_tac >>
+  rw[termsem_def] >>
+  imp_res_tac instance_def >>
+  first_x_assum(qspec_then`tyin`mp_tac) >>
+  simp[] >> disch_then kall_tac >>
+  qmatch_assum_abbrev_tac`MEM eq axs` >>
+  `i satisfies (sigof ctxt,[],eq)` by (
+    fs[models_def] ) >>
+  Q.PAT_ABBREV_TAC`vv:'U valuation = X Y` >>
+  `is_valuation (tysof ctxt) (tyaof i) vvv` by (
+    simp[Abbr`vvv`] >>
+    fs[is_valuation_def,is_type_valuation_def,is_term_valuation_def] >>
+    conj_tac >- (
+      gen_tac >>
+      match_mp_tac(UNDISCH typesem_inhabited) >>
+      qexists_tac`tysof ctxt` >>
+      simp[is_type_valuation_def] >>
+      fs[models_def,is_interpretation_def] >>
+      simp[holSyntaxLibTheory.REV_ASSOCD_ALOOKUP] >>
+      BasicProvers.CASE_TAC >> simp[type_ok_def] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+      metis_tac[] ) >>
+    qx_genl_tac[`z`,`ty`] >> strip_tac >>
+    first_x_assum(qspecl_then[`z`,`TYPE_SUBST tyin ty`]mp_tac) >>
+    simp[type_ok_TYPE_SUBST,Once typesem_TYPE_SUBST] ) >>
+  `is_valuation (tysof ctxt) (tyaof i) vv` by (
+    simp[Abbr`vv`,Abbr`s`,miscTheory.UPDATE_LIST_THM] >>
+    match_mp_tac is_valuation_extend >>
+    reverse conj_tac >- (
+      match_mp_tac (UNDISCH termsem_typesem_matchable) >> simp[] >>
+      qexists_tac`sigof ctxt` >> simp[] >>
+      fs[models_def,is_std_interpretation_def] >>
+      metis_tac[WELLTYPED_LEMMA] ) >>
+    match_mp_tac is_valuation_extend >>
+    reverse conj_tac >- (
+      match_mp_tac (UNDISCH termsem_typesem_matchable) >> simp[] >>
+      qexists_tac`sigof ctxt` >> simp[] >>
+      fs[models_def,is_std_interpretation_def] >>
+      metis_tac[WELLTYPED_LEMMA] ) >>
+    match_mp_tac is_valuation_extend >> simp[] >>
+    match_mp_tac (UNDISCH termsem_typesem_matchable) >> simp[] >>
+    qexists_tac`sigof ctxt` >> simp[] >>
+    fs[models_def,is_std_interpretation_def] >>
+    metis_tac[WELLTYPED_LEMMA] ) >>
+  `termsem (tmsof ctxt) i vv eq = True` by (
+    fs[satisfies_def] ) >>
+  qmatch_assum_abbrev_tac`Abbrev(eq = l === r)` >>
+  qspecl_then[`sigof ctxt`,`i`,`vv`,`l`,`r`]mp_tac (UNDISCH termsem_equation) >>
+  simp[] >> discharge_hyps_keep >- (
+    fs[theory_ok_def] >>
+    fs[is_structure_def,models_def] ) >>
+  simp[boolean_eq_true,Abbr`l`,termsem_def] >>
+  simp[identity_instance] >>
+  Q.PAT_ABBREV_TAC`tv:'U tyval = (typesem A X o Y o Tyvar)` >>
+  `tv = tyvof vv` by (
+    unabbrev_all_tac >> simp[FUN_EQ_THM] ) >>
+  qunabbrev_tac`tv`>>simp[] >> disch_then kall_tac >>
+  pop_assum kall_tac >>
+  simp[Abbr`r`,termsem_def] >>
+  `is_std_type_assignment (tyaof i)` by (
+    fs[models_def,is_std_interpretation_def] ) >>
+  imp_res_tac typesem_Fun >> simp[] >>
+  pop_assum kall_tac >>
+  qmatch_abbrev_tac`Abstract aa fs ff ' ma ' mb ' mc = zz` >>
+  `ma <: aa` by (
+    simp[Abbr`ma`,Abbr`aa`] >>
+    simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
+    `tya = typeof a0` by metis_tac[WELLTYPED_LEMMA] >> rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    qexists_tac`sigof ctxt` >> simp[] >>
+    fs[Abbr`vv`,models_def] ) >>
+  qmatch_assum_abbrev_tac`Abbrev(fs = Funspace bb tt)` >>
+  `mb <: bb` by (
+    simp[Abbr`mb`,Abbr`bb`] >>
+    simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
+    `tyb = typeof b0` by metis_tac[WELLTYPED_LEMMA] >> rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    qexists_tac`sigof ctxt` >> simp[] >>
+    fs[Abbr`vv`,models_def] ) >>
+  qmatch_assum_abbrev_tac`Abbrev(tt = Funspace cc uu)` >>
+  `mc <: cc` by (
+    simp[Abbr`mc`,Abbr`cc`] >>
+    simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
+    `tyc = typeof c0` by metis_tac[WELLTYPED_LEMMA] >> rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    qexists_tac`sigof ctxt` >> simp[] >>
+    fs[Abbr`vv`,models_def] ) >>
+  `Abstract aa fs ff ' ma = ff ma` by (
+    match_mp_tac apply_abstract_matchable >> simp[] >>
+    simp[Abbr`ff`,Abbr`fs`] >>
+    match_mp_tac(UNDISCH abstract_in_funspace) >>
+    simp[Abbr`tt`] >> rw[] >>
+    match_mp_tac(UNDISCH abstract_in_funspace) >>
+    simp[Abbr`uu`] >> rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    qexists_tac`sigof ctxt` >> simp[] >>
+    fs[models_def] >>
+    match_mp_tac is_valuation_extend >> simp[] >>
+    match_mp_tac is_valuation_extend >> simp[] >>
+    match_mp_tac is_valuation_extend >> simp[]) >>
+  pop_assum SUBST1_TAC >>
+  simp[Abbr`ff`] >>
+  qmatch_abbrev_tac`Abstract bb tt ff ' mb ' mc = zz` >>
+  `Abstract bb tt ff ' mb = ff mb` by (
+    match_mp_tac apply_abstract_matchable >> simp[] >>
+    simp[Abbr`ff`,Abbr`tt`] >>
+    match_mp_tac(UNDISCH abstract_in_funspace) >>
+    simp[Abbr`uu`] >> rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem) >>
+    qexists_tac`sigof ctxt` >> simp[] >>
+    fs[models_def] >>
+    match_mp_tac is_valuation_extend >> simp[] >>
+    match_mp_tac is_valuation_extend >> simp[] >>
+    match_mp_tac is_valuation_extend >> simp[]) >>
+  pop_assum SUBST1_TAC >>
+  simp[Abbr`ff`] >>
+  match_mp_tac apply_abstract_matchable >>
+  simp[Abbr`zz`] >>
+  Q.PAT_ABBREV_TAC`vv':'U valuation = X Y` >>
+  `vv' = vv` by (
+    simp[Abbr`vv`,Abbr`vv'`,Abbr`s`,UPDATE_LIST_THM,Abbr`ma`,Abbr`mb`,Abbr`mc`] >>
+    simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
+    simp[FUN_EQ_THM,combinTheory.APPLY_UPDATE_THM] >> fs[] >> rw[] ) >>
+  simp[] >>
+  simp[Abbr`uu`] >>
+  match_mp_tac (UNDISCH termsem_typesem) >>
+  qexists_tac`sigof ctxt` >> simp[] >>
+  fs[models_def])
+
 val good_context_base_case = prove(
   ``is_set_theory ^mem
     ⇒ wf_to_inner ind_to_inner
