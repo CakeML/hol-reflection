@@ -374,6 +374,14 @@ fun Abbrev_intro_tac th = assume_tac(EQ_MP(SPEC(concl th)(GSYM markerTheory.Abbr
 
 val lca_of_sigof = prove(``tmsof (sigof lca_ctxt) = tmsof lca_ctxt``,rw[])
 
+fun use_apply_abstract (g as (asl,w)) =
+  let
+    val sel = lhs o snd o dest_imp
+    val tm = find_term(can(match_term(sel(concl(SPEC_ALL apply_abstract_matchable))))) w
+  in
+    mp_tac(Q.GEN`u`(PART_MATCH sel apply_abstract_matchable tm))
+  end g
+
 fun use_termsem_implies (g as (asl,w)) =
   let
     val tm = find_term(can(match_term``termsem s i v (Implies a b)``)) w
@@ -557,13 +565,83 @@ fun use_termsem_IN_simple (g as (asl,w)) =
 
 val termsem_UNIV = store_thm("termsem_UNIV",
   ``is_set_theory ^mem ⇒
-    ∀i v ty1 ty tyin.
+    ∀i v ty.
     i models thyof lca_ctxt ∧
     is_valuation (tysof lca_ctxt) (tyaof i) v ∧
-    ty1 = Fun ty Bool ∧
-    ty = REV_ASSOCD (Tyvar(strlit"A")) tyin (Tyvar(strlit"A")) ∧
-    EVERY (type_ok (tysof lca_ctxt)) (MAP FST tyin) ⇒
-    termsem (tmsof lca_ctxt) i v (Const (strlit "UNIV") ty1)
+    type_ok (tysof lca_ctxt) ty ⇒
+    termsem (tmsof lca_ctxt) i v (Const (strlit "UNIV") (Fun ty Bool))
+    = Abstract (typesem (tyaof i) (tyvof v) ty) boolset (K True)``,
+  rpt strip_tac >>
+  `∃ty0 r. (Const(strlit"UNIV")ty0 === r) ∈ (axsof lca_ctxt)` by
+    (EVAL_TAC >> simp[] ) >>
+  pop_assum (fn th=> assume_tac th >> mp_tac th) >>
+  CONV_TAC(LAND_CONV EVAL) >> strip_tac >>
+  qmatch_assum_abbrev_tac`MEM eq aqs` >>
+  qpat_assum`ty = X`Abbrev_intro_tac >>
+  `i satisfies (sigof lca_ctxt,[],eq)` by fs[models_def] >>
+  qspecl_then[`sigof lca_ctxt`,`eq`,`[(ty,Tyvar(strlit"A"))]`]mp_tac termsem_INST >>
+  simp[] >>
+  discharge_hyps >- (
+    unabbrev_all_tac >>
+    assume_tac theory_ok_lca >>
+    imp_res_tac theory_ok_sig >>
+    fs[term_ok_equation] >>
+    conj_tac >> CONV_TAC(EVAL_term_ok) ) >>
+  disch_then(qspecl_then[`i`,`v`]mp_tac) >>
+  simp[Abbr`eq`,equation_def,Abbr`ty0`] >>
+  CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL_INST))) >>
+  Q.PAT_ABBREV_TAC`vv:'U valuation = X Y` >>
+  `is_valuation (tysof lca_ctxt) (tyaof i) vv` by (
+    fs[Abbr`vv`,is_valuation_def,is_type_valuation_def,is_term_valuation_def] >>
+    conj_tac >- (
+      gen_tac >>
+      match_mp_tac(UNDISCH typesem_inhabited) >>
+      qexists_tac`tysof lca_ctxt` >>
+      simp[is_type_valuation_def] >>
+      fs[models_def,is_interpretation_def] >>
+      simp[holSyntaxLibTheory.REV_ASSOCD] >>
+      BasicProvers.CASE_TAC >> simp[type_ok_def]) >>
+    qx_genl_tac[`z`,`zy`] >> strip_tac >>
+    first_x_assum(qspecl_then[`z`,`TYPE_SUBST [(ty,Tyvar(strlit"A"))] zy`]mp_tac) >>
+    simp[type_ok_TYPE_SUBST,Once typesem_TYPE_SUBST] ) >>
+  simp[equation_intro] >>
+  fs[satisfies_def] >>
+  first_x_assum(qspec_then`vv`mp_tac) >> simp[] >>
+  disch_then kall_tac >>
+  qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (ll === rr) = True ==> R` >>
+  qspecl_then[`sigof lca_ctxt`,`i`,`v`,`ll`,`rr`]mp_tac(UNDISCH termsem_equation) >>
+  simp[] >> discharge_hyps >- (
+    simp[is_structure_def] >>
+    fs[models_def] >>
+    conj_tac >- (
+      assume_tac theory_ok_lca >>
+      imp_res_tac theory_ok_sig >> fs[]) >>
+    simp[Abbr`ll`,Abbr`rr`,equation_def] >>
+    CONV_TAC EVAL_term_ok >>
+    simp[] ) >>
+  simp[boolean_eq_true] >>
+  disch_then kall_tac >>
+  simp[Abbr`R`] >> disch_then kall_tac >>
+  simp[Abbr`rr`,termsem_def] >>
+  qunabbrev_tac`aqs` >>
+  imp_res_tac models_lca_ctxt_has_bool_interpretation >>
+  fs[models_def,is_std_interpretation_def] >>
+  imp_res_tac typesem_Bool >> simp[] >>
+  match_mp_tac (UNDISCH abstract_eq) >>
+  simp[] >>
+  assume_tac(EVAL``FLOOKUP (tmsof lca_ctxt) (strlit "T")``) >>
+  simp[identity_instance] >>
+  EVAL_STRING_SORT >> simp[] >>
+  fs[is_bool_interpretation_def,is_true_interpretation_def,interprets_nil] >>
+  simp[mem_boolset])
+
+(*
+val termsem_ZERO = store_thm("termsem_ZERO",
+  ``is_set_theory ^mem ⇒
+    ∀i v.
+    i models thyof lca_ctxt ∧
+    is_valuation (tysof lca_ctxt) (tyaof i) v ⇒
+    termsem (tmsof lca_ctxt) i v (Const (strlit "0") Num)
     = Abstract (typesem (tyaof i) (tyvof v) ty) boolset (K True)``,
   rpt strip_tac >>
   `∃ty0 r. (Const(strlit"UNIV")ty0 === r) ∈ (axsof lca_ctxt)` by
@@ -635,6 +713,7 @@ val termsem_UNIV = store_thm("termsem_UNIV",
   EVAL_STRING_SORT >> simp[] >>
   fs[is_bool_interpretation_def,is_true_interpretation_def,interprets_nil] >>
   simp[mem_boolset])
+*)
 
 val termsem_INJ = store_thm("termsem_INJ",
   ``is_set_theory ^mem ⇒
@@ -1175,12 +1254,25 @@ val termsem_cardleq = store_thm("termsem_cardleq",
     fs[IN_DEF] ) >>
   fs[INJ_DEF])
 
+val Holds_Abstract = store_thm("Holds_Abstract",
+  ``is_set_theory ^mem ⇒ (∀z. z <: q ⇒ f z <: boolset) ⇒
+    ext q ∩ Holds (Abstract q boolset f) = {a | a ∈ ext q ∧ f a = True}``,
+  rw[EXTENSION,holds_def,ext_def] >>
+  Cases_on`x <: q`>>rw[] >>
+  rw[IN_DEF,holds_def] >>
+  `Abstract q boolset f ' x = f x` by (
+    match_mp_tac (apply_abstract_matchable) >>
+    simp[] ) >>
+  simp[])
+
 val intermediate_thm = store_thm("intermediate_thm",
   ``LCA (SUC l) (UNIV:'U set) ⇒
     ∃(mem:'U reln).
       is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
       (i models (thyof lca_ctxt) ∧
        wf_to_inner ((to_inner Num):num->'U) ∧
+       ext(tyaof i (strlit "ind") []) ≈ (UNIV:ind set) ∧
+       tmaof i (strlit"0") [] = to_inner Num (0:num) ∧
        to_inner Num l <: tyaof i (strlit "num") [] ⇒
          ∃v.
            is_valuation (tysof lca_ctxt) (tyaof i) v ∧
@@ -1319,59 +1411,79 @@ val intermediate_thm = store_thm("intermediate_thm",
       map_every (SUBST1_TAC o SYM) (List.take(CONJUNCTS th,5))) >>
     simp[] >> disch_then kall_tac >>
     simp[boolean_eq_true] >>
-
-    cheat ) >>
-  simp[Abbr`p1`,Abbr`p2`] >>
-  qmatch_abbrev_tac`termsem (tmsof s) i vv (And p1 p2) = True` >>
-  qspecl_then[`sigof s`,`i`,`vv`,`p1`,`p2`]mp_tac(UNDISCH termsem_and) >>
-  discharge_hyps >- (
-    simp[] >> fs[models_def] >>
-    rfs[is_bool_sig_def,is_bool_interpretation_def,is_std_interpretation_def] >>
-    unabbrev_all_tac >> simp[] >>
-    conj_tac >> CONV_TAC EVAL_term_ok >>
-    simp[holSyntaxLibTheory.tyvar_inst_exists,tyvar_inst_exists2,tyvar_inst_exists2_diff] ) >>
-  simp[boolean_eq_true] >> disch_then kall_tac >>
+    simp[Abbr`a`] >>
+    qspecl_then[`i`,`vv`,`Ind`]mp_tac(UNDISCH termsem_UNIV) >>
+    discharge_hyps >- (
+      simp[REV_ASSOCD,Abbr`s`] >>
+      CONV_TAC EVAL_type_ok ) >>
+    simp[Abbr`s`] >> disch_then kall_tac >>
+    simp[Holds_Abstract,mem_boolset] >>
+    simp[Once typesem_def] >>
+    simp[Once typesem_def] >>
+    `tyvof vv (strlit "U") = fl` by
+      (simp[Abbr`vv`,Abbr`v`]) >> simp[] >>
+    simp[Abbr`b`,Once termsem_def] >>
+    simp[Once termsem_def,Abbr`vv`,APPLY_UPDATE_THM] >>
+    Q.PAT_ABBREV_TAC`vv:'U valuation = X Y` >>
+    use_apply_abstract >> simp[] >>
+    discharge_hyps >- (
+      conj_tac >- (
+        match_mp_tac(UNDISCH termsem_typesem_matchable) >>
+        simp[] >> qexists_tac`sigof lca_ctxt` >> simp[] >>
+        fs[models_def,is_std_interpretation_def] >>
+        conj_tac >- (CONV_TAC EVAL_term_ok) >>
+        simp[typesem_def] ) >>
+      match_mp_tac(UNDISCH abstract_in_funspace) >>
+      simp[boolean_in_boolset,bool_to_inner_def] ) >>
+    disch_then(CHANGED_TAC o SUBST1_TAC) >>
+    simp[termsem_def] >>
+    simp[EVAL``FLOOKUP (tmsof lca_ctxt) (strlit "0")``,identity_instance] >>
+    EVAL_STRING_SORT >> simp[] >>
+    simp[Holds_Abstract,bool_to_inner_def,boolean_in_boolset] >>
+    simp[boolean_eq_true] >>
+    imp_res_tac wf_to_inner_finv_left >>
+    simp[] >>
+    qmatch_abbrev_tac`a:'U set ≼ b` >>
+    `(UNIV:ind set) ≼ b` suffices_by (
+      metis_tac[cardinalTheory.cardleq_TRANS,cardinalTheory.cardleq_lteq] ) >>
+    `b = f 0` suffices_by rw[] >>
+    simp[Abbr`b`,ext_def,EXTENSION,IN_DEF] >>
+    gen_tac >> EQ_TAC >> simp[] >>
+    `f 0 ⊆ f l` suffices_by (
+      simp[SUBSET_DEF,IN_DEF] ) >>
+    `∀k. k < SUC l ⇒ f k ⊆ f (SUC k)` by metis_tac[] >>
+    pop_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    qid_spec_tac`l` >>
+    Induct >> simp[] >> strip_tac >>
+    qpat_assum`x ==> y`mp_tac >>
+    discharge_hyps >- (
+      rw[] >> first_x_assum match_mp_tac >>
+      simp[] ) >> rw[] >>
+    first_x_assum(qspec_then`l`mp_tac) >>
+    simp[] >> metis_tac[SUBSET_TRANS] ) >>
+  simp[Abbr`p1`,Abbr`p2`,Abbr`s`,Abbr`ff`,Abbr`fy`] >>
+  use_termsem_and >>
+  simp[boolean_eq_true] >>
   conj_tac >- (
-    simp[Abbr`p1`,Abbr`p2`] >>
-    Q.PAT_ABBREV_TAC`ll = Comb(Var X Y) Z` >>
-    qspecl_then[`ll`](mp_tac o GSYM)equation_def >>
-    simp[Abbr`ll`,Abbr`fy`] >> disch_then kall_tac >>
-    qmatch_abbrev_tac`termsem tmenv i vv (ll === rr) = True` >>
-    qspecl_then[`sigof s`,`i`,`vv`,`ll`,`rr`,`tmenv`]mp_tac(UNDISCH termsem_equation) >>
-    simp[Abbr`tmenv`] >> discharge_hyps >- (
-      simp[is_structure_def] >>
-      fs[models_def] >>
-      assume_tac theory_ok_lca >>
-      imp_res_tac theory_ok_sig >> rfs[] >>
-      unabbrev_all_tac >>
-      simp[equation_def] >>
-      CONV_TAC EVAL_term_ok >>
-      simp[holSyntaxLibTheory.tyvar_inst_exists]) >>
-    simp[boolean_eq_true] >> disch_then kall_tac >>
-    simp[Abbr`ll`,Abbr`vv`,termsem_def,combinTheory.APPLY_UPDATE_THM] >>
-    match_mp_tac apply_abstract_matchable >>
-    simp[Abbr`v`] >>
-    conj_tac >- (
-      match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[equation_intro] >>
+    use_termsem_equation >>
+    simp[boolean_eq_true] >>
+    qspecl_then[`i`,`vv`,`Tyvar(strlit"U")`]mp_tac (UNDISCH termsem_UNIV) >>
+    discharge_hyps >- simp[type_ok_def] >>
+    disch_then(CHANGED_TAC o SUBST1_TAC) >>
+    simp[termsem_def,typesem_def] >>
+    simp[Abbr`vv`,APPLY_UPDATE_THM,Abbr`v`] >>
+    use_apply_abstract >> simp[] >>
+    discharge_hyps >- (
+      match_mp_tac (UNDISCH abstract_in_funspace_matchable) >>
       simp[bool_to_inner_def,boolean_in_boolset] ) >>
-    imp_res_tac wf_to_inner_finv_left >> simp[] >>
-    simp[bool_to_inner_def,Abbr`rr`] >>
-    qmatch_abbrev_tac`rr = termsem (tmsof s) i vv uu` >>
-    qabbrev_tac`u = Const(strlit"UNIV")(Fun(Tyvar(strlit"A"))Bool)` >>
-    qabbrev_tac`tyin=[(Tyvar(strlit"U"),Tyvar(strlit"A"))]` >>
-    `uu = INST tyin u` by (
-      unabbrev_all_tac >>
-      CONV_TAC(RAND_CONV EVAL_INST) >>
-      REFL_TAC ) >>
-    `u === Abs (Var (strlit"x") (Tyvar(strlit"A"))) True ∈ axsof s` by (
-      unabbrev_all_tac >> EVAL_TAC ) >>
-    qmatch_assum_abbrev_tac`MEM eq axs` >>
-    `i satisfies (sigof s,[],eq)` by fs[models_def] >>
-    pop_assum mp_tac >> simp[satisfies_def] >>
-    disch_then(qspec_then`vv`mp_tac) >> fs[bool_to_inner_def] >>
-    termsem_INST
-    cheat (* termsem_comb2_ax *)) >>
-  simp[Abbr`p1`,Abbr`p2`] >>
+    disch_then(CHANGED_TAC o SUBST1_TAC) >>
+    match_mp_tac(UNDISCH abstract_eq) >>
+    simp[bool_to_inner_def,boolean_in_boolset] >>
+    simp[boolean_eq_true,mem_boolset] >>
+    imp_res_tac wf_to_inner_finv_left >>
+    simp[] ) >>
   cheat)
 
 master theorem...
