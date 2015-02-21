@@ -203,6 +203,35 @@ val termsem_implies = store_thm("termsem_implies",
     imp_res_tac typesem_Bool >> simp[] ) >>
   simp[boolean_in_boolset] )
 
+val termsem_not = store_thm("termsem_not",
+  ``is_set_theory ^mem ⇒
+    ∀s i v p1.
+    is_valuation (tysof s) (tyaof i) v ∧
+    is_interpretation s i ∧
+    is_std_type_assignment (tyaof i) ∧
+    term_ok s p1 ∧
+    typeof p1 = Bool ∧
+    is_not_sig (tmsof s) ∧ is_not_interpretation (tmaof i) ⇒
+    termsem (tmsof s) i v (Not p1) =
+    Boolean (termsem (tmsof s) i v p1 ≠ True)``,
+  rw[termsem_def,is_not_sig_def,is_not_interpretation_def] >>
+  qspecl_then[`tmsof s`,`i`,`strlit"~"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  simp[] >> disch_then kall_tac >>
+  CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
+  fs[interprets_def] >>
+  first_x_assum(qspec_then`K boolset`mp_tac) >>
+  discharge_hyps >- (
+    simp[is_type_valuation_def] >>
+    metis_tac[boolean_in_boolset]) >>
+  simp[] >> disch_then kall_tac >>
+  match_mp_tac (apply_abstract_matchable) >>
+  simp[boolean_in_boolset] >>
+  match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+  simp[] >>
+  qexists_tac`s` >> simp[] >>
+  imp_res_tac typesem_Bool >> simp[] )
+
 val extends_sub = store_thm("extends_sub",
   ``∀ctxt2 ctxt1. ctxt2 extends ctxt1 ⇒
       tmsof ctxt1 ⊑ tmsof ctxt2 ∧
@@ -456,6 +485,31 @@ fun use_termsem_and (g as (asl,w)) =
       conj_tac >- (CONV_TAC EVAL_term_ok) >>
       conj_tac >- (CONV_TAC EVAL_term_ok) >>
       conj_tac >- (CONV_TAC (LAND_CONV EVAL_typeof) >> REFL_TAC) >>
+      conj_tac >- (CONV_TAC (LAND_CONV EVAL_typeof) >> REFL_TAC) >>
+      fs[is_bool_interpretation_def,is_bool_sig_def] ) >>
+    disch_then (CHANGED_TAC o SUBST1_TAC)
+  end g
+
+fun use_termsem_not (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term``termsem s i v (Not a)``)) w
+    val (_,args) = strip_comb tm
+    val imp = el 5 args
+    val p1 = imp |> rand
+    val s = el 2 args |> REWR_CONV(SYM lca_of_sigof) |> concl |> rhs |> rand
+    val th =
+      UNDISCH termsem_not
+      |> SPECL[s, el 3 args, el 4 args, p1]
+      |> CONV_RULE(DEPTH_CONV(REWR_CONV lca_of_sigof))
+  in
+    mp_tac th >>
+    discharge_hyps >- (
+      assume_tac lca_is_bool_sig >>
+      imp_res_tac models_lca_ctxt_has_bool_interpretation >>
+      conj_tac >- simp[] >>
+      conj_tac >- fs[models_def] >>
+      conj_tac >- fs[models_def,is_std_interpretation_def] >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
       conj_tac >- (CONV_TAC (LAND_CONV EVAL_typeof) >> REFL_TAC) >>
       fs[is_bool_interpretation_def,is_bool_sig_def] ) >>
     disch_then (CHANGED_TAC o SUBST1_TAC)
@@ -1477,6 +1531,9 @@ val termsem_LESS = store_thm("termsem_LESS",
     is_valuation (tysof lca_ctxt) (tyaof i) v ∧
     wf_to_inner ((to_inner Num):num->'U) ∧
     tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
+    tmaof i (strlit"SUC") [] =
+      Abstract(tyaof i (strlit"num")[])(tyaof i (strlit"num")[])
+        (λm. to_inner Num (SUC (finv (to_inner Num) m))) ∧
     ty1 = Fun Num (Fun Num Bool) ∧
     term_ok (sigof lca_ctxt) a ∧
     term_ok (sigof lca_ctxt) b ∧
@@ -1597,7 +1654,60 @@ val termsem_LESS = store_thm("termsem_LESS",
   conj_tac >- (
     use_termsem_forall >>
     simp[boolean_eq_true] >>
-    cheat ) >>
+    qho_match_abbrev_tac`(∀x. A x) ⇔ (∀y. B y)` >>
+    `∀x. A (to_inner Num x) ⇔ B x` suffices_by (
+      disch_then(mp_tac o GSYM) >> simp[] >>
+      disch_then kall_tac >>
+      simp[Abbr`A`,Abbr`B`] >>
+      EQ_TAC >> simp[] >>
+      strip_tac >> gen_tac >>
+      simp[Once typesem_def] >>
+      first_x_assum(qspec_then`finv (to_inner Num) x`mp_tac) >>
+      simp[Once typesem_def] >>
+      metis_tac[wf_to_inner_finv_right] ) >>
+    simp[Abbr`A`,Abbr`B`] >>
+    gen_tac >>
+    simp[Once typesem_def] >>
+    qmatch_abbrev_tac`(A ⇒ B) ⇔ C` >>
+    `A` by metis_tac[wf_to_inner_range_thm] >>
+    simp[Abbr`A`,Abbr`B`,Abbr`C`] >>
+    Q.PAT_ABBREV_TAC`vvy:'U valuation = X Y` >>
+    `is_valuation (tysof lca_ctxt) (tyaof i) vvy` by (
+      simp[Abbr`vvy`] >> match_mp_tac is_valuation_extend >> simp[] >>
+      simp[typesem_def]) >>
+    use_termsem_implies >>
+    simp[boolean_eq_true] >>
+    qmatch_abbrev_tac`A ⇒ B ⇔ A' ⇒ B'` >>
+    `A = A' ∧ B = B'` suffices_by metis_tac[] >>
+    map_every qunabbrev_tac[`A`,`A'`,`B`,`B'`] >>
+    conj_tac >- (
+      simp[termsem_def] >>
+      simp[EVAL``FLOOKUP (tmsof lca_ctxt) (strlit "SUC")``,identity_instance] >>
+      EVAL_STRING_SORT >> simp[] >>
+      simp[Abbr`vvy`,APPLY_UPDATE_THM] >>
+      simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
+      qmatch_abbrev_tac`Abstract nn boolset f1 ' (Abstract nn nn f2 ' xx) = True ⇔ R` >>
+      qspecl_then[`f2`,`xx`,`nn`,`nn`]mp_tac apply_abstract_matchable >>
+      simp[] >> discharge_hyps_keep >- (
+        simp[Abbr`f2`,Abbr`xx`,Abbr`nn`] >>
+        metis_tac[wf_to_inner_range_thm] ) >>
+      disch_then SUBST1_TAC >>
+      use_apply_abstract >>
+      simp[Abbr`f1`,boolean_in_boolset] >>
+      disch_then kall_tac >>
+      simp[boolean_eq_true] >>
+      simp[Abbr`f2`,Abbr`R`,Abbr`xx`] >>
+      imp_res_tac wf_to_inner_finv_left >>
+      simp[] ) >>
+    simp[termsem_def] >>
+    simp[Abbr`vvy`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
+    use_apply_abstract >>
+    simp[boolean_in_boolset] >>
+    disch_then kall_tac >>
+    simp[boolean_eq_true] >>
+    imp_res_tac wf_to_inner_finv_left >>
+    simp[] ) >>
   use_termsem_and >>
   simp[boolean_eq_true] >>
   qmatch_abbrev_tac`A ∧ B ⇔ A' ∧ B'` >>
@@ -1616,7 +1726,20 @@ val termsem_LESS = store_thm("termsem_LESS",
       simp[typesem_def] ) >>
     disch_then SUBST1_TAC >>
     simp[boolean_eq_true] ) >>
-  cheat)
+  use_termsem_not >>
+  simp[boolean_eq_true] >>
+  simp[termsem_def] >>
+  simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
+  simp[Abbr`vv`,Abbr`s`,UPDATE_LIST_THM,APPLY_UPDATE_THM] >>
+  use_apply_abstract >>
+  simp[boolean_in_boolset] >>
+  discharge_hyps >- (
+    match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+    simp[] >> qexists_tac`sigof lca_ctxt` >> simp[] >>
+    fs[models_def,is_std_interpretation_def] >>
+    simp[typesem_def] ) >>
+  disch_then SUBST1_TAC >>
+  simp[boolean_eq_true])
 
 val intermediate_thm = store_thm("intermediate_thm",
   ``LCA (SUC l) (UNIV:'U set) ⇒
