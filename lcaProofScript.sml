@@ -355,7 +355,7 @@ val lca_is_bool_sig = store_thm("lca_is_bool_sig",
   ``is_bool_sig (sigof lca_ctxt)``,
   EVAL_TAC)
 
-val _ = overload_on("Num", ``Tyapp(strlit"num")[]``)
+val _ = Parse.overload_on("Num", ``Tyapp(strlit"num")[]``)
 val quote_def = Define`
   (quote 0 = Const (strlit"0") Num) ∧
   (quote (SUC n) = Comb (Const(strlit"SUC")(Fun Num Num))
@@ -2553,11 +2553,26 @@ val termsem_my_regular_cardinal = store_thm("termsem_my_regular_cardinal",
     match_mp_tac (UNDISCH abstract_in_funspace) >>
     simp[mem_boolset] >> fs[] >>
     metis_tac[]) >>
-  `∀f. P (Abstract mty (Funspace mty boolset) (λm. Abstract mty boolset (Boolean o f m))) ⇔ Q f`
+  `∀f. P (Abstract mty (Funspace mty boolset) (λm. Abstract mty boolset (Boolean o f m))) ⇔
+       Q (λm. ext mty ∩ f m)`
   suffices_by (
     strip_tac >>
     EQ_TAC >> strip_tac >- ( metis_tac[] ) >>
-    metis_tac[] ) >>
+    qmatch_assum_rename_tac`Q f` >>
+    simp[PULL_EXISTS] >>
+    qexists_tac`f` >>
+    qpat_assum`Q f`mp_tac >>
+    simp[Abbr`Q`] >> strip_tac >>
+    conj_tac >- (
+      gen_tac >> strip_tac >>
+      qmatch_assum_rename_tac`z ∈ ext mty` >>
+      `ext mty ∩ f z ⊆ f z` by simp[INTER_SUBSET_EQN] >>
+      imp_res_tac cardinalTheory.SUBSET_CARDLEQ >>
+      metis_tac[cardinalTheory.cardleq_lt_trans] ) >>
+    gen_tac >> strip_tac >>
+    `mty = typesem (tyaof i) (tyvof v) ty` by (
+      simp[Abbr`mty`,Abbr`vv`,Abbr`vvv`] ) >>
+    metis_tac[]) >>
   simp[Abbr`P`,Abbr`Q`,Abbr`A`] >>
   gen_tac >>
   Q.PAT_ABBREV_TAC`vvy:'U valuation = X Y` >>
@@ -2617,11 +2632,178 @@ val termsem_my_regular_cardinal = store_thm("termsem_my_regular_cardinal",
     use_termsem_forall >>
     simp[boolean_eq_true] >>
     simp[Once typesem_def] >>
-    cheat ) >>
+    qho_match_abbrev_tac`(∀x. A x ⇒ P x) ⇔ (∀y. Q y)` >>
+    `∀x. A x ⇒ (P x ⇔ Q x)` suffices_by (
+      strip_tac >>
+      EQ_TAC >- (
+        strip_tac >>
+        qx_gen_tac`z` >>
+        Cases_on`A z` >- metis_tac[] >>
+        pop_assum mp_tac >>
+        simp[Abbr`A`,Abbr`Q`] >>
+        simp[Abbr`vvy`,ext_def] ) >>
+      metis_tac[] ) >>
+    gen_tac >>
+    map_every qunabbrev_tac[`A`,`P`,`Q`] >>
+    simp[] >> strip_tac >>
+    Q.PAT_ABBREV_TAC`vvz:'U valuation = X Y` >>
+    `is_valuation (tysof lca_ctxt) (tyaof i) vvz` by (
+      simp[Abbr`vvz`] >>
+      match_mp_tac is_valuation_extend >>
+      fs[] >> simp[typesem_def] ) >>
+    use_termsem_implies >>
+    simp[boolean_eq_true] >>
+    `x ∈ ext mty` by (
+      rfs[Abbr`vvy`,Abbr`vvx`] >>
+      simp[ext_def] ) >> simp[] >>
+    qmatch_abbrev_tac`A ⇒ B ⇔ A' ⇒ B'` >>
+    `(A ⇔ A') ∧ (B ⇔ B')` suffices_by rw[] >>
+    map_every qunabbrev_tac[`A`,`A'`,`B`,`B'`] >>
+    conj_tac >- (
+      use_termsem_IN_simple >>
+      simp[boolean_eq_true] >>
+      simp[termsem_def] >>
+      simp[Abbr`vvz`,APPLY_UPDATE_THM] >>
+      simp[Abbr`vvy`,APPLY_UPDATE_THM] >>
+      simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
+      qmatch_abbrev_tac`ff x ⇔ x ∈ y` >>
+      `x ∈ ext mty ∩ ff ⇔ x ∈ y` suffices_by (
+        simp[IN_DEF] ) >>
+      qunabbrev_tac`ff` >>
+      Q.PAT_ABBREV_TAC`P:'U -> 'U set -> bool = $IN` >>
+      simp[Holds_Abstract,boolean_in_boolset] >>
+      simp[Abbr`P`,boolean_eq_true,IN_DEF] ) >>
+    use_termsem_not >>
+    simp[boolean_eq_true] >>
+    use_termsem_cardleq (I,replace_term``Tyvar(strlit"A")````Tyvar(strlit"B")``)
+      `[(Tyvar(strlit"A"),Tyvar(strlit"B"))]` >>
+    simp[REV_ASSOCD,boolean_eq_true] >>
+    simp[typesem_def,termsem_def] >>
+    simp[Abbr`vvz`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvy`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
+    `mty = typesem (tyaof i) (tyvof v) ty` by (
+      simp[Abbr`mty`,Abbr`vv`,Abbr`vvv`] ) >>
+    pop_assum(SUBST1_TAC o SYM) >>
+    simp[Abbr`vv`,Abbr`s`,APPLY_UPDATE_THM,UPDATE_LIST_THM] >>
+    qspecl_then[`sigof lca_ctxt`,`a0`,`tyin`]mp_tac termsem_INST >> simp[] >>
+    disch_then kall_tac >>
+    AP_TERM_TAC >>
+    use_apply_abstract >> simp[] >>
+    discharge_hyps >- (
+      fs[ext_def] >>
+      rpt(pop_assum kall_tac) >>
+      metis_tac[] ) >>
+    disch_then SUBST1_TAC >>
+    simp[Holds_Abstract,boolean_in_boolset,boolean_eq_true] >>
+    simp[EXTENSION,IN_DEF] ) >>
   use_termsem_forall >>
   simp[boolean_eq_true] >>
   simp[Once typesem_def] >>
-  cheat )
+  qho_match_abbrev_tac`(∀x. A x ⇒ P x) ⇔ (∀y. Q y)` >>
+  `∀x. A x ⇒ (P x ⇔ Q x)` suffices_by (
+    strip_tac >>
+    EQ_TAC >- (
+      strip_tac >>
+      qx_gen_tac`z` >>
+      Cases_on`A z` >- metis_tac[] >>
+      pop_assum mp_tac >>
+      simp[Abbr`A`,Abbr`Q`] >>
+      simp[Abbr`vvy`] >>
+      simp[Abbr`mty`,ext_def,Abbr`vv`,Abbr`vvv`]) >>
+    metis_tac[] ) >>
+  gen_tac >>
+  map_every qunabbrev_tac[`A`,`P`,`Q`] >>
+  simp[] >> strip_tac >>
+  Q.PAT_ABBREV_TAC`vvz:'U valuation = X Y` >>
+  `is_valuation (tysof lca_ctxt) (tyaof i) vvz` by (
+    simp[Abbr`vvz`] >>
+    match_mp_tac is_valuation_extend >>
+    fs[] >> simp[typesem_def] ) >>
+  use_termsem_implies >>
+  simp[boolean_eq_true] >>
+  `mty = typesem (tyaof i) (tyvof v) ty` by (
+    simp[Abbr`mty`,Abbr`vv`,Abbr`vvv`] ) >>
+  pop_assum(SUBST1_TAC o SYM) >>
+  `x ∈ ext mty` by (
+    rfs[Abbr`vvy`,Abbr`vvx`] >>
+    simp[ext_def] ) >> simp[] >>
+  qmatch_abbrev_tac`A ⇒ B ⇔ A' ⇒ B'` >>
+  `(A ⇔ A') ∧ (B ⇔ B')` suffices_by rw[] >>
+  map_every qunabbrev_tac[`A`,`A'`,`B`,`B'`] >>
+  conj_tac >- (
+    use_termsem_IN_simple >>
+    simp[boolean_eq_true] >>
+    simp[termsem_def] >>
+    simp[Abbr`vvz`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvy`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vv`,APPLY_UPDATE_THM,Abbr`s`,UPDATE_LIST_THM] >>
+    qspecl_then[`sigof lca_ctxt`,`a0`,`tyin`]mp_tac termsem_INST >> simp[] >>
+    disch_then kall_tac >>
+    simp[IN_DEF] ) >>
+  use_termsem_exists >>
+  simp[boolean_eq_true] >>
+  simp[Once typesem_def] >>
+  qho_match_abbrev_tac`(∃x. A x ∧ P x) ⇔ (∃y. Q y)` >>
+  `∀x. (A x ⇔ x ∈ ext mty)` by (
+    simp[Abbr`A`] >>
+    simp[Abbr`vvz`,Abbr`vvy`,ext_def] ) >>
+  `∀y. A y ⇒ (P y ⇔ Q y)`
+  suffices_by (
+    strip_tac >>
+    EQ_TAC >> strip_tac >- ( metis_tac[] ) >>
+    qmatch_assum_rename_tac`Q z` >>
+    Cases_on`A z` >- metis_tac[] >>
+    ntac 2 (pop_assum mp_tac) >>
+    simp[Abbr`Q`] ) >>
+  simp[Abbr`P`,Abbr`Q`,Abbr`A`] >>
+  gen_tac >> strip_tac >>
+  Q.PAT_ABBREV_TAC`vva:'U valuation = X Y` >>
+  `is_valuation (tysof lca_ctxt) (tyaof i) vva` by (
+    simp[Abbr`vva`] >>
+    match_mp_tac is_valuation_extend >>
+    fs[] >> simp[typesem_def] ) >>
+  use_termsem_and >>
+  simp[boolean_eq_true] >>
+  qmatch_abbrev_tac`A ∧ B ⇔ A' ∧ B'` >>
+  `(A ⇔ A') ∧ (B ⇔ B')` suffices_by rw[] >>
+  map_every qunabbrev_tac[`A`,`A'`,`B`,`B'`] >>
+  conj_tac >- (
+    use_termsem_IN_simple >>
+    simp[boolean_eq_true] >>
+    simp[termsem_def] >>
+    simp[Abbr`vva`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvz`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvy`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
+    pop_assum kall_tac >>
+    qmatch_abbrev_tac`ff z ⇔ z ∈ y` >>
+    `z ∈ ext mty ∩ ff ⇔ z ∈ y` suffices_by (
+      simp[IN_DEF] ) >>
+    qunabbrev_tac`ff` >>
+    Q.PAT_ABBREV_TAC`P:'U -> 'U set -> bool = $IN` >>
+    simp[Holds_Abstract,boolean_in_boolset] >>
+    simp[Abbr`P`,boolean_eq_true,IN_DEF] ) >>
+  use_termsem_IN_simple >>
+  simp[boolean_eq_true] >>
+  simp[termsem_def] >>
+  simp[Abbr`vva`,APPLY_UPDATE_THM] >>
+  simp[Abbr`vvz`,APPLY_UPDATE_THM] >>
+  simp[Abbr`vvy`,APPLY_UPDATE_THM] >>
+  use_apply_abstract >> simp[] >>
+  discharge_hyps >- (
+    fs[ext_def] >>
+    rpt(pop_assum kall_tac) >>
+    metis_tac[] ) >>
+  disch_then SUBST1_TAC >>
+  qmatch_abbrev_tac`ff x ⇔ x ∈ z` >>
+  `x ∈ ext mty ∩ ff ⇔ x ∈ z` suffices_by (
+    simp[IN_DEF] ) >>
+  qunabbrev_tac`ff` >>
+  Q.PAT_ABBREV_TAC`P:'U -> 'U set -> bool = $IN` >>
+  simp[Holds_Abstract,boolean_in_boolset] >>
+  simp[Abbr`P`,boolean_eq_true,IN_DEF] )
 
 fun use_termsem_my_regular_cardinal_simple (g as (asl,w)) =
   let
@@ -3165,6 +3347,7 @@ val intermediate_thm = store_thm("intermediate_thm",
   `(∀x. x < l ⇒ x ≤ l ∧ SUC x ≤ l)` by DECIDE_TAC >>
   metis_tac[])
 
+(*
 master theorem...
 
 ``∀n. (^thy,[]) |- [∀l. LCA l UNIV ⇒ ^^phi ^(quote n) l] ⇒
