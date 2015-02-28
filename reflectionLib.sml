@@ -1534,7 +1534,8 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
     val int_assums = map
       (fn tm =>
         VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
-          FIRST (select_tac::ind_tac::(map (wf_match_accept_tac o prepare_bool_thm) bool_thms)))
+          FIRST (select_tac::ind_tac::(map (wf_match_accept_tac o prepare_bool_thm)
+                                           (onto_thm::one_one_thm::bool_thms))))
       )
       int_tms
   in
