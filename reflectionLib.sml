@@ -1418,11 +1418,14 @@ fun reduce_hyps i_wf_to_inners new_wf_to_inners0 =
     loop new_wf_to_inners0
   end
 
-fun build_interpretation vti [] tys consts =
+val base_hyps =
+  [``wf_to_inner ((to_inner Ind):ind -> 'U)``,
+   ``is_set_theory ^mem``]
+
+fun build_interpretation vti wf_to_inner_hyps [] tys consts =
   let
     val hypotheses =
-      [``wf_to_inner ((to_inner Ind):ind -> 'U)``,
-       ``is_set_theory ^mem``] @
+      base_hyps @
       (mapfilter (fn ty => to_inner_prop vti (assert is_vartype ty)) tys)
     val tyassums = flatten (map (base_type_assums vti) tys)
          |> filter (not o can (assert (equal tyval) o fst o strip_comb o lhs))
@@ -1472,11 +1475,15 @@ fun build_interpretation vti [] tys consts =
     val sig_assums = map
       (fn tm => VALID_TAC_PROOF((hypotheses,tm),EVAL_TAC))
       sig_tms
+    (* rather than calculate these here, we make sure
+       we only assume things that will be proved in parent calls.
+       the parent calls pass them in as an argument to us.
     val wf_to_inner_hyps =
       foldl (fn (tm,s) => HOLset.addList(s,
           map (to_inner_prop vti) (base_types_of_term tm)))
         Term.empty_tmset consts
       |> HOLset.listItems
+    *)
     val styvars = filter (not o equal universe_ty) (type_vars_in_term select)
     fun prepare_bool_thm th =
       let
@@ -1537,7 +1544,7 @@ fun build_interpretation vti [] tys consts =
       sig_assums = sig_assums,
       int_assums = int_assums }
   end
-| build_interpretation vti (upd::ctxt) tys consts =
+| build_interpretation vti wf_to_inner_hyps (upd::ctxt) tys consts =
   let
     val instances_to_constrain =
       union (find_type_instances tys (#tys upd))
@@ -1557,7 +1564,9 @@ fun build_interpretation vti [] tys consts =
          wf_to_inners = i_wf_to_inners,
          sig_assums = i_sig_assums,
          int_assums = i_int_assums }
-      = build_interpretation vti ctxt
+      = build_interpretation vti
+        (union wf_to_inner_hyps (map (to_inner_prop vti) instantiated_tys))
+        ctxt
         (set_diff (union tys new_tys) instantiated_tys)
         (set_diff (union consts new_consts) instantiated_consts)
       (* [Note: It is *not* guaranteed that
@@ -1566,7 +1575,8 @@ fun build_interpretation vti [] tys consts =
           one of the constants of a certain instance of the update,
           but this means that we need to constrain *all* of the
           constants of that update] *)
-    val hyps = hyp i_models @ flatten (map hyp i_wf_to_inners)
+    (* val hyps = hyp i_models @ flatten (map hyp i_wf_to_inners) *)
+    val hyps = base_hyps @ wf_to_inner_hyps
     val itm = get_int i_models
     val new_wf_to_inners0 = if null (#tys upd) then [] else
       mapfilter (make_wf_to_inner_th vti) instantiated_axioms
@@ -1722,7 +1732,7 @@ fun build_interpretation vti [] tys consts =
     }
   end
 
-val build_interpretation = build_interpretation []
+val build_interpretation = build_interpretation [] []
 
 (* TODO: this is a hack... *)
 val tyvar_inst_exists2 = prove(
