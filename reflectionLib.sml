@@ -1352,7 +1352,8 @@ fun prove_ax_satisfied vti hyps inner_upd old_ctxt cs cs_cases jtm
         val wfs = map (wf_to_inner_mk_to_inner [] o #residue) tyin
         val th4 = foldl (uncurry PROVE_HYP) th3 (gck::valth::(wfs@all_assums))
       in
-        (CONV_TAC(RATOR_CONV(computeLib.CBV_CONV cl)) >> strip_tac >>
+        (CONV_TAC(RATOR_CONV(computeLib.CBV_CONV cl)) >>
+         (strip_tac ORELSE CONV_TAC BETA_CONV) >>
          mp_tac th4) g
       end
     val goal = (hyps,gtm)
