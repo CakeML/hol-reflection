@@ -113,7 +113,7 @@ val termsem_forall = store_thm("termsem_forall",
   fs[is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> rw[] )
 
-val termsem_and = store_thm("termsem_and",
+val termsem_implies = store_thm("termsem_implies",
   ``is_set_theory ^mem ⇒
     ∀s i v p1 p2.
     is_valuation (tysof s) (tyaof i) v ∧
@@ -121,12 +121,12 @@ val termsem_and = store_thm("termsem_and",
     is_std_type_assignment (tyaof i) ∧
     term_ok s p1 ∧ term_ok s p2 ∧
     typeof p1 = Bool ∧ typeof p2 = Bool ∧
-    is_and_sig (tmsof s) ∧ is_and_interpretation (tmaof i) ⇒
-    termsem (tmsof s) i v (And p1 p2) =
-    Boolean (termsem (tmsof s) i v p1 = True ∧
+    is_implies_sig (tmsof s) ∧ is_implies_interpretation (tmaof i) ⇒
+    termsem (tmsof s) i v (Implies p1 p2) =
+    Boolean (termsem (tmsof s) i v p1 = True ⇒
              termsem (tmsof s) i v p2 = True)``,
-  rw[termsem_def,is_and_sig_def,is_and_interpretation_def] >>
-  qspecl_then[`tmsof s`,`i`,`strlit"/\\"`]mp_tac instance_def >> simp[] >>
+  rw[termsem_def,is_implies_sig_def,is_implies_interpretation_def] >>
+  qspecl_then[`tmsof s`,`i`,`strlit"==>"`]mp_tac instance_def >> simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV(RAND_CONV EVAL)))) >>
@@ -158,7 +158,7 @@ val termsem_and = store_thm("termsem_and",
     imp_res_tac typesem_Bool >> simp[] ) >>
   simp[boolean_in_boolset] )
 
-val termsem_implies = store_thm("termsem_implies",
+val termsem_and = store_thm("termsem_and",
   ``is_set_theory ^mem ⇒
     ∀s i v p1 p2.
     is_valuation (tysof s) (tyaof i) v ∧
@@ -166,12 +166,12 @@ val termsem_implies = store_thm("termsem_implies",
     is_std_type_assignment (tyaof i) ∧
     term_ok s p1 ∧ term_ok s p2 ∧
     typeof p1 = Bool ∧ typeof p2 = Bool ∧
-    is_implies_sig (tmsof s) ∧ is_implies_interpretation (tmaof i) ⇒
-    termsem (tmsof s) i v (Implies p1 p2) =
-    Boolean (termsem (tmsof s) i v p1 = True ⇒
+    is_and_sig (tmsof s) ∧ is_and_interpretation (tmaof i) ⇒
+    termsem (tmsof s) i v (And p1 p2) =
+    Boolean (termsem (tmsof s) i v p1 = True ∧
              termsem (tmsof s) i v p2 = True)``,
-  rw[termsem_def,is_implies_sig_def,is_implies_interpretation_def] >>
-  qspecl_then[`tmsof s`,`i`,`strlit"==>"`]mp_tac instance_def >> simp[] >>
+  rw[termsem_def,is_and_sig_def,is_and_interpretation_def] >>
+  qspecl_then[`tmsof s`,`i`,`strlit"/\\"`]mp_tac instance_def >> simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV(RAND_CONV EVAL)))) >>

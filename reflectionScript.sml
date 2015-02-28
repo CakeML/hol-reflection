@@ -7,6 +7,159 @@ open holConstrainedExtensionTheory
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
 
+(* TODO: move *)
+val termsem_typesem_matchable = store_thm("termsem_typesem_matchable",
+``is_set_theory ^mem ⇒
+   ∀sig i tm v δ τ tmenv ty.
+     δ = tyaof i ∧ τ = tyvof v ∧ is_valuation (tysof sig) δ v ∧
+     is_interpretation sig i ∧ is_std_type_assignment δ ∧
+     term_ok sig tm ∧ tmenv = tmsof sig ∧
+     ty = typesem δ τ (typeof tm) ⇒
+     termsem tmenv i v tm <: ty``,
+  PROVE_TAC[termsem_typesem])
+
+val termsem_exists = store_thm("termsem_exists",
+  ``is_set_theory ^mem ⇒
+    ∀s i v f y b.
+    is_valuation (tysof s) (tyaof i) v ∧
+    is_interpretation s i ∧
+    is_std_interpretation i ∧
+    type_ok (tysof s) y ∧ term_ok s b ∧ typeof b = Bool ∧
+    is_exists_sig (tmsof s) ∧ is_exists_interpretation (tmaof i) ⇒
+    termsem (tmsof s) i v (Exists f y b) =
+    Boolean (∃x. x <: typesem (tyaof i) (tyvof v) y ∧
+                 termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)``,
+  rw[termsem_def,is_exists_sig_def,is_exists_interpretation_def] >>
+  qspecl_then[`tmsof s`,`i`,`strlit"?"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[y,Tyvar(strlit"A")]`mp_tac) >>
+  simp[holSyntaxLibTheory.REV_ASSOCD] >> disch_then kall_tac >>
+  CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
+  fs[interprets_def] >>
+  first_x_assum(qspec_then`K(typesem (tyaof i) (tyvof v) y)`mp_tac) >>
+  discharge_hyps >- (
+    simp[is_type_valuation_def] >>
+    match_mp_tac(UNDISCH typesem_inhabited) >>
+    metis_tac[is_interpretation_def,is_valuation_def] ) >>
+  simp[] >> disch_then kall_tac >>
+  match_mp_tac apply_abstract_matchable >> simp[] >>
+  fs[is_std_interpretation_def] >>
+  imp_res_tac typesem_Bool >> simp[] >>
+  simp[boolean_in_boolset] >>
+  simp[holds_def] >>
+  conj_tac >- (
+    match_mp_tac (UNDISCH abstract_in_funspace) >> simp[] >> rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+    simp[] >> qexists_tac`s` >> simp[] >>
+    fs[is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> rw[] ) >>
+  AP_TERM_TAC >>
+  AP_TERM_TAC >>
+  simp[FUN_EQ_THM] >>
+  gen_tac >>
+  qmatch_abbrev_tac`A ∧ B ⇔ A ∧ C` >>
+  `A ⇒ (B ⇔ C)` suffices_by metis_tac[] >>
+  unabbrev_all_tac >> strip_tac >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  match_mp_tac apply_abstract_matchable >> simp[] >>
+  match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+  simp[] >> qexists_tac`s` >> simp[] >>
+  fs[is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> rw[] )
+
+val termsem_forall = store_thm("termsem_forall",
+  ``is_set_theory ^mem ⇒
+    ∀s i v f y b.
+    is_valuation (tysof s) (tyaof i) v ∧
+    is_interpretation s i ∧
+    is_std_interpretation i ∧
+    type_ok (tysof s) y ∧ term_ok s b ∧ typeof b = Bool ∧
+    is_forall_sig (tmsof s) ∧ is_forall_interpretation (tmaof i) ⇒
+    termsem (tmsof s) i v (Forall f y b) =
+    Boolean (∀x. x <: typesem (tyaof i) (tyvof v) y ⇒
+                 termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)``,
+  rw[termsem_def,is_forall_sig_def,is_forall_interpretation_def] >>
+  qspecl_then[`tmsof s`,`i`,`strlit"!"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[y,Tyvar(strlit"A")]`mp_tac) >>
+  simp[holSyntaxLibTheory.REV_ASSOCD] >> disch_then kall_tac >>
+  CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
+  fs[interprets_def] >>
+  first_x_assum(qspec_then`K(typesem (tyaof i) (tyvof v) y)`mp_tac) >>
+  discharge_hyps >- (
+    simp[is_type_valuation_def] >>
+    match_mp_tac(UNDISCH typesem_inhabited) >>
+    metis_tac[is_interpretation_def,is_valuation_def] ) >>
+  simp[] >> disch_then kall_tac >>
+  match_mp_tac apply_abstract_matchable >> simp[] >>
+  fs[is_std_interpretation_def] >>
+  imp_res_tac typesem_Bool >> simp[] >>
+  simp[boolean_in_boolset] >>
+  simp[holds_def] >>
+  conj_tac >- (
+    match_mp_tac (UNDISCH abstract_in_funspace) >> simp[] >> rw[] >>
+    match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+    simp[] >> qexists_tac`s` >> simp[] >>
+    fs[is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+    rw[] >> rw[] ) >>
+  AP_TERM_TAC >>
+  AP_TERM_TAC >>
+  simp[FUN_EQ_THM] >>
+  gen_tac >>
+  qmatch_abbrev_tac`A ⇒ B ⇔ A ⇒ C` >>
+  `A ⇒ (B ⇔ C)` suffices_by metis_tac[] >>
+  unabbrev_all_tac >> strip_tac >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  match_mp_tac apply_abstract_matchable >> simp[] >>
+  match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+  simp[] >> qexists_tac`s` >> simp[] >>
+  fs[is_valuation_def,is_term_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
+  rw[] >> rw[] )
+
+val termsem_implies = store_thm("termsem_implies",
+  ``is_set_theory ^mem ⇒
+    ∀s i v p1 p2.
+    is_valuation (tysof s) (tyaof i) v ∧
+    is_interpretation s i ∧
+    is_std_type_assignment (tyaof i) ∧
+    term_ok s p1 ∧ term_ok s p2 ∧
+    typeof p1 = Bool ∧ typeof p2 = Bool ∧
+    is_implies_sig (tmsof s) ∧ is_implies_interpretation (tmaof i) ⇒
+    termsem (tmsof s) i v (Implies p1 p2) =
+    Boolean (termsem (tmsof s) i v p1 = True ⇒
+             termsem (tmsof s) i v p2 = True)``,
+  rw[termsem_def,is_implies_sig_def,is_implies_interpretation_def] >>
+  qspecl_then[`tmsof s`,`i`,`strlit"==>"`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  simp[] >> disch_then kall_tac >>
+  CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV(RAND_CONV EVAL)))) >>
+  fs[interprets_def] >>
+  first_x_assum(qspec_then`K boolset`mp_tac) >>
+  discharge_hyps >- (
+    simp[is_type_valuation_def] >>
+    metis_tac[boolean_in_boolset]) >>
+  simp[] >> disch_then kall_tac >>
+  simp[Boolrel_def] >>
+  qmatch_abbrev_tac`Abstract b fbb f ' a1 ' a2 = c` >>
+  `Abstract b fbb f ' a1 = f a1` by (
+    match_mp_tac (UNDISCH apply_abstract) >>
+    unabbrev_all_tac >> simp[] >>
+    conj_tac >- (
+      match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+      simp[] >>
+      qexists_tac`s` >> simp[] >>
+      imp_res_tac typesem_Bool >> simp[] ) >>
+    match_mp_tac (UNDISCH abstract_in_funspace) >>
+    simp[boolean_in_boolset] ) >>
+  simp[Abbr`f`] >>
+  match_mp_tac apply_abstract_matchable >> simp[] >>
+  unabbrev_all_tac >> simp[] >>
+  conj_tac >- (
+    match_mp_tac (UNDISCH termsem_typesem_matchable) >>
+    simp[] >>
+    qexists_tac`s` >> simp[] >>
+    imp_res_tac typesem_Bool >> simp[] ) >>
+  simp[boolean_in_boolset] )
+(* -- *)
+
 val provable_imp_eq_true = store_thm("provable_imp_eq_true",
   ``∀thy i v.
     is_set_theory ^mem ⇒
@@ -1229,16 +1382,6 @@ val theory_ok_hol_ctxt = save_thm("theory_ok_hol_ctxt",
     GSYM holConsistencyTheory.hol_ctxt_def,
     GSYM holConsistencyTheory.fhol_ctxt_def])
 
-val termsem_typesem_matchable = store_thm("termsem_typesem_matchable",
-``is_set_theory ^mem ⇒
-   ∀sig i tm v δ τ tmenv ty.
-     δ = tyaof i ∧ τ = tyvof v ∧ is_valuation (tysof sig) δ v ∧
-     is_interpretation sig i ∧ is_std_type_assignment δ ∧
-     term_ok sig tm ∧ tmenv = tmsof sig ∧
-     ty = typesem δ τ (typeof tm) ⇒
-     termsem tmenv i v tm <: ty``,
-  PROVE_TAC[termsem_typesem])
-
 val termsem_comb1_ax = store_thm("termsem_comb1_ax",
   ``is_set_theory ^mem ⇒
     ∀ctxt i v f ty tyin a ty0 a0 t x tya.
@@ -1826,6 +1969,427 @@ val not_thm =
 val _ = map2 (curry save_thm)
   ["equality_thm","truth_thm","and_thm","implies_thm","forall_thm","exists_thm","or_thm","falsity_thm","not_thm"]
   [ equality_thm , truth_thm , and_thm , implies_thm , forall_thm , exists_thm , or_thm , falsity_thm , not_thm ]
+
+val hol_of_sigof = prove(``tmsof (sigof hol_ctxt) = tmsof hol_ctxt``,rw[])
+
+val (EVAL_type_ok0,EVAL_term_ok0) =
+  holSyntaxLib.EVAL_type_ok_term_ok
+    EVAL (MATCH_MP theory_ok_sig theory_ok_hol_ctxt |> SIMP_RULE std_ss[])
+val th = prove(``tysof hol_ctxt = tysof(sigof hol_ctxt)``,rw[])
+val EVAL_type_ok =
+  (RATOR_CONV(RAND_CONV(REWR_CONV th))) THENC EVAL_type_ok0
+
+(* TODO: stolen from reflectionLib.sml *)
+val tyvar_inst_exists2 = prove(
+  ``∃i. tyvar = REV_ASSOCD b1 i b1 ∧
+        tyvar = REV_ASSOCD b2 i b2``,
+  qexists_tac`[(tyvar,b1);(tyvar,b2)]` >>
+  EVAL_TAC)
+val tyvar_inst_exists2_diff = prove(
+  ``b1 ≠ b2 ⇒
+    ∃i. ty1 = REV_ASSOCD b1 i b1 ∧
+        ty2 = REV_ASSOCD b2 i b2``,
+  strip_tac >>
+  qexists_tac`[(ty1,b1);(ty2,b2)]` >>
+  EVAL_TAC >> rw[])
+(* -- *)
+val EVAL_term_ok =
+  EVAL_term_ok0 THENC
+  SIMP_CONV (srw_ss()) [
+    holSyntaxLibTheory.tyvar_inst_exists,
+    tyvar_inst_exists2,
+    tyvar_inst_exists2_diff]
+
+val hol_is_bool_sig = store_thm("hol_is_bool_sig",
+  ``is_bool_sig (sigof hol_ctxt)``,
+  match_mp_tac (MP_CANON is_bool_sig_extends) >>
+  match_exists_tac(concl hol_extends_bool) >>
+  simp[hol_extends_bool] >>
+  match_mp_tac bool_has_bool_sig >>
+  ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
+
+fun use_termsem_equation (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term``termsem s i v (a === b)``)) w
+    val (_,args) = strip_comb tm
+    val eq = el 5 args
+    val p1 = eq |> rator |> rand
+    val p2 = eq |> rand
+    val s = el 2 args |> REWR_CONV(SYM hol_of_sigof) |> concl |> rhs |> rand
+    val th =
+      UNDISCH termsem_equation
+      |> SPECL[s, el 3 args, el 4 args, p1, p2, el 2 args]
+      |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
+  in
+    mp_tac th >>
+    discharge_hyps >- (
+      conj_tac >- (
+        simp[is_structure_def] >>
+        fs[models_def] >>
+        assume_tac theory_ok_hol_ctxt >>
+        imp_res_tac theory_ok_sig >>
+        fs[] ) >>
+      conj_tac >- (
+        simp[equation_def] >>
+        CONV_TAC EVAL_term_ok ) >>
+      REFL_TAC ) >>
+    disch_then(CHANGED_TAC o SUBST1_TAC)
+  end g
+
+(*
+val (g as (asl,w)) = top_goal()
+*)
+
+fun use_termsem_forall (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term``termsem s i v (Forall x y z)``)) w
+    val (_,args) = strip_comb tm
+    val eq = el 5 args
+    val p1 = eq |> rand |> rator |> rand |> rator |> rand
+    val p2 = eq |> rand |> rator |> rand |> rand
+    val p3 = eq |> rand |> rand
+    val s = el 2 args |> REWR_CONV(SYM hol_of_sigof) |> concl |> rhs |> rand
+    val th =
+      UNDISCH termsem_forall
+      |> SPECL[s, el 3 args, el 4 args, p1, p2, p3]
+      |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
+  in
+    mp_tac th >>
+    discharge_hyps >- (
+      conj_tac >- simp[] >>
+      conj_tac >- fs[models_def] >>
+      conj_tac >- fs[models_def] >>
+      conj_tac >- (CONV_TAC EVAL_type_ok0) >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
+      conj_tac >- (CONV_TAC(LAND_CONV holSyntaxLib.EVAL_typeof) >> REFL_TAC) >>
+      fs[is_bool_interpretation_def,is_bool_sig_def]) >>
+    disch_then(CHANGED_TAC o SUBST1_TAC)
+  end g
+
+fun use_termsem_exists (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term``termsem s i v (Exists x y z)``)) w
+    val (_,args) = strip_comb tm
+    val eq = el 5 args
+    val p1 = eq |> rand |> rator |> rand |> rator |> rand
+    val p2 = eq |> rand |> rator |> rand |> rand
+    val p3 = eq |> rand |> rand
+    val s = el 2 args |> REWR_CONV(SYM hol_of_sigof) |> concl |> rhs |> rand
+    val th =
+      UNDISCH termsem_exists
+      |> SPECL[s, el 3 args, el 4 args, p1, p2, p3]
+      |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
+  in
+    mp_tac th >>
+    discharge_hyps >- (
+      conj_tac >- simp[] >>
+      conj_tac >- fs[models_def] >>
+      conj_tac >- fs[models_def] >>
+      conj_tac >- (CONV_TAC EVAL_type_ok0) >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
+      conj_tac >- (CONV_TAC(LAND_CONV holSyntaxLib.EVAL_typeof) >> REFL_TAC) >>
+      fs[is_bool_interpretation_def,is_bool_sig_def]) >>
+    disch_then(CHANGED_TAC o SUBST1_TAC)
+  end g
+
+fun use_termsem_implies (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term``termsem s i v (Implies a b)``)) w
+    val (_,args) = strip_comb tm
+    val imp = el 5 args
+    val p1 = imp |> rator |> rand |> rand
+    val p2 = imp |> rand
+    val s = el 2 args |> REWR_CONV(SYM hol_of_sigof) |> concl |> rhs |> rand
+    val th =
+      UNDISCH termsem_implies
+      |> SPECL[s, el 3 args, el 4 args, p1, p2]
+      |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
+  in
+    mp_tac th >>
+    discharge_hyps >- (
+      conj_tac >- simp[] >>
+      conj_tac >- fs[models_def] >>
+      conj_tac >- fs[models_def,is_std_interpretation_def] >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
+      conj_tac >- (CONV_TAC EVAL_term_ok) >>
+      conj_tac >- (CONV_TAC (LAND_CONV holSyntaxLib.EVAL_typeof) >> REFL_TAC) >>
+      conj_tac >- (CONV_TAC (LAND_CONV holSyntaxLib.EVAL_typeof) >> REFL_TAC) >>
+      fs[is_bool_interpretation_def,is_bool_sig_def] ) >>
+    disch_then (CHANGED_TAC o SUBST1_TAC)
+  end g
+
+fun use_apply_abstract (g as (asl,w)) =
+  let
+    val sel = lhs o snd o dest_imp
+    val tm = find_term(can(match_term(sel(concl(SPEC_ALL apply_abstract_matchable))))) w
+  in
+    mp_tac(Q.GEN`u`(PART_MATCH sel apply_abstract_matchable tm))
+  end g
+
+val one_one_thm = prove(
+  ``is_set_theory ^mem ⇒
+    good_select select ⇒
+    wf_to_inner ind_to_inner ⇒
+    wf_to_inner ina ⇒
+    wf_to_inner inb ⇒
+    tmaof (hol_model select ind_to_inner) (strlit "ONE_ONE") [range ina; range inb] =
+    fun_to_inner (fun_to_inner ina inb) bool_to_inner ONE_ONE``,
+  rw[] >>
+  mp_tac hol_model_models >>
+  simp[models_def] >> strip_tac >>
+  first_x_assum(mp_tac o SPEC (term_to_deep (concl ONE_ONE_DEF))) >>
+  discharge_hyps >- EVAL_TAC >>
+  simp[equation_intro] >>
+  simp[satisfies_def] >>
+  Q.PAT_ABBREV_TAC`i = hol_model X Y` >>
+  Q.PAT_ABBREV_TAC`tm = X === Y` >>
+  qabbrev_tac`τ = λx. if x = strlit"A" then range ina else range inb` >>
+  `is_type_valuation τ` by (
+    simp[Abbr`τ`,is_type_valuation_def] >> rw[] >>
+    metis_tac[inhabited_range] ) >>
+  qspecl_then[`tysof hol_ctxt`,`tyaof i`,`τ`]mp_tac (UNDISCH term_valuation_exists) >>
+  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+  disch_then(qspec_then`τ,σ`mp_tac) >>
+  discharge_hyps >- fs[] >>
+  qunabbrev_tac`tm` >>
+  use_termsem_equation >>
+  simp[boolean_eq_true] >>
+  simp[Once termsem_def] >>
+  qspecl_then[`tmsof hol_ctxt`,`i`,`strlit"ONE_ONE"`]mp_tac identity_instance >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV EVAL))) >>
+  simp[] >>
+  EVAL_STRING_SORT >>
+  disch_then kall_tac >>
+  simp[listTheory.MAP_MAP_o,mlstringTheory.implode_def] >>
+  `τ(strlit"A") = range ina ∧ τ(strlit"B") = range inb` by (
+    simp[Abbr`τ`] ) >> simp[] >>
+  disch_then kall_tac >>
+  simp[Once termsem_def,Once fun_to_inner_def,range_fun_to_inner] >>
+  `is_std_type_assignment (tyaof i)` by fs[is_std_interpretation_def] >>
+  imp_res_tac typesem_Fun >> imp_res_tac typesem_Bool >>
+  simp[] >> simp[Once typesem_def] >> simp[Once typesem_def] >>
+  simp[range_fun_to_inner,range_bool_to_inner] >>
+  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
+  gen_tac >> strip_tac >>
+  Q.PAT_ABBREV_TAC`v:'U valuation = X Y` >>
+  `is_valuation (tysof hol_ctxt) (tyaof i) v` by (
+    simp[Abbr`v`] >>
+    match_mp_tac is_valuation_extend >>
+    simp[typesem_def] ) >>
+  simp[equation_def] >>
+  assume_tac hol_is_bool_sig >>
+  assume_tac hol_bool_interpretation >> rfs[] >>
+  use_termsem_forall >>
+  simp[boolean_in_boolset,bool_to_inner_def] >>
+  AP_TERM_TAC >>
+  simp[ONE_ONE_DEF] >>
+  `tyvof v = τ` by simp[Abbr`v`] >>
+  simp[typesem_def] >>
+  qho_match_abbrev_tac`(∀x. P x ⇒ Q x) ⇔ (∀x. R x)` >>
+  `∀x. P x ⇔ ∃y. x = ina y` by (
+    simp[Abbr`P`] >>
+    gen_tac >> EQ_TAC >- (
+      metis_tac[wf_to_inner_finv_right] ) >>
+    metis_tac[wf_to_inner_range_thm] ) >>
+  `∀x. Q (ina x) ⇔ R x` suffices_by metis_tac[] >>
+  simp[Abbr`P`,Abbr`Q`,Abbr`R`] >>
+  gen_tac >>
+  Q.PAT_ABBREV_TAC`vx:'U valuation = X Y` >>
+  `is_valuation (tysof hol_ctxt) (tyaof i) vx` by (
+    simp[Abbr`vx`] >>
+    match_mp_tac is_valuation_extend >>
+    simp[typesem_def] >> rw[] >>
+    metis_tac[]) >>
+  use_termsem_forall >>
+  simp[boolean_eq_true] >>
+  `tyvof vx = τ` by simp[Abbr`vx`] >>
+  qho_match_abbrev_tac`(∀x. P x ⇒ Q x) ⇔ (∀x. R x)` >>
+  `∀x. P x ⇔ ∃y. x = ina y` by (
+    simp[Abbr`P`,typesem_def] >>
+    gen_tac >> EQ_TAC >- (
+      metis_tac[wf_to_inner_finv_right] ) >>
+    metis_tac[wf_to_inner_range_thm] ) >>
+  `∀x. Q (ina x) ⇔ R x` suffices_by metis_tac[] >>
+  simp[Abbr`P`,Abbr`Q`,Abbr`R`] >>
+  gen_tac >>
+  Q.PAT_ABBREV_TAC`vxx:'U valuation = X Y` >>
+  `is_valuation (tysof hol_ctxt) (tyaof i) vxx` by (
+    simp[Abbr`vxx`] >>
+    match_mp_tac is_valuation_extend >>
+    simp[typesem_def] >> rw[] >>
+    metis_tac[]) >>
+  use_termsem_implies >>
+  simp[boolean_eq_true] >>
+  qmatch_abbrev_tac`A ⇒ B ⇔ A' ⇒ B'` >>
+  `(A ⇔ A') ∧ (B ⇔ B')` suffices_by rw[] >>
+  map_every qunabbrev_tac[`A`,`A'`,`B`,`B'`] >>
+  conj_tac >- (
+    simp[equation_intro] >>
+    use_termsem_equation >>
+    simp[boolean_eq_true] >>
+    simp[termsem_def] >>
+    simp[Abbr`vxx`,APPLY_UPDATE_THM] >>
+    simp[Abbr`vx`,APPLY_UPDATE_THM] >>
+    simp[Abbr`v`,APPLY_UPDATE_THM] >>
+    ntac 6 (pop_assum kall_tac) >>
+    qspecl_then[`x`,`range ina`,`range inb`]mp_tac(UNDISCH in_funspace_abstract) >>
+    discharge_hyps >- simp[] >> strip_tac >>
+    BasicProvers.VAR_EQ_TAC >>
+    `∃g. Abstract (range ina) (range inb) f =
+         Abstract (range ina) (range inb) (λx. inb (g (finv ina x)))` by (
+      qexists_tac`finv inb o f o ina` >>
+      match_mp_tac(UNDISCH abstract_eq) >>
+      simp[] >>
+      metis_tac[wf_to_inner_finv_left,wf_to_inner_finv_right,wf_to_inner_range_thm] ) >>
+    pop_assum SUBST1_TAC >>
+    qspecl_then[`ina`,`inb`]mp_tac(UNDISCH wf_to_inner_fun_to_inner) >>
+    discharge_hyps >- simp[] >>
+    disch_then(assume_tac o MATCH_MP (wf_to_inner_finv_left)) >>
+    simp[GSYM fun_to_inner_def] >>
+    simp[fun_to_inner_def] >>
+    use_apply_abstract >> simp[] >>
+    discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+    disch_then SUBST1_TAC >>
+    use_apply_abstract >> simp[] >>
+    discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+    disch_then SUBST1_TAC >>
+    qspec_then`ina`mp_tac wf_to_inner_finv_left >>
+    simp[] >> disch_then kall_tac >>
+    reverse EQ_TAC >- rw[] >>
+    metis_tac[wf_to_inner_finv_left] ) >>
+  simp[equation_intro] >>
+  use_termsem_equation >>
+  simp[boolean_eq_true] >>
+  simp[termsem_def] >>
+  simp[Abbr`vxx`,APPLY_UPDATE_THM] >>
+  simp[Abbr`vx`,APPLY_UPDATE_THM] >>
+  metis_tac[wf_to_inner_finv_left] )
+
+val onto_thm = prove(
+  ``is_set_theory ^mem ⇒
+    good_select select ⇒
+    wf_to_inner ind_to_inner ⇒
+    wf_to_inner ina ⇒
+    wf_to_inner inb ⇒
+    tmaof (hol_model select ind_to_inner) (strlit "ONTO") [range ina; range inb] =
+    fun_to_inner (fun_to_inner ina inb) bool_to_inner ONTO``,
+  rw[] >>
+  mp_tac hol_model_models >>
+  simp[models_def] >> strip_tac >>
+  first_x_assum(mp_tac o SPEC (term_to_deep (concl ONTO_DEF))) >>
+  discharge_hyps >- EVAL_TAC >>
+  simp[equation_intro] >>
+  simp[satisfies_def] >>
+  Q.PAT_ABBREV_TAC`i = hol_model X Y` >>
+  Q.PAT_ABBREV_TAC`tm = X === Y` >>
+  qabbrev_tac`τ = λx. if x = strlit"A" then range ina else range inb` >>
+  `is_type_valuation τ` by (
+    simp[Abbr`τ`,is_type_valuation_def] >> rw[] >>
+    metis_tac[inhabited_range] ) >>
+  qspecl_then[`tysof hol_ctxt`,`tyaof i`,`τ`]mp_tac (UNDISCH term_valuation_exists) >>
+  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+  disch_then(qspec_then`τ,σ`mp_tac) >>
+  discharge_hyps >- fs[] >>
+  qunabbrev_tac`tm` >>
+  use_termsem_equation >>
+  simp[boolean_eq_true] >>
+  simp[Once termsem_def] >>
+  qspecl_then[`tmsof hol_ctxt`,`i`,`strlit"ONTO"`]mp_tac identity_instance >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV EVAL))) >>
+  simp[] >>
+  EVAL_STRING_SORT >>
+  disch_then kall_tac >>
+  simp[listTheory.MAP_MAP_o,mlstringTheory.implode_def] >>
+  `τ(strlit"A") = range ina ∧ τ(strlit"B") = range inb` by (
+    simp[Abbr`τ`] ) >> simp[] >>
+  disch_then kall_tac >>
+  simp[Once termsem_def,Once fun_to_inner_def,range_fun_to_inner] >>
+  `is_std_type_assignment (tyaof i)` by fs[is_std_interpretation_def] >>
+  imp_res_tac typesem_Fun >> imp_res_tac typesem_Bool >>
+  simp[] >> simp[Once typesem_def] >> simp[Once typesem_def] >>
+  simp[range_fun_to_inner,range_bool_to_inner] >>
+  match_mp_tac (UNDISCH abstract_eq) >> simp[] >>
+  gen_tac >> strip_tac >>
+  Q.PAT_ABBREV_TAC`v:'U valuation = X Y` >>
+  `is_valuation (tysof hol_ctxt) (tyaof i) v` by (
+    simp[Abbr`v`] >>
+    match_mp_tac is_valuation_extend >>
+    simp[typesem_def] ) >>
+  simp[equation_def] >>
+  assume_tac hol_is_bool_sig >>
+  assume_tac hol_bool_interpretation >> rfs[] >>
+  use_termsem_forall >>
+  simp[boolean_in_boolset,bool_to_inner_def] >>
+  AP_TERM_TAC >>
+  simp[ONTO_DEF] >>
+  `tyvof v = τ` by simp[Abbr`v`] >>
+  simp[typesem_def] >>
+  qho_match_abbrev_tac`(∀x. P x ⇒ Q x) ⇔ (∀x. R x)` >>
+  `∀x. P x ⇔ ∃y. x = inb y` by (
+    simp[Abbr`P`] >>
+    gen_tac >> EQ_TAC >- (
+      metis_tac[wf_to_inner_finv_right] ) >>
+    metis_tac[wf_to_inner_range_thm] ) >>
+  `∀x. Q (inb x) ⇔ R x` suffices_by metis_tac[] >>
+  simp[Abbr`P`,Abbr`Q`,Abbr`R`] >>
+  gen_tac >>
+  Q.PAT_ABBREV_TAC`vx:'U valuation = X Y` >>
+  `is_valuation (tysof hol_ctxt) (tyaof i) vx` by (
+    simp[Abbr`vx`] >>
+    match_mp_tac is_valuation_extend >>
+    simp[typesem_def] >> rw[] >>
+    metis_tac[]) >>
+  use_termsem_exists >>
+  simp[boolean_eq_true] >>
+  `tyvof vx = τ` by simp[Abbr`vx`] >>
+  qho_match_abbrev_tac`(∃x. P x ∧ Q x) ⇔ (∃x. R x)` >>
+  `∀x. P x ⇔ ∃y. x = ina y` by (
+    simp[Abbr`P`,typesem_def] >>
+    gen_tac >> EQ_TAC >- (
+      metis_tac[wf_to_inner_finv_right] ) >>
+    metis_tac[wf_to_inner_range_thm] ) >>
+  `∀x. Q (ina x) ⇔ R x` suffices_by metis_tac[] >>
+  simp[Abbr`P`,Abbr`Q`,Abbr`R`] >>
+  gen_tac >>
+  Q.PAT_ABBREV_TAC`vxx:'U valuation = X Y` >>
+  `is_valuation (tysof hol_ctxt) (tyaof i) vxx` by (
+    simp[Abbr`vxx`] >>
+    match_mp_tac is_valuation_extend >>
+    simp[typesem_def] >> rw[] >>
+    metis_tac[wf_to_inner_range_thm]) >>
+  simp[equation_intro] >>
+  use_termsem_equation >>
+  simp[boolean_eq_true] >>
+  simp[termsem_def] >>
+  simp[Abbr`vxx`,APPLY_UPDATE_THM] >>
+  simp[Abbr`vx`,APPLY_UPDATE_THM] >>
+  simp[Abbr`v`,APPLY_UPDATE_THM] >>
+  ntac 6 (pop_assum kall_tac) >>
+  qspecl_then[`x`,`range ina`,`range inb`]mp_tac(UNDISCH in_funspace_abstract) >>
+  discharge_hyps >- simp[] >> strip_tac >>
+  BasicProvers.VAR_EQ_TAC >>
+  `∃g. Abstract (range ina) (range inb) f =
+       Abstract (range ina) (range inb) (λx. inb (g (finv ina x)))` by (
+    qexists_tac`finv inb o f o ina` >>
+    match_mp_tac(UNDISCH abstract_eq) >>
+    simp[] >>
+    metis_tac[wf_to_inner_finv_left,wf_to_inner_finv_right,wf_to_inner_range_thm] ) >>
+  pop_assum SUBST1_TAC >>
+  qspecl_then[`ina`,`inb`]mp_tac(UNDISCH wf_to_inner_fun_to_inner) >>
+  discharge_hyps >- simp[] >>
+  disch_then(assume_tac o MATCH_MP (wf_to_inner_finv_left)) >>
+  simp[GSYM fun_to_inner_def] >>
+  simp[fun_to_inner_def] >>
+  use_apply_abstract >> simp[] >>
+  discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+  disch_then SUBST1_TAC >>
+  qspec_then`ina`mp_tac wf_to_inner_finv_left >>
+  simp[] >> disch_then kall_tac >>
+  reverse EQ_TAC >- rw[] >>
+  metis_tac[wf_to_inner_finv_left] )
+
+val _ = save_thms ["one_one_thm","onto_thm"]
+ (map UNDISCH_ALL [ one_one_thm,  onto_thm ])
 
 val constrained_term_valuation_exists = store_thm("constrained_term_valuation_exists",
   ``is_set_theory ^mem ⇒
