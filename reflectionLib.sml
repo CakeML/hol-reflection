@@ -533,7 +533,7 @@ fun unpack_list f th = th |> PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def] |>
 (* -- *)
 
 (* pack and unpack context *)
-fun pack_update upd =
+fun pack_update (upd:update) =
   pack_list I [pack_thm (#sound_update_thm upd),
                pack_thm (#constrainable_thm upd),
                pack_thm (#updates_thm upd),
