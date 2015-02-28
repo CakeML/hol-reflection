@@ -1420,7 +1420,7 @@ fun reduce_hyps i_wf_to_inners new_wf_to_inners0 =
 fun build_interpretation vti [] tys consts =
   let
     val hypotheses =
-      [``wf_to_inner (ind_to_inner:ind -> 'U)``,
+      [``wf_to_inner ((to_inner Ind):ind -> 'U)``,
        ``is_set_theory ^mem``] @
       (mapfilter (fn ty => to_inner_prop vti (assert is_vartype ty)) tys)
     val tyassums = flatten (map (base_type_assums vti) tys)
@@ -1441,9 +1441,14 @@ fun build_interpretation vti [] tys consts =
         (UNDISCH holAxiomsTheory.good_select_base_select)
         select_tys
     val select = rand(concl good_select)
-    val int = ``hol_model ^select ind_to_inner``
+    val int = ``hol_model ^select (to_inner Ind)``
     val gcth =
-      MATCH_MP good_context_base_case good_select
+      MATCH_MP (Q.INST[`ind_to_inner`|->`to_inner Ind`]good_context_base_case)
+      good_select
+    val hmm = hol_model_models |> DISCH_ALL
+      |> C MATCH_MP (ASSUME (el 1 hypotheses))
+      |> C MATCH_MP good_select
+      |> C MATCH_MP (ASSUME (el 2 hypotheses))
     val args = snd(strip_comb(concl gcth))
     val s = [tysig |-> ``tysof ^(el 2 args)``,
              tmsig |-> ``tmsof ^(el 2 args)``,
@@ -1517,10 +1522,11 @@ fun build_interpretation vti [] tys consts =
         simp_tac bool_ss [] >>
         ranges_distinct_tac
       end g
+    val ind_tac = ACCEPT_TAC (last (CONJUNCTS hmm))
     val int_assums = map
       (fn tm =>
         VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
-          FIRST (select_tac::(map (wf_match_accept_tac o prepare_bool_thm) bool_thms)))
+          FIRST (select_tac::ind_tac::(map (wf_match_accept_tac o prepare_bool_thm) bool_thms)))
       )
       int_tms
   in
