@@ -1560,8 +1560,8 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
       mk_set(flatten (map (base_types_of_term o concl) instantiated_axioms))
     val new_consts =
       mk_set(flatten (map (filter is_const o base_terms_of_term o concl) instantiated_axioms))
-    val {good_context_thm = good_context_i,
-         models_thm = i_models,
+    val {good_context_thm = good_context_i0,
+         models_thm = i_models0,
          wf_to_inners = i_wf_to_inners,
          sig_assums = i_sig_assums,
          int_assums = i_int_assums }
@@ -1578,13 +1578,15 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
           constants of that update] *)
     (* val hyps = hyp i_models @ flatten (map hyp i_wf_to_inners) *)
     val hyps = base_hyps @ wf_to_inner_hyps
-    val itm = get_int i_models
     val new_wf_to_inners0 = if null (#tys upd) then [] else
       mapfilter (make_wf_to_inner_th vti) instantiated_axioms
     val new_wf_to_inners = reduce_hyps i_wf_to_inners new_wf_to_inners0
     val wf_to_inners = new_wf_to_inners @ i_wf_to_inners
-    val update_wf_to_inners = map (C (foldl (uncurry PROVE_HYP)) wf_to_inners)
+    val update_wf_to_inners1 = C (foldl (uncurry PROVE_HYP)) wf_to_inners
+    val update_wf_to_inners = map update_wf_to_inners1
     val new_i_int_assums = update_wf_to_inners i_int_assums
+    val i_models = update_wf_to_inners1 i_models0
+    val good_context_i = update_wf_to_inners1 good_context_i0
     val jth = MATCH_MP update_interpretation_def (CONJ (#sound_update_thm upd) i_models)
     val (j_equal_on_i,j_models) = CONJ_PAIR jth
     val jtm = get_int j_models
