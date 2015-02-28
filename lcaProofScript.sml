@@ -2975,8 +2975,8 @@ val intermediate_thm = store_thm("intermediate_thm",
   ``LCA (SUC l) (UNIV:'U set) ⇒
     ∃(mem:'U reln).
       is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
-      (wf_to_inner ((to_inner Ind):ind->'U) ∧
-       wf_to_inner ((to_inner Num):num->'U) ∧
+      wf_to_inner ((to_inner Ind):ind->'U) ∧
+      (wf_to_inner ((to_inner Num):num->'U) ∧
        i models (thyof lca_ctxt) ∧
        tyaof i (strlit"ind") [] = range((to_inner Ind):ind->'U) ∧
        tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
@@ -2997,6 +2997,45 @@ val intermediate_thm = store_thm("intermediate_thm",
   qexists_tac`mem` >>
   conj_tac >- simp[] >>
   conj_tac >- PROVE_TAC[] >>
+  conj_asm1_tac >- (
+    simp[to_inner_def] >>
+    match_mp_tac(MP_CANON wf_to_inner_can_be_tagged) >>
+    conj_tac >- first_assum ACCEPT_TAC >>
+    SELECT_ELIM_TAC >>
+    reverse conj_tac >- PROVE_TAC[] >>
+    simp[wf_to_inner_def] >>
+    `(UNIV:ind set) ≼ f l` by (
+      `∀k. k < SUC l ⇒ f k ≺ f (SUC k)` by metis_tac[] >>
+      pop_assum mp_tac >>
+      qid_spec_tac`l` >>
+      last_x_assum mp_tac >>
+      rpt(pop_assum kall_tac) >>
+      strip_tac >>
+      Induct >> simp[] >>
+      strip_tac >>
+      qpat_assum`X ⇒ Y`mp_tac >>
+      discharge_hyps >- (
+        rw[] >>
+        `k < SUC(SUC l)` by simp[] >>
+        res_tac ) >>
+      rw[] >>
+      first_x_assum(qspec_then`l`mp_tac) >> simp[] >>
+      metis_tac[cardinalTheory.cardleq_lt_trans,cardinalTheory.cardlt_lenoteq] ) >>
+    `(UNIV:ind set) ≺ (UNIV:'U set)` by (
+      first_x_assum(qspec_then`l`mp_tac) >> rw[] >>
+      metis_tac[cardinalTheory.cardleq_lt_trans] ) >>
+    `∃g. INJ g (UNIV:ind set) (UNIV:'U set)` by
+      metis_tac[cardinalTheory.cardlt_lenoteq,cardinalTheory.cardleq_def] >>
+    qexists_tac`g` >>
+    `BIJ g (UNIV:ind set) (IMAGE g (UNIV:ind set))` by (
+      metis_tac[cardinalTheory.INJ_BIJ_SUBSET,SUBSET_REFL]) >>
+    `(UNIV:ind set) ≈ (IMAGE g (UNIV:ind set))` by metis_tac[cardinalTheory.cardeq_def] >>
+    `IMAGE g (UNIV:ind set) ≺ (UNIV:'U set)` by (
+      metis_tac[cardinalTheory.cardleq_lt_trans,cardinalTheory.cardlt_lenoteq] ) >>
+    first_x_assum(qspec_then`IMAGE g (UNIV:ind set)`mp_tac) >>
+    discharge_hyps >- first_assum ACCEPT_TAC >> strip_tac >>
+    qexists_tac`x` >>
+    metis_tac[] ) >>
   strip_tac >>
   first_assum(qspec_then`f l`mp_tac) >>
   discharge_hyps >- simp[] >>
