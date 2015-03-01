@@ -1737,20 +1737,6 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
 
 val build_interpretation = build_interpretation [] []
 
-(* TODO: this is a hack... *)
-val tyvar_inst_exists2 = prove(
-  ``∃i. tyvar = REV_ASSOCD b1 i b1 ∧
-        tyvar = REV_ASSOCD b2 i b2``,
-  qexists_tac`[(tyvar,b1);(tyvar,b2)]` >>
-  EVAL_TAC)
-val tyvar_inst_exists2_diff = prove(
-  ``b1 ≠ b2 ⇒
-    ∃i. ty1 = REV_ASSOCD b1 i b1 ∧
-        ty2 = REV_ASSOCD b2 i b2``,
-  strip_tac >>
-  qexists_tac`[(ty1,b1);(ty2,b2)]` >>
-  EVAL_TAC >> rw[])
-
 fun build_ConstDef extends_init_thm def =
   let
     val ctxt = extends_init_thm |> concl |> rator |> rand

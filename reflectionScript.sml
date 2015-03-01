@@ -160,6 +160,21 @@ val termsem_implies = store_thm("termsem_implies",
   simp[boolean_in_boolset] )
 (* -- *)
 
+(* TODO: this is a hack... *)
+val tyvar_inst_exists2 = store_thm("tyvar_inst_exists2",
+  ``∃i. tyvar = REV_ASSOCD b1 i b1 ∧
+        tyvar = REV_ASSOCD b2 i b2``,
+  qexists_tac`[(tyvar,b1);(tyvar,b2)]` >>
+  EVAL_TAC)
+val tyvar_inst_exists2_diff = store_thm("tyvar_inst_exists2_diff",
+  ``b1 ≠ b2 ⇒
+    ∃i. ty1 = REV_ASSOCD b1 i b1 ∧
+        ty2 = REV_ASSOCD b2 i b2``,
+  strip_tac >>
+  qexists_tac`[(ty1,b1);(ty2,b2)]` >>
+  EVAL_TAC >> rw[])
+(* -- *)
+
 val provable_imp_eq_true = store_thm("provable_imp_eq_true",
   ``∀thy i v.
     is_set_theory ^mem ⇒
@@ -1978,21 +1993,6 @@ val (EVAL_type_ok0,EVAL_term_ok0) =
 val th = prove(``tysof hol_ctxt = tysof(sigof hol_ctxt)``,rw[])
 val EVAL_type_ok =
   (RATOR_CONV(RAND_CONV(REWR_CONV th))) THENC EVAL_type_ok0
-
-(* TODO: stolen from reflectionLib.sml *)
-val tyvar_inst_exists2 = prove(
-  ``∃i. tyvar = REV_ASSOCD b1 i b1 ∧
-        tyvar = REV_ASSOCD b2 i b2``,
-  qexists_tac`[(tyvar,b1);(tyvar,b2)]` >>
-  EVAL_TAC)
-val tyvar_inst_exists2_diff = prove(
-  ``b1 ≠ b2 ⇒
-    ∃i. ty1 = REV_ASSOCD b1 i b1 ∧
-        ty2 = REV_ASSOCD b2 i b2``,
-  strip_tac >>
-  qexists_tac`[(ty1,b1);(ty2,b2)]` >>
-  EVAL_TAC >> rw[])
-(* -- *)
 val EVAL_term_ok =
   EVAL_term_ok0 THENC
   SIMP_CONV (srw_ss()) [

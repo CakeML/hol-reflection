@@ -369,20 +369,6 @@ val type_ok_Num = store_thm("type_ok_Num",
 
 val LCA_l_UNIV = term_to_deep ``LCA l (UNIV:'U set)``
 
-(* TODO: stolen from reflectionLib.sml *)
-val tyvar_inst_exists2 = prove(
-  ``∃i. tyvar = REV_ASSOCD b1 i b1 ∧
-        tyvar = REV_ASSOCD b2 i b2``,
-  qexists_tac`[(tyvar,b1);(tyvar,b2)]` >>
-  EVAL_TAC)
-val tyvar_inst_exists2_diff = prove(
-  ``b1 ≠ b2 ⇒
-    ∃i. ty1 = REV_ASSOCD b1 i b1 ∧
-        ty2 = REV_ASSOCD b2 i b2``,
-  strip_tac >>
-  qexists_tac`[(ty1,b1);(ty2,b2)]` >>
-  EVAL_TAC >> rw[])
-(* -- *)
 (* TODO: stolen from holDerivationScript.sml *)
 fun replace_term from to =
   let
@@ -396,22 +382,20 @@ fun replace_term from to =
     f
   end
 (* -- *)
-val EVAL_STRING_SORT = basicReflectionLib.EVAL_STRING_SORT
 
+val EVAL_STRING_SORT = basicReflectionLib.EVAL_STRING_SORT
 val (EVAL_type_ok0,EVAL_term_ok0) =
   EVAL_type_ok_term_ok
     EVAL (MATCH_MP theory_ok_sig theory_ok_lca |> SIMP_RULE std_ss[])
-
 val th = prove(``tysof lca_ctxt = tysof(sigof lca_ctxt)``,rw[])
 val EVAL_type_ok =
   (RATOR_CONV(RAND_CONV(REWR_CONV th))) THENC EVAL_type_ok0
-
 val EVAL_term_ok =
   EVAL_term_ok0 THENC
   SIMP_CONV (srw_ss()) [
     holSyntaxLibTheory.tyvar_inst_exists,
-    tyvar_inst_exists2,
-    tyvar_inst_exists2_diff]
+    reflectionTheory.tyvar_inst_exists2,
+    reflectionTheory.tyvar_inst_exists2_diff]
 
 fun process n =
   ONCE_REWRITE_TAC[relationTheory.RTC_CASES1] >> disj2_tac >>
