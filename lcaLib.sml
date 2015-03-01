@@ -1,6 +1,7 @@
 structure lcaLib :> lcaLib = struct
-open HolKernel reflectionTheory lcaProofTheory
-open basicReflectionLib reflectionLib
+open HolKernel boolLib bossLib
+     reflectionTheory lcaProofTheory
+     basicReflectionLib reflectionLib
 
 val _ = Globals.max_print_depth := 10
 
@@ -149,25 +150,6 @@ fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
 end
 
 (*
-val lca_ctxt = unpack_ctxt lcaCtxtTheory.lca_ctxt_thm
-val ctxt = lca_ctxt
-val extends_lca_thm = ``^(rhs(concl lca_ctxt_def)) extends lca_ctxt``
-  |> SIMP_CONV std_ss [extends_def,relationTheory.RTC_REFL,GSYM lca_ctxt_def]
-  |> EQT_ELIM
-val phi = ``λl n. SUC n = l``
-val _ = overload_on("lca_ctxt_def",rhs(concl lca_ctxt_def))
-val term_ok_phi =
-  ``term_ok (sigof lca_ctxt_def) ^(term_to_deep phi)``
-  |> ((REWRITE_CONV[GSYM lca_ctxt_def]) THENC EVAL_term_ok)
-  |> EQT_ELIM
-val typeof_phi =
-  ``typeof ^(term_to_deep phi)`` |> EVAL_typeof
-
-val _ = overload_on("iphi",models_thm |> concl |> rator |> rand)
-val _ = overload_on("asm1",tm)
-clear_overloads_on"iphi"
-
-
 master theorem...
 
 ``∀n. (^thy,[]) |- [LCA l UNIV ⇒ ^^phi l ^(quote n)] ⇒
@@ -183,5 +165,4 @@ to prove master theorem:
 5. combine 3 and 4 to get termsem (phi l) = True
 6. termsem_cert (phi l) to get termsem (phi l) = True <=> phi l
 7. combine 5 and 6
-
 *)
