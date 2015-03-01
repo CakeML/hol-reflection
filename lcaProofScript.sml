@@ -446,6 +446,45 @@ fun Abbrev_intro_tac th = assume_tac(EQ_MP(SPEC(concl th)(GSYM markerTheory.Abbr
 
 val lca_of_sigof = prove(``tmsof (sigof lca_ctxt) = tmsof lca_ctxt``,rw[])
 
+val quote_has_type = store_thm("quote_has_type",
+  ``∀n. quote n has_type Num``,
+  Induct >> simp[quote_def] >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases])
+
+val term_ok_quote = store_thm("term_ok_quote",
+  ``∀n. term_ok (sigof lca_ctxt) (quote n)``,
+  Induct >> simp[quote_def] >-
+    (CONV_TAC EVAL_term_ok) >>
+  simp[Once term_ok_def] >>
+  conj_tac >- (CONV_TAC EVAL_term_ok) >>
+  metis_tac[quote_has_type,WELLTYPED_LEMMA,WELLTYPED])
+
+val termsem_quote = store_thm("termsem_quote",
+  ``is_set_theory ^mem ⇒
+    ∀tmsig i v n.
+    FLOOKUP tmsig (strlit"0") = SOME Num ⇒
+    FLOOKUP tmsig (strlit"SUC") = SOME (Fun Num Num) ⇒
+    wf_to_inner ((to_inner Num):num -> 'U) ⇒
+    tmaof i (strlit"0") [] = to_inner Num (0:num) ⇒
+    tmaof i (strlit"SUC") [] =
+      Abstract (range ((to_inner Num):num->'U)) (range ((to_inner Num):num->'U))
+        (λm. to_inner Num (SUC (finv (to_inner Num) m))) ⇒
+    termsem tmsig i v (quote n) = to_inner Num n``,
+  strip_tac >> rpt gen_tac >>
+  Induct_on`n` >> rw[quote_def] >- (
+    rw[termsem_def] >>
+    rw[identity_instance] >>
+    EVAL_STRING_SORT >>
+    simp[] ) >>
+  rw[termsem_def] >>
+  rw[identity_instance] >>
+  EVAL_STRING_SORT >>
+  simp[] >>
+  match_mp_tac(apply_abstract_matchable) >>
+  imp_res_tac wf_to_inner_range_thm >> simp[] >>
+  metis_tac[wf_to_inner_finv_left])
+
 fun use_apply_abstract (g as (asl,w)) =
   let
     val sel = lhs o snd o dest_imp
