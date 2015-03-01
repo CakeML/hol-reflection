@@ -26,7 +26,8 @@ val ctxt = rhs(concl lca_ctxt_def)
 val extends_lca_thm = ``^ctxt extends lca_ctxt``
   |> SIMP_CONV std_ss [extends_def,RTC_REFL,GSYM lca_ctxt_def]
   |> EQT_ELIM
-val phi = ``λl n. SUC n = l``
+
+val phi = ``λl n. ∃k:num. l < k ∧ n < k``
 val term_ok_phi =
   ``term_ok (sigof ^ctxt) ^(term_to_deep phi)``
   |> ((REWRITE_CONV[GSYM lca_ctxt_def]) THENC EVAL_term_ok)
@@ -35,6 +36,17 @@ val typeof_phi =
   ``typeof ^(term_to_deep phi)`` |> EVAL_typeof
 
 val example1 = save_thm("example1",
+  build_master_theorem lca_ctxt extends_lca_thm term_ok_phi typeof_phi phi)
+
+val phi = ``λl n. SUC n = l``
+val term_ok_phi =
+  ``term_ok (sigof ^ctxt) ^(term_to_deep phi)``
+  |> ((REWRITE_CONV[GSYM lca_ctxt_def]) THENC EVAL_term_ok)
+  |> EQT_ELIM
+val typeof_phi =
+  ``typeof ^(term_to_deep phi)`` |> EVAL_typeof
+
+val example2 = save_thm("example2",
   build_master_theorem lca_ctxt extends_lca_thm term_ok_phi typeof_phi phi)
 
 val _ = export_theory()
