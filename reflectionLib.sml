@@ -1799,6 +1799,8 @@ fun build_ConstDef extends_init_thm def =
     (upd, new_extends_init_thm)
   end
 
+val termsem_cert_unint = termsem_cert_unint []
+
 fun termsem_cert ctxt tm =
   let
     val _ = assert HOLset.isEmpty (FVL [tm] empty_tmset)
@@ -1810,7 +1812,7 @@ fun termsem_cert ctxt tm =
           sig_assums,
           int_assums } =
         build_interpretation ctxt tys consts
-    val th1 = termsem_cert_unint [] tm
+    val th1 = termsem_cert_unint tm
     val args = good_context_thm |> concl |> strip_comb |> snd
     val s = [tysig |-> ``tysof ^(el 2 args)``,
              tmsig |-> ``tmsof ^(el 2 args)``,

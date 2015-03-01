@@ -22,6 +22,7 @@ signature reflectionLib = sig include Abbrev
   val build_interpretation : update list -> hol_type list -> term list -> interpretation_cert
   val build_ConstDef : (*extends_init*)thm -> (*def*)thm -> update * (*extends_init*)thm
   val termsem_cert : update list -> term -> thm
+  val termsem_cert_unint : term -> thm
 
   val mk_to_inner : (hol_type,hol_type)Lib.subst -> hol_type -> term
   val base_types_of_term : term -> hol_type list
