@@ -421,7 +421,7 @@ fun process n =
   CONV_TAC((QUANT_CONV(REWR_CONV (GSYM CONJ_ASSOC))) THENC HO_REWR_CONV UNWIND_THM1) >>
   conj_tac >- ACCEPT_TAC (#updates_thm (el n lca_ctxt))
 
-val models_lca_ctxt_has_bool_interpretation = prove(
+val models_lca_ctxt_has_bool_interpretation = store_thm("models_lca_ctxt_has_bool_interpretation",
   ``is_set_theory ^mem ∧ i models thyof lca_ctxt ⇒ is_bool_interpretation i``,
   rw[] >>
   match_mp_tac (GEN_ALL extends_is_bool_interpretation) >>
