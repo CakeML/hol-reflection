@@ -2977,24 +2977,25 @@ val intermediate_thm = store_thm("intermediate_thm",
       is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
       wf_to_inner ((to_inner Ind):ind->'U) ∧
       (wf_to_inner ((to_inner Num):num->'U) ∧
-       i models (thyof lca_ctxt) ∧
-       tyaof i (strlit"ind") [] = range((to_inner Ind):ind->'U) ∧
-       tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
-       tmaof i (strlit"0") [] = to_inner Num (0:num) ∧
-       tmaof i (strlit"SUC") [] =
-         Abstract(tyaof i (strlit"num")[])(tyaof i (strlit"num")[])
+       (gi mem) models (thyof lca_ctxt) ∧
+       tyaof (gi mem) (strlit"ind") [] = range((to_inner Ind):ind->'U) ∧
+       tyaof (gi mem) (strlit"num") [] = range((to_inner Num):num->'U) ∧
+       tmaof (gi mem) (strlit"0") [] = to_inner Num (0:num) ∧
+       tmaof (gi mem) (strlit"SUC") [] =
+         Abstract(range((to_inner Num):num->'U))(range((to_inner Num):num->'U))
            (λm. to_inner Num (SUC (finv (to_inner Num) m)))
        ⇒
          ∃v.
-           is_valuation (tysof lca_ctxt) (tyaof i) v ∧
+           is_valuation (tysof lca_ctxt) (tyaof (gi mem)) v ∧
            (tmvof v (strlit"l",Num) = to_inner Num l) ∧
-           (termsem (tmsof lca_ctxt) i v ^LCA_l_UNIV = True))``,
+           (termsem (tmsof lca_ctxt) (gi mem) v ^LCA_l_UNIV = True))``,
   CONV_TAC(LAND_CONV(REWR_CONV LCA_alt)) >> strip_tac >>
   first_assum(qspec_then`l`mp_tac) >>
   discharge_hyps >- simp[] >>
   first_assum(SUBST1_TAC) >> strip_tac >>
   imp_res_tac strongly_inaccessible_imp >>
   qexists_tac`mem` >>
+  qabbrev_tac`i = gi mem` >>
   conj_tac >- simp[] >>
   conj_tac >- PROVE_TAC[] >>
   conj_asm1_tac >- (
