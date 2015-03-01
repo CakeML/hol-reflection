@@ -3426,23 +3426,167 @@ val intermediate_thm = store_thm("intermediate_thm",
   `(∀x. x < l ⇒ x ≤ l ∧ SUC x ≤ l)` by DECIDE_TAC >>
   metis_tac[])
 
-(*
-master theorem...
+val entails_imp_eq_true = store_thm("entails_imp_eq_true",
+  ``(thy,[]) |= c ⇒
+    i models thy ⇒
+    is_valuation (tysof thy) (tyaof i) v ⇒
+    termsem (tmsof thy) i v c = True``,
+  rw[entails_def,satisfies_def] >>
+  metis_tac[])
 
-``∀n. (^thy,[]) |- [∀l. LCA l UNIV ⇒ ^^phi ^(quote n) l] ⇒
-    ∀l. LCA (SUC l) UNIV ⇒ ^phi n l``
+val term_ok_ctxt_extend = store_thm("term_ok_ctxt_extend",
+  ``ctxt extends lca_ctxt ⇒
+    term_ok (sigof lca_ctxt) tm ⇒
+    term_ok (sigof ctxt) tm``,
+  Cases_on`sigof lca_ctxt` >>
+  Cases_on`sigof ctxt` >>
+  rpt strip_tac >>
+  match_mp_tac term_ok_extend >>
+  map_every qexists_tac[`q`,`r`] >>
+  imp_res_tac extends_sub >> rfs[])
 
-where thy extends (thyof LCA_ctxt)
+val models_lca_extend = store_thm("models_lca_extend",
+  ``is_set_theory ^mem ⇒
+    ctxt extends lca_ctxt ⇒
+    i models thyof ctxt ⇒
+    i models thyof lca_ctxt``,
+  Cases_on`sigof lca_ctxt` >>
+  Cases_on`sigof ctxt` >>
+  rpt strip_tac >>
+  match_mp_tac (UNDISCH models_reduce) >>
+  imp_res_tac extends_sub >>
+  map_every qexists_tac[`tysof ctxt`,`tmsof ctxt`,`axsof ctxt`] >>
+  assume_tac theory_ok_lca >>
+  imp_res_tac extends_theory_ok >>
+  imp_res_tac theory_ok_sig >>
+  rfs[] >>
+  fs[theory_ok_def])
 
-to prove master theorem:
-1. assume Provable(LCA l ==> phi l)
-2. assume LCA (SUC l)
-3. get termsem (LCA l) = True from 2 and intermediate
-4. get termsem (LCA l ==> phi l) = True from 1 and soundness
-5. combine 3 and 4 to get termsem (phi l) = True
-6. termsem_cert (phi l) to get termsem (phi l) = True <=> phi l
-7. combine 5 and 6
+fun mk_asm1_concl phi =
+  ``(Comb (Comb ^phi (Var(strlit"l")Num)) (quote n))``
 
-*)
+val asm1_concl = mk_asm1_concl ``phi:term``
+
+val termsem_implies_specialised = store_thm("termsem_implies_specialised",
+  ``is_set_theory ^mem ⇒
+    ctxt extends lca_ctxt ⇒
+    i models (thyof ctxt) ⇒
+    is_valuation (tysof ctxt) (tyaof i) v ⇒
+    termsem (tmsof ctxt) i v ^LCA_l_UNIV = True ⇒
+    termsem (tmsof ctxt) i v (Implies ^LCA_l_UNIV ^asm1_concl) = True ⇒
+    term_ok (sigof ctxt) phi ⇒
+    (typeof phi = Fun Num (Fun Num Bool)) ⇒
+    termsem (tmsof ctxt) i v ^asm1_concl = True``,
+  rpt strip_tac >>
+  qspecl_then[`sigof ctxt`,`i`,`v`,`^LCA_l_UNIV`,`^asm1_concl`]mp_tac (UNDISCH termsem_implies) >>
+  discharge_hyps >- (
+    conj_tac >- fs[] >>
+    conj_tac >- fs[models_def] >>
+    conj_tac >- fs[models_def,is_std_interpretation_def] >>
+    conj_tac >- (
+      match_mp_tac (UNDISCH term_ok_ctxt_extend) >>
+      CONV_TAC EVAL_term_ok ) >>
+    conj_tac >- (
+      simp[Once term_ok_def] >>
+      conj_tac >- (
+        simp[Once term_ok_def] >>
+        conj_tac >- (
+          match_mp_tac (UNDISCH term_ok_ctxt_extend) >>
+          CONV_TAC EVAL_term_ok ) >>
+        metis_tac[WELLTYPED_LEMMA,WELLTYPED,quote_has_type,term_ok_welltyped] ) >>
+      conj_tac >- (
+        match_mp_tac (UNDISCH term_ok_ctxt_extend) >>
+          MATCH_ACCEPT_TAC term_ok_quote ) >>
+      metis_tac[WELLTYPED_LEMMA,WELLTYPED,quote_has_type,codomain_def,term_ok_welltyped] ) >>
+    conj_tac >- CONV_TAC EVAL_typeof >>
+    conj_tac >- (
+      CONV_TAC EVAL_typeof >>
+      metis_tac[WELLTYPED_LEMMA,codomain_def] ) >>
+    conj_tac >- (
+      assume_tac lca_is_bool_sig >>
+      imp_res_tac holBoolSyntaxTheory.is_bool_sig_extends >>
+      fs[holBoolSyntaxTheory.is_bool_sig_def] ) >>
+    imp_res_tac models_lca_extend >>
+    imp_res_tac models_lca_ctxt_has_bool_interpretation >>
+    fs[holBoolTheory.is_bool_interpretation_def]) >>
+  fs[boolean_eq_true])
+
+val termsem_comb_quote = store_thm("termsem_comb_quote",
+  ``is_set_theory ^mem ⇒
+    ctxt extends lca_ctxt ⇒
+    wf_to_inner ((to_inner Num):num ->'U) ⇒
+    termsem (tmsof ctxt) i v phil = fun_to_inner (to_inner Num) bool_to_inner (phi l) ⇒
+    tmaof i (strlit"0") [] = to_inner Num (0:num) ⇒
+    tmaof i (strlit"SUC") [] =
+      Abstract (range ((to_inner Num):num->'U)) (range ((to_inner Num):num->'U))
+        (λm. to_inner Num (SUC (finv (to_inner Num) m))) ⇒
+    termsem (tmsof ctxt) i v (Comb phil (quote n)) = True ⇒
+    phi l n``,
+  ntac 6 strip_tac >>
+  simp[termsem_def] >>
+  qspecl_then[`tmsof ctxt`,`i`,`v`,`n`]mp_tac(UNDISCH termsem_quote) >>
+  imp_res_tac extends_sub >>
+  discharge_hyps >- (
+    match_mp_tac (GEN_ALL finite_mapTheory.FLOOKUP_SUBMAP) >>
+    first_assum(match_exists_tac o concl) >>
+    conj_tac >- first_assum ACCEPT_TAC >>
+    EVAL_TAC ) >>
+  discharge_hyps >- (
+    match_mp_tac (GEN_ALL finite_mapTheory.FLOOKUP_SUBMAP) >>
+    first_assum(match_exists_tac o concl) >>
+    conj_tac >- first_assum ACCEPT_TAC >>
+    EVAL_TAC ) >>
+  discharge_hyps >- first_assum ACCEPT_TAC >>
+  discharge_hyps >- first_assum ACCEPT_TAC >>
+  discharge_hyps >- first_assum ACCEPT_TAC >>
+  fs[] >>
+  disch_then SUBST1_TAC >>
+  simp[fun_to_inner_def] >>
+  use_apply_abstract >> simp[] >>
+  discharge_hyps >- (
+    metis_tac[wf_to_inner_range_thm,wf_to_inner_bool_to_inner] ) >>
+  disch_then SUBST1_TAC >>
+  metis_tac[boolean_eq_true,bool_to_inner_def,wf_to_inner_finv_left])
+
+val valuation_extend = store_thm("valuation_extend",
+  ``is_set_theory ^mem ⇒
+    ctxt extends lca_ctxt ⇒
+    i models thyof ctxt ⇒
+    (is_valuation (tysof lca_ctxt) (tyaof i) v ∧
+     tmvof v (fixl,Num) = fixr ∧
+     termsem (tmsof lca_ctxt) i v l = r) ⇒
+    term_ok (sigof lca_ctxt) l ⇒
+    (∀x ty. VFREE_IN (Var x ty) l ⇒  x = fixl ∧ ty = Num) ⇒
+    ∃w.
+      is_valuation (tysof ctxt) (tyaof i) w ∧
+      tmvof w (fixl,Num) = fixr ∧
+      termsem (tmsof ctxt) i w l = r``,
+  rpt strip_tac >>
+  imp_res_tac extends_sub >>
+  Q.ISPECL_THEN[`tysof lca_ctxt`,`tmsof lca_ctxt`,`tysof ctxt`,`tmsof ctxt`,`l`]mp_tac termsem_extend >>
+  discharge_hyps >- simp[] >>
+  disch_then(qspecl_then[`i`,`v`]strip_assume_tac) >>
+  qspecl_then[`tysof lca_ctxt`,`tysof ctxt`,`tyaof i`,`v`]mp_tac(UNDISCH is_valuation_extend_sig) >>
+  discharge_hyps >- fs[models_def,is_interpretation_def] >>
+  disch_then(qx_choose_then`w`strip_assume_tac) >>
+  qexists_tac`w` >>
+  conj_tac >- simp[] >>
+  conj_asm1_tac >- (
+    first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM) >>
+    first_x_assum match_mp_tac >>
+    CONV_TAC EVAL_type_ok ) >>
+  first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM) >>
+  first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM) >>
+  match_mp_tac(MP_CANON termsem_frees) >>
+  metis_tac[term_ok_welltyped])
+
+val term_ok_LCA_l_UNIV = save_thm("term_ok_LCA_l_UNIV",
+  ``term_ok (sigof lca_ctxt) ^LCA_l_UNIV``
+  |> EVAL_term_ok
+  |> EQT_ELIM)
+
+val VFREE_IN_LCA_l_UNIV = store_thm("VFREE_IN_LCA_l_UNIV",
+  ``(∀x ty. VFREE_IN (Var x ty) ^LCA_l_UNIV ⇒ x = strlit "l" ∧ ty = Num)``,
+  simp[VFREE_IN_def])
 
 val _ = export_theory()
