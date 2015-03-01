@@ -1576,6 +1576,7 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
           one of the constants of a certain instance of the update,
           but this means that we need to constrain *all* of the
           constants of that update] *)
+    val _ = Feedback.HOL_MESG("build_interpretation: "^(Int.toString(List.length ctxt)))
     (* val hyps = hyp i_models @ flatten (map hyp i_wf_to_inners) *)
     val hyps = base_hyps @ wf_to_inner_hyps
     val new_wf_to_inners0 = if null (#tys upd) then [] else
