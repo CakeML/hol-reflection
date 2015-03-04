@@ -151,7 +151,8 @@ val consts =  map (C inst ``SND``) substs
 val tys:hol_type list = []
 val ctxt:update list = [comma_upd,prod_upd]
 val upd = proj_upd
-val res = build_interpretation (proj_upd::ctxt) tys consts
+val wf_to_inner_hyps = map (to_inner_prop []) [beta,gamma]
+val res = build_interpretation wf_to_inner_hyps (proj_upd::ctxt) tys consts
 val example4 = save_thm("example4",#models_thm res)
 
 (* example 5: constraining select in hol_ctxt *)
@@ -159,7 +160,8 @@ val substs = [[alpha|->bool],[alpha|->``:'a -> 'b``]]
 val consts = map (C inst ``$@``) substs
 val tys:hol_type list = []
 val ctxt:update list = []
-val res = build_interpretation ctxt tys consts
+val wf_to_inner_hyps = map (to_inner_prop []) [alpha,beta]
+val res = build_interpretation wf_to_inner_hyps ctxt tys consts
 val example5 = save_thm("example5",#models_thm res)
 
 (* example 6: indirectly constraining select via a definition *)
@@ -170,7 +172,8 @@ val consts = map (C inst ``RES_SELECT``) substs
 val tys:hol_type list = []
 val ctxt:update list = [in_upd]
 val upd = res_select_upd
-val res = build_interpretation (upd::ctxt) tys consts
+val wf_to_inner_hyps = map (to_inner_prop []) [alpha,beta]
+val res = build_interpretation wf_to_inner_hyps (upd::ctxt) tys consts
 val example6 = save_thm("example6",#models_thm res)
 
 val _ = export_theory()
