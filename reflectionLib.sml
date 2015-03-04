@@ -1446,8 +1446,9 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
         select_tys
     val select = rand(concl good_select)
     val int = ``hol_model ^select (to_inner Ind)``
+    val inst_ind = Q.INST[`ind_to_inner`|->`to_inner Ind`]
     val gcth =
-      MATCH_MP (Q.INST[`ind_to_inner`|->`to_inner Ind`]good_context_base_case)
+      MATCH_MP (inst_ind good_context_base_case)
       good_select
     val hmm = hol_model_models |> DISCH_ALL
       |> C MATCH_MP (ASSUME (el 1 hypotheses))
@@ -1513,10 +1514,11 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
       in
         ACCEPT_TAC th g
       end
+    val select_thm = inst_ind tmaof_hol_model_select
     fun select_tac (g as (asl,w)) =
       let
         val wf = wf_to_inner_mk_to_inner vti (fst(dom_rng(type_of(rand(rand(rator(rand(lhs(w)))))))))
-        val th1 = MATCH_MP tmaof_hol_model_select wf
+        val th1 = MATCH_MP select_thm wf
         val th2 = MATCH_MP th1 good_select
       in
         MATCH_MP_TAC th2 >>
