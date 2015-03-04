@@ -1736,7 +1736,7 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
     }
   end
 
-val build_interpretation = build_interpretation [] []
+val build_interpretation = build_interpretation []
 
 fun build_ConstDef extends_init_thm def =
   let
@@ -1793,12 +1793,13 @@ fun termsem_cert ctxt tm =
     val _ = assert HOLset.isEmpty (FVL [tm] empty_tmset)
     val tys = base_types_of_term tm
     val consts = base_terms_of_term tm
+    val tyvars = type_vars_in_term tm
     val { good_context_thm,
           models_thm,
           wf_to_inners,
           sig_assums,
           int_assums } =
-        build_interpretation ctxt tys consts
+        build_interpretation (map (to_inner_prop []) tyvars) ctxt tys consts
     val th1 = termsem_cert_unint tm
     val args = good_context_thm |> concl |> strip_comb |> snd
     val s = [tysig |-> ``tysof ^(el 2 args)``,

@@ -23,17 +23,16 @@ fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
   let
     val tys = union [``:num``] (base_types_of_term phi)
     val consts = union [``0:num``,``SUC``] (base_terms_of_term phi)
-    (*
-    val wf_to_inner_hyps:term list = []
+    val tyvars = type_vars_in_term phi
     val vti:(hol_type,hol_type)Lib.subst = []
-    *)
+    val wf_to_inner_hyps = map (to_inner_prop vti) tyvars
     val {
       good_context_thm = good_context_thm,
       models_thm = models_thm,
       wf_to_inners = wf_to_inners,
       sig_assums = sig_assums,
       int_assums = int_assums } =
-        build_interpretation (* vti wf_to_inner_hyps *) ctxt tys consts
+        build_interpretation (* vti *) wf_to_inner_hyps ctxt tys consts
     val inner_ctxt = extends_lca_thm |> concl |> rator |> rand
     val thy = ``thyof ^inner_ctxt``
     val tma = mk_asm1_concl (term_to_deep phi)

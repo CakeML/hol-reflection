@@ -19,12 +19,13 @@ signature reflectionLib = sig include Abbrev
     sig_assums : thm list,
     int_assums : thm list
   }
-  val build_interpretation : update list -> hol_type list -> term list -> interpretation_cert
+  val build_interpretation : term list -> update list -> hol_type list -> term list -> interpretation_cert
   val build_ConstDef : (*extends_init*)thm -> (*def*)thm -> update * (*extends_init*)thm
   val termsem_cert : update list -> term -> thm
   val termsem_cert_unint : term -> thm
 
-  val mk_to_inner : (hol_type,hol_type)Lib.subst -> hol_type -> term
+  val mk_to_inner   : (hol_type,hol_type)Lib.subst -> hol_type -> term
+  val to_inner_prop : (hol_type,hol_type)Lib.subst -> hol_type -> term
   val base_types_of_term : term -> hol_type list
   val base_terms_of_term : term -> term list
 end
