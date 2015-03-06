@@ -4,6 +4,19 @@ open ordinalTheory wellorderTheory
 open setSpecTheory miscLib
 val _ = new_theory"lca"
 
+(* TODO: this functionality should be implemented by Parse *)
+local val ct = current_theory () in
+fun remove_tyabbrev s =
+  let
+    val _ = Parse.temp_set_grammars(type_grammar.remove_abbreviation(Parse.type_grammar())s,Parse.term_grammar())
+    val q = String.concat["val ",ct,"_grammars = (type_grammar.remove_abbreviation(#1 ",ct,"_grammars)\"",s,"\",#2 ",ct,"_grammars);"]
+    val _ = adjoin_to_theory{sig_ps=NONE, struct_ps=SOME(fn pp => PP.add_string pp q)}
+  in () end
+end
+val _ = remove_tyabbrev"reln"
+val _ = remove_tyabbrev"inf"
+(* -- *)
+
 (* TODO: move *)
 val MULT_LE_EXP = store_thm("MULT_LE_EXP",
   ``∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b``,
@@ -510,7 +523,7 @@ val implies_set_theory = store_thm("implies_set_theory",
   ``strong_limit_cardinal (UNIV:'U set) ∧
     regular_cardinal (UNIV:'U set)
     ⇒
-    ∃(mem:'U reln). is_set_theory mem ∧
+    ∃(mem:'U->'U->bool). is_set_theory mem ∧
       (∀s. s ≺ (UNIV:'U set) ⇒ ∃x. s = { a | a <: x }) ∧
       (¬countable (UNIV:'U set) ⇒ ∃inf. is_infinite mem inf)``,
   strip_tac >>
@@ -657,7 +670,7 @@ val strongly_inaccessible_def = Define`
 
 val strongly_inaccessible_imp = store_thm("strongly_inaccessible_imp",
   ``strongly_inaccessible (UNIV:'U set) ⇒
-    ∃(mem:'U reln). is_set_theory mem ∧
+    ∃(mem:'U->'U->bool). is_set_theory mem ∧
     (∀s. s ≺ (UNIV:'U set) ⇒ ∃x. s = { a | a <: x }) ∧
     (∃inf. is_infinite mem inf)``,
   rw[strongly_inaccessible_def] >> metis_tac[implies_set_theory])

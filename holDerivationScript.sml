@@ -2,6 +2,8 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory alistTheory pred_s
 open miscLib holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = new_theory"holDerivation"
 
+val _ = temp_tight_equality()
+
 (* TODO: move? *)
 val type1_size_append = prove(
   ``∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2``,
