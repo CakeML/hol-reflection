@@ -669,7 +669,8 @@ val _ = overload_on("base_tyval",``base_tyval0 ^mem``)
 val base_tyval_def = save_thm("base_tyval_def",base_tyval_prim_def |> ISPEC mem |> UNDISCH)
 
 val is_type_valuation_update_list = store_thm("is_type_valuation_update_list",
-  ``∀ls t. is_type_valuation t ∧ EVERY (inhabited o SND) ls ⇒ is_type_valuation (t =++ ls)``,
+  ``∀ls t. is_type_valuation t ⇒ EVERY (inhabited o SND) ls ⇒ is_type_valuation (t =++ ls)``,
+  simp[AND_IMP_INTRO] >>
   Induct >> simp[UPDATE_LIST_THM] >> rw[] >>
   first_x_assum match_mp_tac >> rw[] >>
   fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
@@ -1861,6 +1862,30 @@ val update_valuation_def = new_specification("update_valuation_def",["update_val
     metis_tac[updates_upd_DISJOINT]))
 val _ = Parse.overload_on("update_valuation",``update_valuation0 ^mem``)
 val update_valuation_def = save_thm("update_valuation_def",update_valuation_def |> ISPEC mem)
+
+val is_type_valuation_base = prove(
+  ``is_set_theory ^mem ⇒ is_type_valuation (K boolset)``,
+  rw[is_type_valuation_def] >> metis_tac[mem_boolset])
+  |> UNDISCH
+  |> curry save_thm "is_type_valuation_base"
+
+val a_valuation_def = new_specification("a_valuation_def",["a_valuation0"],
+  prove(``∃v.
+          ∀mem tyenv δ τ.
+          is_set_theory ^mem ⇒
+          is_type_assignment tyenv δ ⇒
+          is_type_valuation τ ⇒
+          is_valuation tyenv δ (v mem tyenv δ τ) ∧
+          (tyvof (v mem tyenv δ τ) = τ)``,
+    rw[GSYM SKOLEM_THM] >>
+    rw[RIGHT_EXISTS_IMP_THM] >>
+    imp_res_tac (UNDISCH term_valuation_exists) >>
+    first_assum(match_exists_tac o concl) >> simp[]))
+val _ = overload_on("a_valuation",``a_valuation0 ^mem``)
+
+val good_context_is_type_assignment = store_thm("good_context_is_type_assignment",
+  ``good_context mem s i ⇒ is_type_assignment (tysof s) (tyaof i)``,
+  rw[good_context_unpaired,is_interpretation_def])
 
 val is_std_interpretation_equal_on = store_thm("is_std_interpretation_equal_on",
   ``is_std_interpretation i ∧ equal_on sig i i' ∧ is_std_sig sig ⇒

@@ -4,6 +4,7 @@ open miscLib miscTheory combinTheory pred_setTheory numSyntax pairSyntax stringS
 open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolTheory holConstrainedExtensionTheory
 open reflectionTheory basicReflectionLib
+open holSyntaxLib holSyntaxLibTheory
 
 (* TODO: miscLib.prove_hyps_by is wrong: it needs to call PROVE_HYP multiple times *)
 
@@ -1271,6 +1272,7 @@ val of_sigof_rwt = prove(
 
 val unpair_sig = prove(``sig = (tysof sig, tmsof sig)``, rw[])
 val unpair_int = prove(``int = (tyaof int, tmaof int)``, rw[])
+val unpair_val = prove(``val = (tyvof val, tmvof val)``, rw[])
 fun tosub x y = {redex = x, residue = y}
 val is_valuation_sigof_lemma = prove(
   ``∀ctxt δ v.
@@ -1790,6 +1792,12 @@ fun build_ConstDef extends_init_thm def =
 
 val termsem_cert_unint = termsem_cert_unint []
 
+val inhabited_range_lemma = prove(
+  ``∀a:mlstring inx. wf_to_inner inx ⇒ ((λs. inhabited s) o SND) (a,range inx)``,
+  rw[inhabited_range])
+val inhabited_SND = inhabited_range_lemma
+  |> SPEC_ALL |> UNDISCH |> concl |> rator
+
 fun termsem_cert ctxt tm =
   let
     val _ = assert HOLset.isEmpty (FVL [tm] empty_tmset)
@@ -1812,9 +1820,39 @@ fun termsem_cert ctxt tm =
     val gc = good_context_thm |> ONCE_REWRITE_RULE[unpair_sig, unpair_int]
     val th3 = foldl (uncurry PROVE_HYP) th2 (gc::sig_assums@int_assums)
     val th4 = foldl (uncurry PROVE_HYP) th3 wf_to_inners
-    (* TODO: prove is_valuation hypothesis, use update_valuation? *)
+    val tyval_asms = filter is_eq (hyp th4)
+    val tyval_constraints = map (fn tm => mk_pair(rand(lhs tm),rhs tm)) tyval_asms
+    val ls = mk_list(tyval_constraints,
+                     mk_prod(mlstringSyntax.mlstring_ty,universe_ty))
+    fun mapthis tm =
+      let val (a,rinx) = dest_pair tm in
+        UNDISCH(ISPECL [a,rand rinx] inhabited_range_lemma)
+      end
+    val inhabited_thms = map mapthis tyval_constraints
+    val tyval_thm =
+      SPEC ls is_type_valuation_update_list
+      |> C MATCH_MP is_type_valuation_base
+      |> C MATCH_MP (join_EVERY inhabited_SND inhabited_thms)
+    val valth =
+      a_valuation_def
+      |> SPEC_ALL |> UNDISCH
+      |> C MATCH_MP
+        (MATCH_MP good_context_is_type_assignment gc
+         |> ONCE_REWRITE_RULE[])
+      |> C MATCH_MP tyval_thm
+    val v = valth |> CONJUNCT1 |> concl |> rand
+    val sub = [tyval |-> ``tyvof ^v``,tmval |-> ``tmvof ^v``]
+    val th5 = th4 |> INST sub
+                  |> PROVE_HYP (valth |> CONJUNCT1 |> PURE_ONCE_REWRITE_RULE[unpair_val])
+    fun mapthis tm =
+      tm |> subst sub
+         |> (LAND_CONV(RATOR_CONV(REWR_CONV(CONJUNCT2 valth)) THENC
+                       REWRITE_CONV[UPDATE_LIST_THM,combinTheory.APPLY_UPDATE_THM])
+             THENC SIMP_CONV (std_ss++listSimps.LIST_ss++stringSimps.STRING_ss) [mlstringTheory.mlstring_11])
+         |> EQT_ELIM
+    val th6 = foldl (uncurry PROVE_HYP) th5 (map mapthis tyval_asms)
   in
-    CONJ models_thm th4
+    CONJ models_thm th6
   end
 
 (* TODO: write prop_to_loeb_hyp using termsem_cert *)
