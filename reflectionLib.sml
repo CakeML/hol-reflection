@@ -1852,7 +1852,7 @@ fun termsem_cert ctxt tm =
          |> EQT_ELIM
     val th6 = foldl (uncurry PROVE_HYP) th5 (map mapthis tyval_asms)
   in
-    CONJ models_thm th6
+    LIST_CONJ [models_thm,valth,th6]
   end
 
 (* TODO: write prop_to_loeb_hyp using termsem_cert *)
