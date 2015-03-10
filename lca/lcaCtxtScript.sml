@@ -431,8 +431,8 @@ val POW_alt = METIS_PROVE[EXTENSION,IN_DEF,IN_POW]``∀s x. POW s x ⇔ x ⊆ s`
 val def = preprocess POW_alt
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 val ctxt = upd::ctxt
-(* my_regular_cardinal *)
-val def = preprocess (Q.GEN`X`my_regular_cardinal_alt)
+(* regular_cardinal *)
+val def = preprocess (Q.GEN`X`regular_cardinal_alt)
 val (upd,extends_init_thm) = build_ConstDef extends_init_thm def
 val ctxt = upd::ctxt
 (* strong_limit_cardinal *)

@@ -339,8 +339,8 @@ val FLOOKUP_LESS = (
   ``ALOOKUP (const_list lca_ctxt) (strlit"<")``
   |> (PURE_ONCE_REWRITE_CONV[lca_ctxt_def] THENC EVAL))
 
-val FLOOKUP_my_regular_cardinal = (
-  ``ALOOKUP (const_list lca_ctxt) (strlit"my_regular_cardinal")``
+val FLOOKUP_regular_cardinal = (
+  ``ALOOKUP (const_list lca_ctxt) (strlit"regular_cardinal")``
   |> (PURE_ONCE_REWRITE_CONV[lca_ctxt_def] THENC EVAL))
 
 val FLOOKUP_strong_limit_cardinal = (
@@ -2407,7 +2407,7 @@ fun use_termsem_strong_limit_cardinal_simple (g as (asl,w)) =
     disch_then(CHANGED_TAC o SUBST1_TAC)
   end g
 
-val termsem_my_regular_cardinal = store_thm("termsem_my_regular_cardinal",
+val termsem_regular_cardinal = store_thm("termsem_regular_cardinal",
   ``is_set_theory ^mem ⇒
     ∀i v ty1 a ty a0 tyin.
     i models thyof lca_ctxt ∧
@@ -2419,16 +2419,16 @@ val termsem_my_regular_cardinal = store_thm("termsem_my_regular_cardinal",
     term_ok (sigof lca_ctxt) a0 ∧
     typeof a0 = (Fun (Tyvar(strlit"A")) Bool) ⇒
     termsem (tmsof lca_ctxt) i v
-      (Comb (Const (strlit "my_regular_cardinal") ty1) a)
+      (Comb (Const (strlit "regular_cardinal") ty1) a)
     = Boolean(
-        my_regular_cardinal(
+        regular_cardinal(
           ext (typesem (tyaof i) (tyvof v) ty) ∩ Holds (termsem (tmsof lca_ctxt) i v a)))``,
   rpt strip_tac >>
   qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Comb (Const g gy) a) = R` >>
   qspecl_then[`lca_ctxt`,`i`,`v`,`g`,`gy`,`tyin`,`a`]mp_tac (UNDISCH termsem_comb1_ax) >>
   qunabbrev_tac`g` >>
   CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(LAND_CONV EVAL)))) >>
-  simp[FLOOKUP_my_regular_cardinal,Abbr`gy`,REV_ASSOCD] >>
+  simp[FLOOKUP_regular_cardinal,Abbr`gy`,REV_ASSOCD] >>
   disch_then(qspecl_then[`a0`]mp_tac) >>
   simp[theory_ok_lca] >>
   discharge_hyps >- metis_tac[WELLTYPED,term_ok_welltyped] >>
@@ -2487,7 +2487,7 @@ val termsem_my_regular_cardinal = store_thm("termsem_my_regular_cardinal",
     simp[] ) >>
   use_termsem_not >>
   simp[boolean_eq_true,Abbr`R`] >>
-  REWRITE_TAC[my_regular_cardinal_alt] >>
+  REWRITE_TAC[regular_cardinal_alt] >>
   AP_TERM_TAC >>
   AP_TERM_TAC >>
   use_termsem_exists >>
@@ -2828,15 +2828,15 @@ val termsem_my_regular_cardinal = store_thm("termsem_my_regular_cardinal",
   simp[Holds_Abstract,boolean_in_boolset] >>
   simp[Abbr`P`,boolean_eq_true,IN_DEF] )
 
-fun use_termsem_my_regular_cardinal_simple (g as (asl,w)) =
+fun use_termsem_regular_cardinal_simple (g as (asl,w)) =
   let
-    val tm = find_term(can(match_term``termsem s i v (Comb (Const (strlit"my_regular_cardinal") ty) a)``)) w
+    val tm = find_term(can(match_term``termsem s i v (Comb (Const (strlit"regular_cardinal") ty) a)``)) w
     val (_,args) = strip_comb tm
     val app = el 5 args
     val ty = app |> rator |> rand |> rand
     val a = app |> rand
     val th =
-      UNDISCH termsem_my_regular_cardinal
+      UNDISCH termsem_regular_cardinal
       |> SPECL[el 3 args, el 4 args, ty, a]
   in
     mp_tac th >> simp[] >>
@@ -2940,7 +2940,7 @@ val termsem_strongly_inaccessible = store_thm("termsem_strongly_inaccessible",
   `(A ⇔ A') ∧ (B ⇔ B')` suffices_by rw[] >>
   map_every qunabbrev_tac[`A`,`A'`,`B`,`B'`] >>
   conj_tac >- (
-    use_termsem_my_regular_cardinal_simple >>
+    use_termsem_regular_cardinal_simple >>
     simp[boolean_eq_true] >>
     simp[typesem_def,termsem_def] >>
     simp[Abbr`vv`,Abbr`s`,APPLY_UPDATE_THM,UPDATE_LIST_THM] >>

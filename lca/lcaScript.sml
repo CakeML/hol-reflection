@@ -230,8 +230,8 @@ val minWO_def = new_specification("minWO_def",["minWO"],
 val wsup_def = Define`
   wsup wo Y = wleast wo (COMPL { b | ∀y. y ∈ Y ⇒ (y,b) WLE wo })`
 
-val regular_cardinal_def = Define`
-  regular_cardinal X ⇔
+val regular_cardinal_sups_def = Define`
+  regular_cardinal_sups X ⇔
     ∀y. y ⊆ X ∧ y ≺ X ⇒ IS_SOME (wsup (minWO X) y)`
 
 val larger_exists = store_thm("larger_exists",
@@ -262,12 +262,15 @@ val wsup_greater = store_thm("wsup_greater",
   imp_res_tac wleast_IN_wo >> fs[] >>
   metis_tac[] )
 
-val regular_cardinal_smaller = store_thm("regular_cardinal_smaller",
-  ``regular_cardinal X ∧ INFINITE X ⇒
+val regular_cardinal_def = Define`
+  regular_cardinal X ⇔
     ∀x f.
       x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
-        BIGUNION (IMAGE f x) ≺ X``,
-  rw[regular_cardinal_def] >>
+        BIGUNION (IMAGE f x) ≺ X`
+
+val regular_cardinal_sups_regular = store_thm("regular_cardinal_sups_regular",
+  ``regular_cardinal_sups X ∧ INFINITE X ⇒ regular_cardinal X``,
+  rw[regular_cardinal_sups_def,regular_cardinal_def] >>
   `∃b. b ∈ X ∧ BIGUNION (IMAGE f x) ⊆ iseg (minWO X) b` suffices_by (
     strip_tac >>
     imp_res_tac(CONJUNCT2 (Q.SPEC`X`minWO_def)) >>
@@ -305,15 +308,9 @@ val regular_cardinal_smaller = store_thm("regular_cardinal_smaller",
   REWRITE_TAC[SUBSET_DEF,iseg_def] >>
   rpt strip_tac >> res_tac >> simp[])
 
-val my_regular_cardinal_def = Define`
-  my_regular_cardinal X ⇔
-    ∀x f.
-      x ⊆ X ∧ x ≺ X ∧ (∀a. a ∈ x ⇒ f a ⊆ X ∧ f a ≺ X) ⇒
-        BIGUNION (IMAGE f x) ≺ X`
-
-val my_regular_cardinal_regular = store_thm("my_regular_cardinal_regular",
-  ``∀X. my_regular_cardinal X ⇒ regular_cardinal X``,
-  rw[regular_cardinal_def,my_regular_cardinal_def] >>
+val regular_cardinal_sups = store_thm("regular_cardinal_sups",
+  ``∀X. regular_cardinal X ⇒ regular_cardinal_sups X``,
+  rw[regular_cardinal_def,regular_cardinal_sups_def] >>
   spose_not_then strip_assume_tac >> fs[] >>
   first_x_assum(qspec_then`y`mp_tac) >> simp[] >>
   qexists_tac`λz. { x | (x,z) WIN minWO X }` >>
@@ -342,14 +339,14 @@ val my_regular_cardinal_regular = store_thm("my_regular_cardinal_regular",
 
 val not_imp = PROVE[]``a ∨ b ⇔ ¬a ⇒ b``
 
-val my_regular_cardinal_alt = store_thm("my_regular_cardinal_alt",
-  ``my_regular_cardinal X ⇔
+val regular_cardinal_alt = store_thm("regular_cardinal_alt",
+  ``regular_cardinal X ⇔
     ¬∃(x:α set)(f:α -> α set).
       x ⊆ X ∧ x ≺ X ∧
       (∀a. a ∈ x ⇒ f a ≺ X) ∧
       (∀a. a ∈ X ⇒ ∃y. y ∈ x ∧ a ∈ f y)``,
   EQ_TAC >- (
-    simp[my_regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
+    simp[regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
     rpt strip_tac >>
     `∃g. ∀a. a ∈ x ⇒ g a ⊆ X ∧ g a ≺ X ∧ (g a = f a INTER X)` by (
       simp[GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >> rw[] >>
@@ -369,7 +366,7 @@ val my_regular_cardinal_alt = store_thm("my_regular_cardinal_alt",
     qpat_assum`a ∉ b`mp_tac >>
     simp[Abbr`b`] >>
     metis_tac[] ) >>
-  simp[my_regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
+  simp[regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
   strip_tac >> rpt gen_tac >> strip_tac >>
   simp[cardlt_lenoteq] >>
   conj_tac >- (
@@ -444,12 +441,12 @@ val wsuc_WIN = store_thm("wsuc_WIN",
   fs[])
 
 val strong_regular_limitation = store_thm("strong_regular_limitation",
-  ``strong_limit_cardinal X ∧ regular_cardinal X ⇒
+  ``strong_limit_cardinal X ∧ regular_cardinal_sups X ⇒
     limitation_of_size X``,
   strip_tac >>
   Cases_on`X = ∅` >- ( rw[limitation_of_size_def] ) >>
   imp_res_tac strong_infinite >>
-  fs[strong_limit_cardinal_def,regular_cardinal_def,limitation_of_size_def] >>
+  fs[strong_limit_cardinal_def,regular_cardinal_sups_def,limitation_of_size_def] >>
   simp[GSYM cardeq_def] >>
   match_mp_tac cardleq_ANTISYM >>
   conj_tac >- (
@@ -521,7 +518,7 @@ val strong_regular_limitation = store_thm("strong_regular_limitation",
 
 val implies_set_theory = store_thm("implies_set_theory",
   ``strong_limit_cardinal (UNIV:'U set) ∧
-    regular_cardinal (UNIV:'U set)
+    regular_cardinal_sups (UNIV:'U set)
     ⇒
     ∃(mem:'U->'U->bool). is_set_theory mem ∧
       (∀s. s ≺ (UNIV:'U set) ⇒ ∃x. s = { a | a <: x }) ∧
@@ -608,8 +605,8 @@ val implies_set_theory = store_thm("implies_set_theory",
     first_x_assum match_mp_tac >>
     rw[Abbr`z`] >>
     imp_res_tac strong_infinite >> fs[] >>
-    imp_res_tac regular_cardinal_smaller >>
-    fs[]) >>
+    imp_res_tac regular_cardinal_sups_regular >>
+    fs[regular_cardinal_def]) >>
   simp[is_upair_def] >>
   fs[BIJ_IFF_INV] >>
   qexists_tac`λx y. g (λa. (a = x) ∨ (a = y))` >>
@@ -662,9 +659,10 @@ val implies_set_theory = store_thm("implies_set_theory",
     rw[] >> simp[] >>
     metis_tac[NOT_INSERT_EMPTY,EXTENSION,IN_INSERT] ) >>
   rw[Abbr`z`,Abbr`R`])
+
 val strongly_inaccessible_def = Define`
   strongly_inaccessible X ⇔
-    regular_cardinal X ∧
+    regular_cardinal_sups X ∧
     strong_limit_cardinal X ∧
     ¬(countable X)`
 
@@ -675,22 +673,18 @@ val strongly_inaccessible_imp = store_thm("strongly_inaccessible_imp",
     (∃inf. is_infinite mem inf)``,
   rw[strongly_inaccessible_def] >> metis_tac[implies_set_theory])
 
-val regular_imp_my_regular = prove(
-  ``regular_cardinal X ∧ INFINITE X ⇒ my_regular_cardinal X``,
-  metis_tac[regular_cardinal_smaller,my_regular_cardinal_def])
-
-val my_regular_empty = prove(
-  ``my_regular_cardinal ∅``,
-  rw[my_regular_cardinal_def])
+val regular_empty = prove(
+  ``regular_cardinal ∅``,
+  rw[regular_cardinal_def])
 
 val strongly_inaccessible_alt = store_thm("strongly_inaccessible_alt",
   ``strongly_inaccessible X ⇔
-      my_regular_cardinal X ∧
+      regular_cardinal X ∧
       strong_limit_cardinal X ∧
       ¬(countable X)``,
   rw[strongly_inaccessible_def,EQ_IMP_THM] >>
-  metis_tac[regular_imp_my_regular,strong_infinite,
-            my_regular_empty,my_regular_cardinal_regular])
+  metis_tac[regular_cardinal_sups_regular,strong_infinite,
+            regular_empty,regular_cardinal_sups])
 
 val LCA_def = Define`
   (LCA 0 P ⇔ (UNIV:ind set) ≼ P) ∧
