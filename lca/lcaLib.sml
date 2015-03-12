@@ -5,10 +5,10 @@ open HolKernel boolLib bossLib
 
 val _ = Globals.max_print_depth := 10
 
-fun mk_asm1_concl phi =
-  ``(Comb (Comb ^phi (Var(strlit"l")Num)) (quote n))``
+fun mk_asm1_concl phi l n =
+  ``(Comb (Comb ^phi ^(term_to_deep l)) (quote ^n))``
 
-val LCA_l_UNIV = term_to_deep ``LCA l (UNIV:'U set)``
+fun LCA_l_UNIV l = term_to_deep ``LCA ^l (UNIV:'U set)``
 
 val unpair_sig = prove(``sig = (tysof sig, tmsof sig)``, SRW_TAC[][])
 val unpair_int = prove(``int = (tyaof int, tmaof int)``, SRW_TAC[][])
@@ -19,7 +19,7 @@ val tysof_sigof = SIMP_CONV std_ss [] ``tysof(sigof x)``
 val vpair = SIMP_CONV std_ss []``(tyvof v,tmvof v)``
 val ipair = SIMP_CONV std_ss []``(tyaof v,tmaof v)``
 
-fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
+fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi l n =
   let
     val tys = union [``:num``] (base_types_of_term phi)
     val consts = union [``0:num``,``SUC``] (base_terms_of_term phi)
@@ -35,12 +35,12 @@ fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
         build_interpretation (* vti *) wf_to_inner_hyps ctxt tys consts
     val inner_ctxt = extends_lca_thm |> concl |> rator |> rand
     val thy = ``thyof ^inner_ctxt``
-    val tma = mk_asm1_concl (term_to_deep phi)
-    val tm = ``Implies ^LCA_l_UNIV ^tma``
+    val tma = mk_asm1_concl (term_to_deep phi) l n
+    val tm = ``Implies ^(LCA_l_UNIV l) ^tma``
     val assumption1 = ASSUME ``(^thy,[]) |- ^tm``
     val iphi = models_thm |> concl |> rator |> rand
     val th3 =
-      ASSUME ``termsem (tmsof ^thy) ^iphi v ^LCA_l_UNIV = True``
+      ASSUME ``termsem (tmsof ^thy) ^iphi v ^(LCA_l_UNIV l) = True``
       |> DISCH_ALL
       |> PURE_REWRITE_RULE[tmsof_thyof]
       |> UNDISCH
@@ -61,7 +61,7 @@ fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
       |> C MATCH_MP th4
       |> C MATCH_MP term_ok_phi
       |> C MATCH_MP typeof_phi
-    val th6a = termsem_cert_unint ``^phi l``
+    val th6a = termsem_cert_unint ``^phi ^l``
     val args = good_context_thm |> concl |> strip_comb |> snd
     val s = [tysig |-> ``tysof ^(el 2 args)``,
              tmsig |-> ``tmsof ^(el 2 args)``,
@@ -84,8 +84,15 @@ fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
       |> UNDISCH
       |> UNDISCH
       |> C MATCH_MP th5
+    fun add_name th =
+      th
+      |> Q.GEN`name`
+      |> Q.SPEC`strlit^(stringSyntax.fromMLstring(fst(dest_var l)))`
     val ith1 =
       intermediate_thm
+      |> add_name
+      |> Q.GEN`l` |> SPEC l
+      |> CONV_RULE(LAND_CONV EVAL) |> C MP TRUTH
       |> UNDISCH
       |> Q.GEN`gi`
       |> Q.SPEC`λ^mem. ^iphi`
@@ -119,8 +126,8 @@ fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
       |> C MATCH_MP extends_lca_thm
       |> C MATCH_MP m0th
       |> C MATCH_MP ith5
-      |> C MATCH_MP term_ok_LCA_l_UNIV
-      |> C MATCH_MP VFREE_IN_LCA_l_UNIV
+      |> C MATCH_MP (add_name term_ok_LCA_l_UNIV)
+      |> C MATCH_MP (add_name VFREE_IN_LCA_l_UNIV)
     val (xv3,xtm3) = veth |> concl |> dest_exists
     val ith6 = ASSUME xtm3
     val isv = CONJUNCT1 ith6
@@ -140,10 +147,10 @@ fun build_master_theorem ctxt extends_lca_thm term_ok_phi typeof_phi phi =
            |> CHOOSE (xv1,ith1)
   in
     th9
-    |> DISCH ``LCA (SUC l) (UNIV:'U set)``
-    |> Q.GEN`l`
+    |> DISCH ``LCA (SUC ^l) (UNIV:'U set)``
+    |> GEN l
     |> DISCH_ALL
-    |> Q.GEN`n`
+    |> GEN n
   end
 
 end

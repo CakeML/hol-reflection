@@ -9,5 +9,6 @@ signature lcaLib = sig
     thm -> (* term_ok (sigof ctxt) inner_phi *)
     thm -> (* typeof inner_phi = Fun Num (Fun Num Bool) *)
     term -> (* phi *)
+    term -> term -> (* l n (variables of type :num, for their names) *)
     thm
 end

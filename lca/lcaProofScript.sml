@@ -2994,8 +2994,12 @@ fun use_termsem_strongly_inaccessible f tyinq (g as (asl,w)) =
     disch_then(CHANGED_TAC o SUBST1_TAC)
   end g
 
+val name = ``name:mlstring``
+val LCA_name_UNIV = replace_term ``strlit"l"``name LCA_l_UNIV
+
 val intermediate_thm = store_thm("intermediate_thm",
-  ``LCA (SUC l) (UNIV:'U set) ⇒
+  ``(name ≠ strlit"f" ∧ name ≠ strlit"k") (* makes proof easier *) ⇒
+    LCA (SUC l) (UNIV:'U set) ⇒
     ∃(mem:'U reln).
       is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
       wf_to_inner ((to_inner Ind):ind->'U) ∧
@@ -3010,8 +3014,9 @@ val intermediate_thm = store_thm("intermediate_thm",
        ⇒
          ∃v.
            is_valuation (tysof lca_ctxt) (tyaof (gi mem)) v ∧
-           (tmvof v (strlit"l",Num) = to_inner Num l) ∧
-           (termsem (tmsof lca_ctxt) (gi mem) v ^LCA_l_UNIV = True))``,
+           (tmvof v (^name,Num) = to_inner Num l) ∧
+           (termsem (tmsof lca_ctxt) (gi mem) v ^LCA_name_UNIV = True))``,
+  strip_tac >>
   CONV_TAC(LAND_CONV(REWR_CONV LCA_alt)) >> strip_tac >>
   first_assum(qspec_then`l`mp_tac) >>
   discharge_hyps >- simp[] >>
@@ -3032,7 +3037,7 @@ val intermediate_thm = store_thm("intermediate_thm",
       `∀k. k < SUC l ⇒ f k ≺ f (SUC k)` by metis_tac[] >>
       pop_assum mp_tac >>
       qid_spec_tac`l` >>
-      last_x_assum mp_tac >>
+      qpat_assum`(UNIV:ind set) ≼ X` mp_tac >>
       rpt(pop_assum kall_tac) >>
       strip_tac >>
       Induct >> simp[] >>
@@ -3070,7 +3075,7 @@ val intermediate_thm = store_thm("intermediate_thm",
       `∀k. k < SUC l ⇒ f k ≺ f (SUC k)` by metis_tac[] >>
       pop_assum mp_tac >>
       qid_spec_tac`l` >>
-      last_x_assum mp_tac >>
+      qpat_assum`(UNIV:ind set) ≼ X` mp_tac >>
       rpt(pop_assum kall_tac) >>
       strip_tac >>
       Induct >> simp[] >>
@@ -3088,7 +3093,7 @@ val intermediate_thm = store_thm("intermediate_thm",
   qspecl_then[`tysof lca_ctxt`,`tyaof i`,`K fl`]mp_tac(UNDISCH constrained_term_valuation_exists) >>
   simp[] >>
   discharge_hyps >- fs[models_def,is_interpretation_def] >>
-  disch_then(qspec_then`[((strlit"l",Num),to_inner Num l)]`mp_tac) >>
+  disch_then(qspec_then`[((name,Num),to_inner Num l)]`mp_tac) >>
   discharge_hyps >- (
     simp[type_ok_Num] >>
     simp[typesem_def] >>
@@ -3111,7 +3116,26 @@ val intermediate_thm = store_thm("intermediate_thm",
     conj_tac >> CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
   disch_then SUBST1_TAC >>
   map_every qunabbrev_tac[`a`,`b`] >>
-  CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV(EVAL_subst) THENC EVAL_INST))) >>
+  qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (INST [] (VSUBST ilist tm)) = True` >>
+  qspecl_then[`tm`,`ilist`]mp_tac VSUBST_simple_subst >>
+  discharge_hyps >- (
+    conj_tac >- (
+      unabbrev_all_tac >> EVAL_TAC >>
+      simp[IN_DISJOINT] >>
+      simp[Once(PROVE[]``a ∨ b ⇔ ¬a ⇒ b``)] >>
+      simp[Once(PROVE[]``¬a ∨ b ⇔ ¬b ⇒ ¬a``)] >>
+      rw[] >> rw[] ) >>
+    conj_tac >- (
+      unabbrev_all_tac >> rw[] ) >>
+    qunabbrev_tac`tm` >>
+    CONV_TAC EVAL_welltyped ) >>
+  disch_then SUBST1_TAC >>
+  map_every qunabbrev_tac[`ilist`,`tm`] >>
+  CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[REV_ASSOCD])))) >>
+  Q.PAT_ABBREV_TAC`tm = Exists X Y Z` >>
+  `welltyped tm` by ( unabbrev_all_tac >> CONV_TAC EVAL_welltyped ) >>
+  pop_assum(SUBST1_TAC o MATCH_MP INST_nil) >>
+  qunabbrev_tac`tm` >>
   use_termsem_exists >>
   simp[boolean_eq_true] >>
   qexists_tac`
@@ -3252,7 +3276,7 @@ val intermediate_thm = store_thm("intermediate_thm",
   simp[boolean_eq_true] >>
   strip_tac >>
   `finv (to_inner Num) x < l` by (
-    qspecl_then[`i`,`vu`,`Var(strlit"k")Num`,`Var(strlit"l")Num`]mp_tac (UNDISCH termsem_LESS) >>
+    qspecl_then[`i`,`vu`,`Var(strlit"k")Num`,`Var name Num`]mp_tac (UNDISCH termsem_LESS) >>
     simp[] >>
     discharge_hyps >- (
       CONJ_TAC >> CONV_TAC EVAL_term_ok ) >>
@@ -3447,7 +3471,7 @@ val models_lca_extend = store_thm("models_lca_extend",
   fs[theory_ok_def])
 
 fun mk_asm1_concl phi =
-  ``(Comb (Comb ^phi (Var(strlit"l")Num)) (quote n))``
+  ``(Comb (Comb ^phi (Var ^name Num)) (quote n))``
 
 val asm1_concl = mk_asm1_concl ``phi:term``
 
@@ -3456,13 +3480,13 @@ val termsem_implies_specialised = store_thm("termsem_implies_specialised",
     ctxt extends lca_ctxt ⇒
     i models (thyof ctxt) ⇒
     is_valuation (tysof ctxt) (tyaof i) v ⇒
-    termsem (tmsof ctxt) i v ^LCA_l_UNIV = True ⇒
-    termsem (tmsof ctxt) i v (Implies ^LCA_l_UNIV ^asm1_concl) = True ⇒
+    termsem (tmsof ctxt) i v ^LCA_name_UNIV = True ⇒
+    termsem (tmsof ctxt) i v (Implies ^LCA_name_UNIV ^asm1_concl) = True ⇒
     term_ok (sigof ctxt) phi ⇒
     (typeof phi = Fun Num (Fun Num Bool)) ⇒
     termsem (tmsof ctxt) i v ^asm1_concl = True``,
   rpt strip_tac >>
-  qspecl_then[`sigof ctxt`,`i`,`v`,`^LCA_l_UNIV`,`^asm1_concl`]mp_tac (UNDISCH termsem_implies) >>
+  qspecl_then[`sigof ctxt`,`i`,`v`,`^LCA_name_UNIV`,`^asm1_concl`]mp_tac (UNDISCH termsem_implies) >>
   discharge_hyps >- (
     conj_tac >- fs[] >>
     conj_tac >- fs[models_def] >>
@@ -3565,12 +3589,12 @@ val valuation_extend = store_thm("valuation_extend",
   metis_tac[term_ok_welltyped])
 
 val term_ok_LCA_l_UNIV = save_thm("term_ok_LCA_l_UNIV",
-  ``term_ok (sigof lca_ctxt) ^LCA_l_UNIV``
+  ``term_ok (sigof lca_ctxt) ^LCA_name_UNIV``
   |> EVAL_term_ok
   |> EQT_ELIM)
 
 val VFREE_IN_LCA_l_UNIV = store_thm("VFREE_IN_LCA_l_UNIV",
-  ``(∀x ty. VFREE_IN (Var x ty) ^LCA_l_UNIV ⇒ x = strlit "l" ∧ ty = Num)``,
+  ``(∀x ty. VFREE_IN (Var x ty) ^LCA_name_UNIV ⇒ x = name ∧ ty = Num)``,
   simp[VFREE_IN_def])
 
 val _ = export_theory()
