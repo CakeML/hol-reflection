@@ -1424,8 +1424,12 @@ val base_hyps =
   [``wf_to_inner ((to_inner Ind):ind -> 'U)``,
    ``is_set_theory ^mem``]
 
-fun build_interpretation vti wf_to_inner_hyps [] tys consts =
+fun mesg n =
+  Feedback.HOL_MESG("build_interpretation: "^(Int.toString n))
+
+fun build_interpretation length_ctxt vti wf_to_inner_hyps [] tys consts =
   let
+    val _ = mesg length_ctxt
     val hypotheses =
       base_hyps @
       (mapfilter (fn ty => to_inner_prop vti (assert is_vartype ty)) tys)
@@ -1549,7 +1553,7 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
       sig_assums = sig_assums,
       int_assums = int_assums }
   end
-| build_interpretation vti wf_to_inner_hyps (upd::ctxt) tys consts =
+| build_interpretation length_ctxt vti wf_to_inner_hyps (upd::ctxt) tys consts =
   let
     val instances_to_constrain =
       union (find_type_instances tys (#tys upd))
@@ -1569,7 +1573,7 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
          wf_to_inners = i_wf_to_inners,
          sig_assums = i_sig_assums,
          int_assums = i_int_assums }
-      = build_interpretation vti
+      = build_interpretation (length_ctxt+1) vti
         (union wf_to_inner_hyps (map (to_inner_prop vti) instantiated_tys))
         ctxt
         (set_diff (union tys new_tys) instantiated_tys)
@@ -1580,7 +1584,7 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
           one of the constants of a certain instance of the update,
           but this means that we need to constrain *all* of the
           constants of that update] *)
-    val _ = Feedback.HOL_MESG("build_interpretation: "^(Int.toString(List.length ctxt)))
+    val _ = mesg length_ctxt
     (* val hyps = hyp i_models @ flatten (map hyp i_wf_to_inners) *)
     val hyps = base_hyps @ wf_to_inner_hyps
     val new_wf_to_inners0 = if null (#tys upd) then [] else
@@ -1740,7 +1744,7 @@ fun build_interpretation vti wf_to_inner_hyps [] tys consts =
     }
   end
 
-val build_interpretation = build_interpretation []
+val build_interpretation = build_interpretation 0 []
 
 fun build_ConstDef extends_init_thm def =
   let
