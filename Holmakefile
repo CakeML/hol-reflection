@@ -1,9 +1,9 @@
-ifndef VMLDIR
-VMLDIR = ../vml
+ifndef CAKEMLDIR
+CAKEMLDIR = ../vml
 endif
 
-HOLHOL = $(VMLDIR)/hol-light
-INCLUDES = $(VMLDIR) $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics $(HOLDIR)/examples/countable
+HOLHOL = $(CAKEMLDIR)/hol-light
+INCLUDES = $(CAKEMLDIR) $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics $(HOLDIR)/examples/countable
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
