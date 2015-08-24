@@ -23,6 +23,7 @@ signature reflectionLib = sig include Abbrev
   val build_ConstDef : (*extends_init*)thm -> (*def*)thm -> update * (*extends_init*)thm
   val termsem_cert : update list -> term -> thm
   val termsem_cert_unint : term -> thm
+  val prop_to_loeb_hyp : update list -> term -> thm
 
   val mk_to_inner   : (hol_type,hol_type)Lib.subst -> hol_type -> term
   val to_inner_prop : (hol_type,hol_type)Lib.subst -> hol_type -> term

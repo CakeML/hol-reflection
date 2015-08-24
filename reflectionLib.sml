@@ -1859,6 +1859,30 @@ fun termsem_cert ctxt tm =
     LIST_CONJ [models_thm,valth,th6]
   end
 
-(* TODO: write prop_to_loeb_hyp using termsem_cert *)
+val of_sigof_thy =
+  LIST_CONJ
+  [``tysof (sigof (thy:thy)) = tysof thy`` |> EVAL |> EQT_ELIM,
+   ``tmsof (sigof (thy:thy)) = tmsof thy`` |> EVAL |> EQT_ELIM]
+
+val of_thyof =
+  LIST_CONJ
+  [``tysof (thyof ctxt) = tysof ctxt`` |> EVAL |> EQT_ELIM,
+   ``tmsof (thyof ctxt) = tmsof ctxt`` |> EVAL |> EQT_ELIM]
+
+fun prop_to_loeb_hyp ctxt tm =
+  let
+    val res = termsem_cert ctxt tm
+    val [models_thm,v1,v2,sem_thm] = CONJUNCTS res
+    val inner_tm = sem_thm |> concl |> lhs |> rand
+  in
+     provable_imp_eq_true |> SPEC_ALL |> UNDISCH
+     |> PURE_REWRITE_RULE[of_sigof_thy]
+     |> C MATCH_MP models_thm
+     |> PURE_REWRITE_RULE[of_thyof]
+     |> C MATCH_MP (PURE_REWRITE_RULE[of_sigof_rwt]v1)
+     |> SPEC inner_tm
+     |> PURE_REWRITE_RULE[PURE_REWRITE_RULE[of_sigof_rwt,pairTheory.PAIR]sem_thm]
+     |> PURE_REWRITE_RULE[bool_to_inner_def,UNDISCH setSpecTheory.boolean_eq_true]
+  end
 
 end
