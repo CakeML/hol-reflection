@@ -1869,9 +1869,8 @@ val of_thyof =
   [``tysof (thyof ctxt) = tysof ctxt`` |> EVAL |> EQT_ELIM,
    ``tmsof (thyof ctxt) = tmsof ctxt`` |> EVAL |> EQT_ELIM]
 
-fun prop_to_loeb_hyp ctxt tm =
+fun prop_to_loeb_hyp0 res =
   let
-    val res = termsem_cert ctxt tm
     val [models_thm,v1,v2,sem_thm] = CONJUNCTS res
     val inner_tm = sem_thm |> concl |> lhs |> rand
   in
@@ -1884,5 +1883,7 @@ fun prop_to_loeb_hyp ctxt tm =
      |> PURE_REWRITE_RULE[PURE_REWRITE_RULE[of_sigof_rwt,pairTheory.PAIR]sem_thm]
      |> PURE_REWRITE_RULE[bool_to_inner_def,UNDISCH setSpecTheory.boolean_eq_true]
   end
+
+fun prop_to_loeb_hyp ctxt tm = prop_to_loeb_hyp0 (termsem_cert ctxt tm)
 
 end

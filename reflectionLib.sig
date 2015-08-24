@@ -24,6 +24,7 @@ signature reflectionLib = sig include Abbrev
   val termsem_cert : update list -> term -> thm
   val termsem_cert_unint : term -> thm
   val prop_to_loeb_hyp : update list -> term -> thm
+  val prop_to_loeb_hyp0 : thm -> thm
 
   val mk_to_inner   : (hol_type,hol_type)Lib.subst -> hol_type -> term
   val to_inner_prop : (hol_type,hol_type)Lib.subst -> hol_type -> term
