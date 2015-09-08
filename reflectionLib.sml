@@ -308,7 +308,7 @@ local
   val appth = type_ok_def |> CONJUNCT2 |> SPEC_ALL |> EQ_IMP_RULE |> snd
               |> REWRITE_RULE[ETA_AX,GSYM AND_IMP_INTRO] |> GEN_ALL |> SPEC tysig
   val term_ok_clauses =
-    holBoolSyntaxTheory.term_ok_clauses
+    holSyntaxExtraTheory.term_ok_clauses
     |> C MATCH_MP
         (good_context_def |> SPEC_ALL |> EQ_IMP_RULE |> fst
            |> UNDISCH |> CONJUNCT2 |> CONJUNCT1)

@@ -223,7 +223,7 @@ fun every_conv conv tm = tm |> (
 fun EVAL_type_ok_term_ok lookup_conv is_std_sig =
   let
     val clauses = is_std_sig
-      |> MATCH_MP holBoolSyntaxTheory.term_ok_clauses
+      |> MATCH_MP term_ok_clauses
     val (term_ok_Var  ,clauses) = CONJ_PAIR clauses
     val (type_ok_Tyvar,clauses) = CONJ_PAIR clauses
     val (type_ok_Bool ,clauses) = CONJ_PAIR clauses
