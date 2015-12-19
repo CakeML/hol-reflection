@@ -1,7 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs
-open pred_setTheory cardinalTheory
-open ordinalTheory wellorderTheory
-open setSpecTheory miscLib
+open preamble cardinalTheory ordinalTheory wellorderTheory
+open setSpecTheory
 val _ = new_theory"lca"
 
 (* TODO: this functionality should be implemented by Parse *)

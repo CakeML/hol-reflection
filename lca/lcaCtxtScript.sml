@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs miscLib
-open pred_setTheory cardinalTheory
+open preamble cardinalTheory
 open lcaTheory reflectionTheory reflectionLib
 open holSyntaxTheory holSyntaxExtraTheory holSyntaxLib holSyntaxSyntax
 open holExtensionTheory holConstrainedExtensionTheory

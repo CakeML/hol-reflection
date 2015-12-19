@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs miscLib
-open miscTheory finite_mapTheory alistTheory listTheory pairTheory pred_setTheory
+open preamble
 open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
 val _ = ParseExtras.temp_tight_equality()
 val _ = new_theory"holConstrainedExtension"

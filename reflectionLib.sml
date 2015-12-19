@@ -1,6 +1,6 @@
 structure reflectionLib :> reflectionLib = struct
-open HolKernel boolLib bossLib lcsymtacs listSimps stringSimps listLib optionLib pairLib
-open miscLib miscTheory combinTheory pred_setTheory numSyntax pairSyntax stringSyntax listSyntax holSyntaxSyntax
+open preamble listSimps stringSimps listLib optionLib pairLib
+open numSyntax pairSyntax stringSyntax listSyntax holSyntaxSyntax
 open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolTheory holConstrainedExtensionTheory
 open reflectionTheory basicReflectionLib

@@ -1,6 +1,6 @@
 structure holDerivationLib :> holDerivationLib = struct
 
-open HolKernel boolLib OpenTheoryMap miscLib pairSyntax pairTheory
+open preamble OpenTheoryMap pairSyntax
 open holSyntaxLib holSyntaxSyntax holSyntaxTheory holSyntaxExtraTheory
 open holDerivationTheory
 

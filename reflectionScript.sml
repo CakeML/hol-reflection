@@ -1,6 +1,6 @@
-open HolKernel boolLib bossLib Parse lcsymtacs listSimps countableLib countableTheory
-open miscLib basicReflectionLib pred_setTheory listTheory pairTheory combinTheory finite_mapTheory alistTheory
-open miscTheory setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
+open preamble countableLib countableTheory
+open basicReflectionLib
+open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolSyntaxTheory holBoolTheory holExtensionTheory holConsistencyTheory holAxiomsSyntaxTheory holAxiomsTheory
 open holConstrainedExtensionTheory
 

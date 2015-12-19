@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs listTheory combinTheory
+open preamble
 open holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 open holConsistencyTheory
 open holExtensionTheory holConstrainedExtensionTheory

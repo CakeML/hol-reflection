@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs miscLib
-open combinTheory pairTheory listTheory alistTheory pred_setTheory miscTheory
+open preamble
 open lcaTheory reflectionTheory reflectionLib
 open holSyntaxTheory holSyntaxExtraTheory holSyntaxLib
 open holSemanticsTheory holSemanticsExtraTheory
