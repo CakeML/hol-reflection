@@ -232,7 +232,7 @@ val inst_core_eval_thm = prove(
   imp_res_tac INST_CORE_Abs_thm >>
   asm_simp_tac pure_ss [inst_core_eval_def] >>
   pop_assum kall_tac >>
-  rw[] >> fs[] >>
+  srw_tac[][] >> fs[] >>
   unabbrev_all_tac >> fs[] >>
   IF_CASES_TAC >> fs[] >>
   IF_CASES_TAC >> fs[] >>

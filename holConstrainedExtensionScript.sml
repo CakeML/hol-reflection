@@ -464,7 +464,7 @@ val tvars_VSUBST_same_type = store_thm("tvars_VSUBST_same_type",
   conj_tac >- rw[VSUBST_def,tvars_def] >>
   rw[] >> fs[] >>
   rw[tvars_def] >>
-  rw[VSUBST_def] >>
+  srw_tac[][VSUBST_def] >>
   rw[tvars_def,Abbr`z`] >- (
     fs[tvars_def] >>
     AP_TERM_TAC >>
@@ -810,7 +810,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
    is_std_type_assignment δ` by (
      reverse conj_asm2_tac >- fs[is_std_interpretation_def] >>
      simp[Abbr`d1`,GSYM constrain_assignment_def] ) >>
-  rator_x_assum`ALOOKUP` mp_tac >> simp[] >>
+  qpat_assum`_ = SOME v` mp_tac >>
   Q.PAT_ABBREV_TAC`t1 = domain (typeof pred)` >>
   Q.PAT_ABBREV_TAC`t2 = Tyapp name X` >>
   fs[GSYM mlstring_sort_def] >>
