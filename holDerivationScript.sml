@@ -179,7 +179,7 @@ val betaConv = store_thm("betaConv",
   disch_then(mp_tac o MATCH_MP vsubst) >>
   Q.PAT_ABBREV_TAC`ilist = [(u,X:term)]` >>
   disch_then(qspec_then`ilist`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`ilist`] >> fs[WELLTYPED] ) >>
   simp[Once term_image_def] >>
   simp[equation_def] >>
@@ -237,7 +237,7 @@ val inst_core_eval_thm = prove(
   IF_CASES_TAC >> fs[] >>
   IF_CASES_TAC >> fs[] >>
   last_x_assum mp_tac >>
-  discharge_hyps >- (
+  impl_tac >- (
     match_mp_tac VSUBST_WELLTYPED >>
     simp[] >> simp[Once has_type_cases] ) >>
   strip_tac >> rfs[])
@@ -325,7 +325,7 @@ val eqT_intro = store_thm("eqT_intro",
   imp_res_tac term_remove_exists >>
   qspecl_then[`thy`,`term_remove True h`,`c === True`,`c'`]mp_tac addAssum >>
   simp[] >>
-  discharge_hyps >- fs[EVERY_MEM] >>
+  impl_tac >- fs[EVERY_MEM] >>
   metis_tac[term_union_insert_remove])
 
 val eqT_elim = store_thm("eqT_elim",
@@ -363,7 +363,7 @@ val gen = store_thm("gen",
   strip_tac >>
   qspecl_then[`Abs (Var x ty) t`,`thy`]mp_tac refl_equation >>
   simp[term_ok_def] >>
-  discharge_hyps_keep >- ( imp_res_tac proves_term_ok >> fs[] ) >>
+  impl_keep_tac >- ( imp_res_tac proves_term_ok >> fs[] ) >>
   strip_tac >>
   last_x_assum(mp_tac o MATCH_MP appThm_equation) >>
   disch_then(fn th => last_x_assum (mp_tac o MATCH_MP th)) >>
@@ -376,10 +376,10 @@ val gen = store_thm("gen",
   imp_res_tac theory_ok_sig >>
   simp[term_ok_clauses,Abbr`uy`,Abbr`l`] >>
   simp[GSYM AND_IMP_INTRO] >>
-  discharge_hyps_keep >- (
+  impl_keep_tac >- (
     simp[Abbr`b`,term_ok_clauses] >>
     fs[term_ok_def,is_true_sig_def,term_ok_clauses] ) >>
-  discharge_hyps_keep >- metis_tac[term_ok_welltyped] >> rfs[] >>
+  impl_keep_tac >- metis_tac[term_ok_welltyped] >> rfs[] >>
   qunabbrev_tac`b` >> qunabbrev_tac`u` >>
   CONV_TAC(LAND_CONV(RAND_CONV(RAND_CONV EVAL))) >>
   dep_rewrite.DEP_REWRITE_TAC[equation_intro] >>
@@ -416,32 +416,32 @@ val idspec = store_thm("idspec",
   CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
   dep_rewrite.DEP_REWRITE_TAC[equation_intro] >>
   conj_tac >- EVAL_TAC >>
-  discharge_hyps_keep >- ( imp_res_tac proves_term_ok >> fs[term_ok_def] ) >>
+  impl_keep_tac >- ( imp_res_tac proves_term_ok >> fs[term_ok_def] ) >>
   qmatch_assum_abbrev_tac`(thy,h) |- Comb t1 t2` >>
   qspecl_then[`t2`,`thy`]mp_tac refl_equation >>
   simp[] >>
-  discharge_hyps_keep >- ( imp_res_tac proves_term_ok >> fs[term_ok_def] ) >>
+  impl_keep_tac >- ( imp_res_tac proves_term_ok >> fs[term_ok_def] ) >>
   strip_tac >>
   disch_then(mp_tac o MATCH_MP appThm_equation) >>
   pop_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
-  discharge_hyps >- ( imp_res_tac proves_term_ok >>
+  impl_tac >- ( imp_res_tac proves_term_ok >>
                       full_simp_tac std_ss [EVERY_DEF] >>
                       metis_tac[term_ok_welltyped]) >>
   disch_then(mp_tac o MATCH_MP eqMp_equation) >>
   first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   simp[term_union_thm] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`(thy,h) |- Comb (Abs (Var P Pty) b) t2` >>
   qspecl_then[`P`,`Pty`,`Bool`,`b`,`thy`,`t2`]mp_tac betaConv >>
-  discharge_hyps >- rw[] >>
-  discharge_hyps >- ( imp_res_tac proves_term_ok >> fs[] ) >>
-  discharge_hyps_keep >- ( simp[Abbr`b`] >> EVAL_TAC ) >>
+  impl_tac >- rw[] >>
+  impl_tac >- ( imp_res_tac proves_term_ok >> fs[] ) >>
+  impl_keep_tac >- ( simp[Abbr`b`] >> EVAL_TAC ) >>
   dep_rewrite.DEP_REWRITE_TAC[equation_intro] >>
   conj_tac >- simp[] >>
   disch_then(mp_tac o MATCH_MP eqMp_equation) >>
   first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   simp[term_union_thm] >>
   unabbrev_all_tac >>
   CONV_TAC(LAND_CONV(RAND_CONV EVAL)) >>
@@ -449,33 +449,33 @@ val idspec = store_thm("idspec",
   conj_tac >- ( simp[] >> imp_res_tac proves_term_ok >> fs[term_ok_def] ) >>
   disch_then(mp_tac o MATCH_MP appThm_equation) >>
   qspecl_then[`Var x ty`,`thy`]mp_tac refl_equation >>
-  discharge_hyps >- simp[term_ok_def] >>
+  impl_tac >- simp[term_ok_def] >>
   disch_then(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
-  discharge_hyps >- (imp_res_tac proves_term_ok >> fs[term_ok_def]) >>
+  impl_tac >- (imp_res_tac proves_term_ok >> fs[term_ok_def]) >>
   simp[term_union_thm] >>
   qspecl_then[`t`,`thy`,`ty`,`x`]mp_tac betaConvVar >>
-  discharge_hyps >- (imp_res_tac proves_term_ok >> fs[term_ok_def]) >>
+  impl_tac >- (imp_res_tac proves_term_ok >> fs[term_ok_def]) >>
   qspecl_then[`strlit"x"`,`ty`,`Bool`,`True`,`thy`,`Var x ty`]mp_tac betaConv >>
-  discharge_hyps >- simp[] >>
-  discharge_hyps >- (
+  impl_tac >- simp[] >>
+  impl_tac >- (
     imp_res_tac proves_term_ok >>
     rfs[term_ok_def,is_true_sig_def] >>
     fs[type_ok_def]) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   CONV_TAC(LAND_CONV EVAL) >>
   dep_rewrite.DEP_REWRITE_TAC[equation_intro] >>
   conj_tac >- EVAL_TAC >>
   disch_then(mp_tac o MATCH_MP eqT_elim) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   strip_tac >>
   strip_tac >>
   disch_then(mp_tac o MATCH_MP sym_equation) >>
   disch_then(mp_tac o MATCH_MP eqMp_equation) >>
-  first_assum(fn th => disch_then(mp_tac o C MATCH_MP th) >> (discharge_hyps >- simp[])) >>
+  first_assum(fn th => disch_then(mp_tac o C MATCH_MP th) >> (impl_tac >- simp[])) >>
   simp[term_union_thm] >>
   pop_assum(mp_tac o MATCH_MP eqMp_equation) >>
   disch_then(fn th => disch_then(mp_tac o MATCH_MP th)) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   simp[term_union_thm])
 
 val _ = export_theory()

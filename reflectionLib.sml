@@ -1179,7 +1179,7 @@ fun prove_constrained_consts_in_type_thm
       strip_tac >>
       rpt conj_tac >>
       mk_tyin_tac >>
-      (discharge_hyps >- (
+      (impl_tac >- (
          gen_tac >>
          CONV_TAC(LAND_CONV EVAL) >>
          SIMP_TAC bool_ss [] >>

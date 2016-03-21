@@ -93,7 +93,7 @@ val typesem_consts = store_thm("typesem_consts",
   rw[] >> simp[typesem_def] >>
   fs[subtype_Tyapp] >>
   first_assum(qspecl_then[`name`,`args`]mp_tac) >>
-  discharge_hyps >- rw[] >> strip_tac >- (
+  impl_tac >- rw[] >> strip_tac >- (
     rw[] >> AP_TERM_TAC >> simp[MAP_EQ_f] >> metis_tac[] ) >>
   simp[MAP_MAP_o,combinTheory.o_DEF,typesem_def,ETA_AX])
 
@@ -584,10 +584,10 @@ val well_formed_constraints_implies_lengths = store_thm("well_formed_constraints
   qmatch_assum_abbrev_tac`LENGTH vars = LENGTH args` >>
   first_x_assum(qspec_then`args`mp_tac) >> simp[] >>
   first_x_assum(qspec_then`K boolset =++ ZIP(vars,args)`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     match_mp_tac MAP_ZIP_UPDATE_LIST_ALL_DISTINCT_same >>
     simp[Abbr`vars`] ) >>
-  discharge_hyps >- (
+  impl_tac >- (
     match_mp_tac is_type_valuation_UPDATE_LIST >>
     simp[EVERY_MEM,is_type_valuation_def] >>
     conj_tac >- metis_tac[setSpecTheory.boolean_in_boolset] >>
@@ -716,7 +716,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
       qpat_assum`∀X. Y`mp_tac >>
       qpat_abbrev_tac`vars = mlstring_sort X` >>
       disch_then(qspec_then`K boolset =++ ZIP(tyvars_of_upd upd, MAP τ vars)`mp_tac) >>
-      discharge_hyps >- (
+      impl_tac >- (
         conj_tac >- (
           match_mp_tac is_type_valuation_UPDATE_LIST >>
           simp[EVERY_MEM,is_type_valuation_def] >>
@@ -818,7 +818,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
             (typesem d1 τ t1 = typesem δ τ t1) ∧
             (typesem d1 τ t2 = typesem δ τ t2)` >- (
     match_mp_tac SWAP_IMP >> strip_tac >>
-    discharge_hyps >- (
+    impl_tac >- (
       pop_assum mp_tac >> rw[] >>
       simp[tyvars_def] >>
       metis_tac[pred_setTheory.UNION_COMM] ) >>
@@ -937,7 +937,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     fs[LET_THM] >>
     qmatch_assum_abbrev_tac`LENGTH ls = 1` >>
     first_x_assum(qspec_then`((HD ls) =+ (τ(strlit"A"))) (K boolset)`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       Cases_on`ls`>>fs[LENGTH_NIL] >>
       simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
       rw[] >> metis_tac[setSpecTheory.boolean_in_boolset]) >> strip_tac >>
@@ -981,7 +981,7 @@ val add_constraints_thm = store_thm("add_constraints_thm",
     first_assum(
       mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH extend_valuation_exists))) >>
     first_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) >>
-    discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+    impl_tac >- fs[is_interpretation_def] >> strip_tac >>
     first_x_assum(qspec_then`v'`mp_tac) >> simp[] >>
     disch_then (SUBST1_TAC o SYM) >>
     match_mp_tac EQ_TRANS >>
@@ -1071,7 +1071,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
       fs[is_term_valuation_def] >> rw[] >>
       rw[Abbr`v3`] >>
       last_x_assum(qspecl_then[`v`,`ty`]mp_tac) >>
-      discharge_hyps >- ( fs[Abbr`tysig`,Abbr`sig`] ) >>
+      impl_tac >- ( fs[Abbr`tysig`,Abbr`sig`] ) >>
       qmatch_abbrev_tac`m <: t1 ⇒ m <: t2` >>
       qsuff_tac`t1=t2`>-rw[] >>
       map_every qunabbrev_tac[`t1`,`t2`] >>
@@ -1097,7 +1097,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
       disch_then(qspecl_then[`name`,`arity`]mp_tac) >> simp[] >>
       strip_tac >>
       pop_assum(qspecl_then[`args`,`ty`]mp_tac) >> simp[] >>
-      discharge_hyps >- (
+      impl_tac >- (
         disj1_tac >>
         imp_res_tac VFREE_IN_types_in >> fs[] >>
         simp[MEM_MAP,PULL_EXISTS] >>
@@ -1144,7 +1144,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
         qx_gen_tac`ty2`>>strip_tac >>
         first_x_assum(qspec_then`ty2`mp_tac) >>
         simp[] >>
-        discharge_hyps >- (
+        impl_tac >- (
           simp[Once relationTheory.RTC_CASES_RTC_TWICE] >>
           qexists_tac`Tyapp name args2` >>
           simp[subtype_Tyapp] >>
@@ -1175,7 +1175,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
         metis_tac[optionTheory.NOT_SOME_NONE] ) >>
       qspecl_then[`t`,`p`,`name`,`args2`]mp_tac subterm_typeof_types_in >>
       simp[] >>
-      discharge_hyps >- (
+      impl_tac >- (
         spose_not_then strip_assume_tac >>
         imp_res_tac updates_upd_DISJOINT >>
         imp_res_tac theory_ok_sig >>
@@ -1185,7 +1185,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
         metis_tac[] ) >>
       strip_tac >>
       first_x_assum(qspecl_then[`args2`,`ty2`]mp_tac) >> simp[] >>
-      discharge_hyps >- (
+      impl_tac >- (
         simp[MEM_MAP,PULL_EXISTS] >>
         metis_tac[] ) >>
       rw[MAP_MAP_o,combinTheory.o_DEF,typesem_def,ETA_AX] >>

@@ -543,7 +543,7 @@ val implies_set_theory = store_thm("implies_set_theory",
     qmatch_assum_rename_tac`INJ g _ (UNIV:'U set)` >>
     qabbrev_tac`s = IMAGE g UNIV` >>
     first_x_assum(qspec_then`s`mp_tac) >>
-    discharge_hyps >- (
+    impl_tac >- (
       simp[Abbr`s`] >>
       `(UNIV:num set) ≺ (UNIV:'U set)` by (
         simp[cardlt_lenoteq,cardleq_def] >>
@@ -620,7 +620,7 @@ val implies_set_theory = store_thm("implies_set_theory",
     fs[strong_limit_cardinal_def] >>
     `({}:'U set) ≺ (UNIV:'U set)` by ( simp[cardleq_def] ) >>
     last_assum(qspec_then`{}`mp_tac) >>
-    discharge_hyps >- rw[] >> strip_tac >>
+    impl_tac >- rw[] >> strip_tac >>
     `IMAGE g (POW {}) ≺ (UNIV:'U set)` by (
       match_mp_tac (INST_TYPE[beta|->``:'U set``]cardleq_lt_trans) >>
       qexists_tac`POW {}` >> simp[] ) >>

@@ -48,7 +48,7 @@ val termsem_exists = store_thm("termsem_exists",
   CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
   fs[interprets_def] >>
   first_x_assum(qspec_then`K(typesem (tyaof i) (tyvof v) y)`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[is_type_valuation_def] >>
     match_mp_tac(UNDISCH typesem_inhabited) >>
     metis_tac[is_interpretation_def,is_valuation_def] ) >>
@@ -96,7 +96,7 @@ val termsem_forall = store_thm("termsem_forall",
   CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
   fs[interprets_def] >>
   first_x_assum(qspec_then`K(typesem (tyaof i) (tyvof v) y)`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[is_type_valuation_def] >>
     match_mp_tac(UNDISCH typesem_inhabited) >>
     metis_tac[is_interpretation_def,is_valuation_def] ) >>
@@ -145,7 +145,7 @@ val termsem_implies = store_thm("termsem_implies",
   CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV(RAND_CONV EVAL)))) >>
   fs[interprets_def] >>
   first_x_assum(qspec_then`K boolset`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[is_type_valuation_def] >>
     metis_tac[boolean_in_boolset]) >>
   simp[] >> disch_then kall_tac >>
@@ -327,7 +327,7 @@ val wf_to_inner_fun_to_inner = store_thm("wf_to_inner_fun_to_inner",
   gen_tac >>
   qspecl_then[`f`,`ina (finv ina x)`,`range ina`,`range inb`]mp_tac
     (UNDISCH apply_abstract) >>
-  discharge_hyps >- (
+  impl_tac >- (
     imp_res_tac wf_to_inner_bij_thm >>
     fs[ext_def,BIJ_DEF,INJ_DEF] ) >>
   rw[] >>
@@ -620,7 +620,7 @@ val good_context_instance_equality = prove(
   EVAL_STRING_SORT >> simp[holSyntaxLibTheory.REV_ASSOCD] >>
   fs[is_std_interpretation_def,interprets_def] >>
   first_x_assum(qspec_then`(strlit"A"=+ typesem ^tyass ^tyval ty)(K boolset)`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
     reverse(rw[mem_boolset]) >- metis_tac[] >>
     qpat_assum`X = Y` (SUBST1_TAC o SYM) >>
@@ -636,10 +636,10 @@ val good_context_instance_equality = prove(
     match_mp_tac (UNDISCH abstract_in_funspace) >>
     simp[boolean_in_boolset] ) >>
   Q.ISPECL_THEN[`mem`,`bool_to_inner`,`ina`]mp_tac (GEN_ALL range_fun_to_inner) >>
-  discharge_hyps >- ( simp[wf_to_inner_bool_to_inner] ) >>
+  impl_tac >- ( simp[wf_to_inner_bool_to_inner] ) >>
   strip_tac >> simp[range_bool_to_inner] >>
   Q.ISPECL_THEN[`mem`,`bool_to_inner`,`ina`]mp_tac (GEN_ALL range_fun_to_inner) >>
-  discharge_hyps >- ( simp[wf_to_inner_bool_to_inner] ) >>
+  impl_tac >- ( simp[wf_to_inner_bool_to_inner] ) >>
   strip_tac >> simp[range_bool_to_inner] >>
   conj_tac >- (
     match_mp_tac (UNDISCH abstract_in_funspace) >>
@@ -767,7 +767,7 @@ val forall_thm = prove(
        (∀a. f (ina a) <: boolset)` by (
     simp[UNDISCH range_bool_to_inner,fun_to_inner_def,GSYM bool_to_inner_def] >>
     qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
-    discharge_hyps  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
+    impl_tac  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
     qexists_tac`f` >> simp[bool_to_inner_def] >>
     reverse conj_tac >- metis_tac[wf_to_inner_range_thm] >>
     match_mp_tac (UNDISCH abstract_eq) >>
@@ -776,12 +776,12 @@ val forall_thm = prove(
     imp_res_tac wf_to_inner_finv_right >>
     metis_tac[mem_boolset] ) >>
   Q.ISPEC_THEN`fun_to_inner ina Boolean`mp_tac wf_to_inner_finv_left >>
-  discharge_hyps >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner,bool_to_inner_def] >>
+  impl_tac >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner,bool_to_inner_def] >>
   simp[holds_def,GSYM bool_to_inner_def] >>
   disch_then kall_tac >>
   rw[EQ_IMP_THM] >- (
     first_x_assum(qspec_then`ina a`mp_tac) >>
-    discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+    impl_tac >- metis_tac[wf_to_inner_range_thm] >>
     simp[fun_to_inner_def] >>
     disch_then (SUBST1_TAC o SYM) >>
     match_mp_tac EQ_SYM >>
@@ -815,7 +815,7 @@ val exists_thm = prove(
        (∀a. f (ina a) <: boolset)` by (
     simp[UNDISCH range_bool_to_inner,fun_to_inner_def,GSYM bool_to_inner_def] >>
     qspecl_then[`x`,`range ina`,`boolset`]mp_tac (UNDISCH in_funspace_abstract) >>
-    discharge_hyps  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
+    impl_tac  >- metis_tac[inhabited_range,mem_boolset] >> rw[] >>
     qexists_tac`f` >> simp[bool_to_inner_def] >>
     reverse conj_tac >- metis_tac[wf_to_inner_range_thm] >>
     match_mp_tac (UNDISCH abstract_eq) >>
@@ -824,7 +824,7 @@ val exists_thm = prove(
     imp_res_tac wf_to_inner_finv_right >>
     metis_tac[mem_boolset] ) >>
   Q.ISPEC_THEN`fun_to_inner ina Boolean`mp_tac wf_to_inner_finv_left >>
-  discharge_hyps >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner,bool_to_inner_def] >>
+  impl_tac >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner,bool_to_inner_def] >>
   simp[holds_def,GSYM bool_to_inner_def] >>
   disch_then kall_tac >>
   rw[EQ_IMP_THM] >- (
@@ -897,20 +897,20 @@ val fun_to_inner_select = prove(
   simp[wf_to_inner_range_thm] >>
   simp[GSYM bool_to_inner_def] >>
   Q.ISPEC_THEN`bool_to_inner`mp_tac(Q.GEN`inb`range_fun_to_inner) >>
-  discharge_hyps >- metis_tac[wf_to_inner_bool_to_inner] >> rw[] >>
+  impl_tac >- metis_tac[wf_to_inner_bool_to_inner] >> rw[] >>
   AP_TERM_TAC >> AP_TERM_TAC >>
   qmatch_abbrev_tac`l = r` >>
   qsuff_tac`fun_to_inner ina bool_to_inner l = fun_to_inner ina bool_to_inner r` >- (
     `wf_to_inner (fun_to_inner ina bool_to_inner)` by metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner] >>
     fs[wf_to_inner_def,BIJ_DEF,INJ_DEF] ) >>
   Q.ISPEC_THEN`fun_to_inner ina bool_to_inner`mp_tac wf_to_inner_finv_right >>
-  discharge_hyps >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner] >>
+  impl_tac >- metis_tac[wf_to_inner_fun_to_inner,wf_to_inner_bool_to_inner] >>
   simp[range_fun_to_inner] >> disch_then(qspec_then`x`mp_tac) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   simp[Abbr`l`] >> disch_then kall_tac >>
   simp[Abbr`r`] >>
   Q.ISPECL_THEN[`x`,`range ina`,`range bool_to_inner`]mp_tac(UNDISCH in_funspace_abstract) >>
-  discharge_hyps >- ( metis_tac[inhabited_range,wf_to_inner_bool_to_inner] ) >>
+  impl_tac >- ( metis_tac[inhabited_range,wf_to_inner_bool_to_inner] ) >>
   rw[] >>
   simp[fun_to_inner_def] >>
   match_mp_tac (UNDISCH abstract_eq) >>
@@ -1019,7 +1019,7 @@ val select_model_exists = prove(
           (λp. select (HD ls) (Holds p)))``,
   rw[GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >>
   qspec_then`mk_eta_ctxt (mk_bool_ctxt init_ctxt)`mp_tac(UNDISCH select_has_model_gen) >>
-  discharge_hyps_keep >- (
+  impl_keep_tac >- (
     simp[eta_theory_ok] >>
     EVAL_TAC ) >>
   disch_then match_mp_tac >>
@@ -1090,7 +1090,7 @@ val extends_bool_interpretation = prove(
        metis_tac[base_tyval_def] ) >>
   fs[PULL_EXISTS,type_ok_def,FLOOKUP_UPDATE] >>
   first_x_assum(qspec_then`[]`mp_tac)>>
-  (discharge_hyps >- EVAL_TAC) >> rw[]) |> UNDISCH
+  (impl_tac >- EVAL_TAC) >> rw[]) |> UNDISCH
 
 val select_bool_interpretation = prove(
   ``is_set_theory ^mem ⇒
@@ -1272,11 +1272,11 @@ val hol_model_exists = prove(
   simp[RIGHT_EXISTS_IMP_THM] >> rpt strip_tac >>
   mp_tac (UNDISCH infinity_has_model_gen) >>
   disch_then(qspec_then`mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     conj_tac >- ACCEPT_TAC select_theory_ok >>
     EVAL_TAC ) >>
   disch_then(qspecl_then[`select_model select`,`range ind_to_inner`]mp_tac) >>
-  discharge_hyps >- (
+  impl_tac >- (
     conj_tac >- (
       Q.SPEC_THEN`select`(ACCEPT_TAC o CONJUNCT1 o CONJUNCT2 o UNDISCH)
       select_model_models ) >>
@@ -1334,7 +1334,7 @@ val tmaof_hol_model_select = prove(
      fun_to_inner (fun_to_inner a bool_to_inner) a $@)``,
   rw[] >> imp_res_tac hol_model_def >> fs[equal_on_def] >>
   first_x_assum(qspec_then`strlit"@"`mp_tac) >>
-  discharge_hyps >- EVAL_TAC >>
+  impl_tac >- EVAL_TAC >>
   disch_then(SUBST1_TAC) >>
   imp_res_tac select_model_def >>
   pop_assum SUBST1_TAC >> rw[] >>
@@ -1439,7 +1439,7 @@ val termsem_comb1_ax = store_thm("termsem_comb1_ax",
   simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
   Q.PAT_ABBREV_TAC`vvv:'U valuation = X Y` >>
   qspecl_then[`t`,`s`]mp_tac termsem_VSUBST >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`s`] >> metis_tac[term_ok_welltyped] ) >>
   simp[] >> disch_then kall_tac >>
   rw[termsem_def] >>
@@ -1480,7 +1480,7 @@ val termsem_comb1_ax = store_thm("termsem_comb1_ax",
     fs[satisfies_def] ) >>
   qmatch_assum_abbrev_tac`Abbrev(eq = l === r)` >>
   qspecl_then[`sigof ctxt`,`i`,`vv`,`l`,`r`]mp_tac (UNDISCH termsem_equation) >>
-  simp[] >> discharge_hyps_keep >- (
+  simp[] >> impl_keep_tac >- (
     fs[theory_ok_def] >>
     fs[is_structure_def,models_def] ) >>
   simp[boolean_eq_true,Abbr`l`,termsem_def] >>
@@ -1539,7 +1539,7 @@ val termsem_comb2_ax = store_thm("termsem_comb2_ax",
   simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
   Q.PAT_ABBREV_TAC`vvv:'U valuation = X Y` >>
   qspecl_then[`t`,`s`]mp_tac termsem_VSUBST >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`s`] >> metis_tac[term_ok_welltyped] ) >>
   simp[] >> disch_then kall_tac >>
   rw[termsem_def] >>
@@ -1584,7 +1584,7 @@ val termsem_comb2_ax = store_thm("termsem_comb2_ax",
     fs[satisfies_def] ) >>
   qmatch_assum_abbrev_tac`Abbrev(eq = l === r)` >>
   qspecl_then[`sigof ctxt`,`i`,`vv`,`l`,`r`]mp_tac (UNDISCH termsem_equation) >>
-  simp[] >> discharge_hyps_keep >- (
+  simp[] >> impl_keep_tac >- (
     fs[theory_ok_def] >>
     fs[is_structure_def,models_def] ) >>
   simp[boolean_eq_true,Abbr`l`,termsem_def] >>
@@ -1670,7 +1670,7 @@ val termsem_comb3_ax = store_thm("termsem_comb3_ax",
   simp[SIMP_RULE std_ss [] (Q.SPEC`sigof ctxt`termsem_INST)] >>
   Q.PAT_ABBREV_TAC`vvv:'U valuation = X Y` >>
   qspecl_then[`t`,`s`]mp_tac termsem_VSUBST >>
-  discharge_hyps >- (
+  impl_tac >- (
     simp[Abbr`s`] >> metis_tac[term_ok_welltyped] ) >>
   simp[] >> disch_then kall_tac >>
   rw[termsem_def] >>
@@ -1721,7 +1721,7 @@ val termsem_comb3_ax = store_thm("termsem_comb3_ax",
     fs[satisfies_def] ) >>
   qmatch_assum_abbrev_tac`Abbrev(eq = l === r)` >>
   qspecl_then[`sigof ctxt`,`i`,`vv`,`l`,`r`]mp_tac (UNDISCH termsem_equation) >>
-  simp[] >> discharge_hyps_keep >- (
+  simp[] >> impl_keep_tac >- (
     fs[theory_ok_def] >>
     fs[is_structure_def,models_def] ) >>
   simp[boolean_eq_true,Abbr`l`,termsem_def] >>
@@ -1911,7 +1911,7 @@ val good_context_extend = store_thm("good_context_extend",
   (* qspecl_then[`ctxt`,`upd`,`i0`,`δ`,`v0,v1`]mp_tac update_valuation_def >> *)
   simp[] >>
   (*
-  discharge_hyps >- (
+  impl_tac >- (
     conj_tac >- ( fs[equal_on_def] ) >>
     fs[models_def,is_interpretation_def] ) >>
   *)
@@ -2059,7 +2059,7 @@ fun use_termsem_equation (g as (asl,w)) =
       |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
   in
     mp_tac th >>
-    discharge_hyps >- (
+    impl_tac >- (
       conj_tac >- (
         simp[is_structure_def] >>
         fs[models_def] >>
@@ -2092,7 +2092,7 @@ fun use_termsem_forall (g as (asl,w)) =
       |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
   in
     mp_tac th >>
-    discharge_hyps >- (
+    impl_tac >- (
       conj_tac >- simp[] >>
       conj_tac >- fs[models_def] >>
       conj_tac >- fs[models_def] >>
@@ -2118,7 +2118,7 @@ fun use_termsem_exists (g as (asl,w)) =
       |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
   in
     mp_tac th >>
-    discharge_hyps >- (
+    impl_tac >- (
       conj_tac >- simp[] >>
       conj_tac >- fs[models_def] >>
       conj_tac >- fs[models_def] >>
@@ -2143,7 +2143,7 @@ fun use_termsem_implies (g as (asl,w)) =
       |> CONV_RULE(DEPTH_CONV(REWR_CONV hol_of_sigof))
   in
     mp_tac th >>
-    discharge_hyps >- (
+    impl_tac >- (
       conj_tac >- simp[] >>
       conj_tac >- fs[models_def] >>
       conj_tac >- fs[models_def,is_std_interpretation_def] >>
@@ -2175,7 +2175,7 @@ val one_one_thm = prove(
   mp_tac hol_model_models >>
   simp[models_def] >> strip_tac >>
   first_x_assum(mp_tac o SPEC (term_to_deep (concl ONE_ONE_DEF))) >>
-  discharge_hyps >- EVAL_TAC >>
+  impl_tac >- EVAL_TAC >>
   simp[equation_intro] >>
   simp[satisfies_def] >>
   Q.PAT_ABBREV_TAC`i = hol_model X Y` >>
@@ -2185,9 +2185,9 @@ val one_one_thm = prove(
     simp[Abbr`τ`,is_type_valuation_def] >> rw[] >>
     metis_tac[inhabited_range] ) >>
   qspecl_then[`tysof hol_ctxt`,`tyaof i`,`τ`]mp_tac (UNDISCH term_valuation_exists) >>
-  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+  impl_tac >- fs[is_interpretation_def] >> strip_tac >>
   disch_then(qspec_then`τ,σ`mp_tac) >>
-  discharge_hyps >- fs[] >>
+  impl_tac >- fs[] >>
   qunabbrev_tac`tm` >>
   use_termsem_equation >>
   simp[boolean_eq_true] >>
@@ -2270,7 +2270,7 @@ val one_one_thm = prove(
     simp[Abbr`v`,APPLY_UPDATE_THM] >>
     ntac 6 (pop_assum kall_tac) >>
     qspecl_then[`x`,`range ina`,`range inb`]mp_tac(UNDISCH in_funspace_abstract) >>
-    discharge_hyps >- simp[] >> strip_tac >>
+    impl_tac >- simp[] >> strip_tac >>
     BasicProvers.VAR_EQ_TAC >>
     `∃g. Abstract (range ina) (range inb) f =
          Abstract (range ina) (range inb) (λx. inb (g (finv ina x)))` by (
@@ -2280,15 +2280,15 @@ val one_one_thm = prove(
       metis_tac[wf_to_inner_finv_left,wf_to_inner_finv_right,wf_to_inner_range_thm] ) >>
     pop_assum SUBST1_TAC >>
     qspecl_then[`ina`,`inb`]mp_tac(UNDISCH wf_to_inner_fun_to_inner) >>
-    discharge_hyps >- simp[] >>
+    impl_tac >- simp[] >>
     disch_then(assume_tac o MATCH_MP (wf_to_inner_finv_left)) >>
     simp[GSYM fun_to_inner_def] >>
     simp[fun_to_inner_def] >>
     use_apply_abstract >> simp[] >>
-    discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+    impl_tac >- metis_tac[wf_to_inner_range_thm] >>
     disch_then SUBST1_TAC >>
     use_apply_abstract >> simp[] >>
-    discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+    impl_tac >- metis_tac[wf_to_inner_range_thm] >>
     disch_then SUBST1_TAC >>
     qspec_then`ina`mp_tac wf_to_inner_finv_left >>
     simp[] >> disch_then kall_tac >>
@@ -2314,7 +2314,7 @@ val onto_thm = prove(
   mp_tac hol_model_models >>
   simp[models_def] >> strip_tac >>
   first_x_assum(mp_tac o SPEC (term_to_deep (concl ONTO_DEF))) >>
-  discharge_hyps >- EVAL_TAC >>
+  impl_tac >- EVAL_TAC >>
   simp[equation_intro] >>
   simp[satisfies_def] >>
   Q.PAT_ABBREV_TAC`i = hol_model X Y` >>
@@ -2324,9 +2324,9 @@ val onto_thm = prove(
     simp[Abbr`τ`,is_type_valuation_def] >> rw[] >>
     metis_tac[inhabited_range] ) >>
   qspecl_then[`tysof hol_ctxt`,`tyaof i`,`τ`]mp_tac (UNDISCH term_valuation_exists) >>
-  discharge_hyps >- fs[is_interpretation_def] >> strip_tac >>
+  impl_tac >- fs[is_interpretation_def] >> strip_tac >>
   disch_then(qspec_then`τ,σ`mp_tac) >>
-  discharge_hyps >- fs[] >>
+  impl_tac >- fs[] >>
   qunabbrev_tac`tm` >>
   use_termsem_equation >>
   simp[boolean_eq_true] >>
@@ -2403,7 +2403,7 @@ val onto_thm = prove(
   simp[Abbr`v`,APPLY_UPDATE_THM] >>
   ntac 6 (pop_assum kall_tac) >>
   qspecl_then[`x`,`range ina`,`range inb`]mp_tac(UNDISCH in_funspace_abstract) >>
-  discharge_hyps >- simp[] >> strip_tac >>
+  impl_tac >- simp[] >> strip_tac >>
   BasicProvers.VAR_EQ_TAC >>
   `∃g. Abstract (range ina) (range inb) f =
        Abstract (range ina) (range inb) (λx. inb (g (finv ina x)))` by (
@@ -2413,12 +2413,12 @@ val onto_thm = prove(
     metis_tac[wf_to_inner_finv_left,wf_to_inner_finv_right,wf_to_inner_range_thm] ) >>
   pop_assum SUBST1_TAC >>
   qspecl_then[`ina`,`inb`]mp_tac(UNDISCH wf_to_inner_fun_to_inner) >>
-  discharge_hyps >- simp[] >>
+  impl_tac >- simp[] >>
   disch_then(assume_tac o MATCH_MP (wf_to_inner_finv_left)) >>
   simp[GSYM fun_to_inner_def] >>
   simp[fun_to_inner_def] >>
   use_apply_abstract >> simp[] >>
-  discharge_hyps >- metis_tac[wf_to_inner_range_thm] >>
+  impl_tac >- metis_tac[wf_to_inner_range_thm] >>
   disch_then SUBST1_TAC >>
   qspec_then`ina`mp_tac wf_to_inner_finv_left >>
   simp[] >> disch_then kall_tac >>
