@@ -263,7 +263,7 @@ val extends_is_bool_interpretation = store_thm("extends_is_bool_interpretation",
     imp_res_tac theory_ok_sig >> rfs[] >>
     `∃x y z. thyof ctxt2 = ((x,y),z)` by metis_tac[pairTheory.PAIR] >>
     fs[] >>
-    CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(can(match_term``i models A``)))) >>
+    CONV_TAC(STRIP_QUANT_CONV(move_conj_left(can(match_term``i models A``)))) >>
     first_assum(match_exists_tac o concl) >> simp[] >> fs[] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     imp_res_tac extends_sub >> fs[] >>
