@@ -30,4 +30,19 @@ signature reflectionLib = sig include Abbrev
   val to_inner_prop : (hol_type,hol_type)Lib.subst -> hol_type -> term
   val base_types_of_term : term -> hol_type list
   val base_terms_of_term : term -> term list
+
+  val prove_wf_to_inner : hol_type -> thm
+
+  (*
+  datatype axiomatic_update =
+    NewType of thm (* |- TYPE_DEFINITION abs rep *)
+  | NewConstant of term (* the constant *)
+  | NewAxiom of thm
+
+
+  val build_axiomatic_interpretation :
+    axiomatic_update list ->
+    hol_type list -> term list -> interpretation_cert
+  *)
+
 end

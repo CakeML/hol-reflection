@@ -1,4 +1,5 @@
 structure reflectionLib :> reflectionLib = struct
+
 open preamble listSimps stringSimps listLib optionLib pairLib
 open numSyntax pairSyntax stringSyntax listSyntax holSyntaxSyntax
 open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
@@ -1885,5 +1886,58 @@ fun prop_to_loeb_hyp0 res =
   end
 
 fun prop_to_loeb_hyp ctxt tm = prop_to_loeb_hyp0 (termsem_cert ctxt tm)
+
+val wf_to_inners = ref (Redblackmap.mkDict Type.compare : (hol_type, thm) Redblackmap.dict)
+
+val TD_tm = prim_mk_const{Thy="bool",Name="TYPE_DEFINITION"}
+val TD1_tm = TD_tm |> type_of |> dom_rng |> #1 |> genvar |> (fn v => mk_comb(TD_tm,v))
+
+fun get_TYPE_DEFINITION {Thy,Tyop,Args} =
+  let
+    val n = List.length Args
+    val args = List.tabulate(n,(fn _ => gen_tyvar()))
+    val ty0 = mk_thy_type{Thy=Thy,Tyop=Tyop,Args=args}
+    val abs = genvar(ty0 --> (gen_tyvar()))
+    val (_,(th0,_))::_ = DB.match [] (mk_icomb(TD1_tm,abs))
+    val args_from_thm =
+      th0 |> concl |> boolSyntax.dest_exists |> #1
+      |> type_of |> dom_rng |> #1 |> dest_type |> #2
+  in
+    INST_TYPE (map2 (curry (op |->)) args_from_thm Args) th0
+  end
+
+local
+  val fun_th = wf_to_inner_fun_to_inner |> UNDISCH
+in
+fun prove_wf_to_inner ty =
+  Redblackmap.find (!wf_to_inners, ty)
+  handle Redblackmap.NotFound =>
+  let val th =
+    case any_type_view ty of
+      BoolType => UNDISCH_ALL wf_to_inner_bool_to_inner
+    | FunType(x,y) =>
+      let
+        val th1 = prove_wf_to_inner x
+        val th2 = prove_wf_to_inner y
+      in
+        MATCH_MP fun_th (CONJ th1 th2)
+      end
+    | BaseType (Tyapp("min","ind",[])) => ASSUME (to_inner_prop [] ``:ind``)
+    | BaseType (Tyvar _) => ASSUME (to_inner_prop [] ty)
+    | BaseType (Tyapp(thy,tyop,args)) =>
+      let
+        val _ = (print tyop; print " ")
+        val TD = get_TYPE_DEFINITION{Thy=thy,Tyop=tyop,Args=args}
+        val th = MATCH_MP wf_to_inner_TYPE_DEFINITION TD
+        val repth =
+          TD |> concl |> boolSyntax.dest_exists |> #1
+          |> type_of |> dom_rng |> #2
+          |> prove_wf_to_inner
+      in
+        MATCH_MP th repth
+        |> SPEC(type_to_deep ty)
+      end
+  in th before wf_to_inners := Redblackmap.insert (!wf_to_inners,ty,th) end
+end
 
 end

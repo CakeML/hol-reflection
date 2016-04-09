@@ -1261,6 +1261,22 @@ val wf_to_inner_defined_type = save_thm("wf_to_inner_defined_type",
   match_mp_tac wf_to_inner_can_be_tagged >>
   rw[]) |> UNDISCH)
 
+val wf_to_inner_TYPE_DEFINITION = save_thm("wf_to_inner_TYPE_DEFINITION",
+  prove(
+  ``is_set_theory ^mem ⇒
+    (∃(rep:α -> β). TYPE_DEFINITION P rep) ⇒
+     ∀tya tyb_to_inner.
+     wf_to_inner (tyb_to_inner:β -> 'U) ⇒
+     wf_to_inner ((to_inner tya):α -> 'U)``,
+  rw[]
+  \\ match_mp_tac (MP_CANON wf_to_inner_defined_type)
+  \\ fs[boolTheory.TYPE_DEFINITION]
+  \\ qexists_tac`finv rep`
+  \\ qexists_tac`rep`
+  \\ qexists_tac`tyb_to_inner`
+  \\ rw[finv_def]
+  \\ metis_tac[]) |> UNDISCH);
+
 val hol_model_exists = prove(
   ``∃i. ∀^mem select ind_to_inner.
         is_set_theory ^mem ∧ good_select select ∧ wf_to_inner (ind_to_inner:ind->'U) ⇒
