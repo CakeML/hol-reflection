@@ -2611,4 +2611,19 @@ val tycon_cert_thm = prove(
 val _ = save_thms ["bool_cert_thm", "fun_cert_thm", "tyvar_cert_thm", "tycon_cert_thm"]
                   [ bool_cert_thm,   fun_cert_thm,   tyvar_cert_thm,   tycon_cert_thm ]
 
+val mk_type_assignment_def = xDefine"mk_type_assignment"`
+  mk_type_assignment0 ^mem ls name args =
+    case(name,args) of
+    | (strlit"fun",[dom;rng]) => Funspace dom rng
+    | (strlit"bool",[]) => boolset
+    | _ => case ALOOKUP ls (name,args) of NONE => One | SOME v => v`;
+val _ = overload_on("mk_type_assignment",``mk_type_assignment0 ^mem``);
+
+(*
+val mk_term_assignment_def = xDefine"mk_term_assignment"`
+  mk_term_assignment0 ^mem
+
+  want to bottom out at hol_model or something like it...
+*)
+
 val _ = export_theory()

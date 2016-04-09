@@ -1940,4 +1940,31 @@ fun prove_wf_to_inner ty =
   in th before wf_to_inners := Redblackmap.insert (!wf_to_inners,ty,th) end
 end
 
+(*
+val th = INST_TYPE[alpha|->``:num``,beta|->``:bool``]MAP
+val ty = hd tys
+*)
+
+(*
+fun build_axiomatic_interpretation th =
+  let
+    val ptm = concl th
+    val tys = base_types_of_term ptm
+    val tms = base_terms_of_term ptm
+    fun mapthis ty =
+      let
+        val (tyop,args) = dest_type ty
+      in
+        mk_pair(
+          mk_pair(string_to_inner tyop, listSyntax.mk_list(map (mk_range []) args, universe_ty)),
+          mk_range [] ty)
+      end
+    val mk_type_assignment_tm = ``reflection$mk_type_assignment``
+    val tyass_tm = mk_comb(mk_type_assignment_tm,
+                           listSyntax.mk_list(List.map mapthis tys,
+                             listSyntax.dest_list_type(#1(dom_rng(type_of mk_type_assignment_tm)))))
+    val tmass_tm =
+    val int_tm =
+*)
+
 end
