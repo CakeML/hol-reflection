@@ -3,6 +3,7 @@ open basicReflectionLib
 open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
 open holBoolSyntaxTheory holBoolTheory holExtensionTheory holConsistencyTheory holAxiomsSyntaxTheory holAxiomsTheory
 open holConstrainedExtensionTheory
+local open holSyntaxLib in end
 
 val _ = temp_tight_equality()
 val _ = new_theory"reflection"
@@ -2611,19 +2612,79 @@ val tycon_cert_thm = prove(
 val _ = save_thms ["bool_cert_thm", "fun_cert_thm", "tyvar_cert_thm", "tycon_cert_thm"]
                   [ bool_cert_thm,   fun_cert_thm,   tyvar_cert_thm,   tycon_cert_thm ]
 
-val mk_type_assignment_def = xDefine"mk_type_assignment"`
-  mk_type_assignment0 ^mem ls name args =
-    case(name,args) of
-    | (strlit"fun",[dom;rng]) => Funspace dom rng
-    | (strlit"bool",[]) => boolset
-    | _ => case ALOOKUP ls (name,args) of NONE => One | SOME v => v`;
-val _ = overload_on("mk_type_assignment",``mk_type_assignment0 ^mem``);
-
 (*
-val mk_term_assignment_def = xDefine"mk_term_assignment"`
-  mk_term_assignment0 ^mem
+val mk_constrained_type_assignment_def = xDefine"mk_constrained_type_assignment"`
+  mk_constrained_type_assignment0 ^mem ind_to_inner ls name args =
+    TODO: lookup by name first, to ensure you catch things in your signature but not in hol_model's signature, and send the unconstrained ones to a good thing
+    if (name=strlit"bool" ∧ LENGTH args = 0) ∨
+       (name=strlit"fun" ∧ LENGTH args = 2)
+    then tyaof (hol_model base_select ind_to_inner) name args
+    else
+    case ALOOKUP ls (name,args) of
+    | SOME v => v
+    | NONE => tyaof (hol_model base_select ind_to_inner) name args`;
+val _ = overload_on("mk_constrained_type_assignment",``mk_constrained_type_assignment0 ^mem``);
 
-  want to bottom out at hol_model or something like it...
+val mk_constrained_term_assignment_def = xDefine"mk_constrained_term_assignment"`
+  mk_constrained_term_assignment0 ^mem ind_to_inner ls name args =
+    if (name=strlit"=" ∧ LENGTH args = 1)
+    then tmaof (hol_model base_select ind_to_inner) name args
+    else
+    (case ALOOKUP ls (name,args) of
+     | SOME v => v
+     | NONE => tmaof (hol_model base_select ind_to_inner) name args)`;
+val _ = overload_on("mk_constrained_term_assignment",``mk_constrained_term_assignment0 ^mem``);
+
+val mk_constrained_interpretation_def = xDefine"mk_constrained_interpretation"`
+  mk_constrained_interpretation0 ^mem ind_to_inner (tys,tms) =
+    (mk_constrained_type_assignment0 mem ind_to_inner tys,
+     mk_constrained_term_assignment0 mem ind_to_inner tms)`;
+val _ = overload_on("mk_constrained_interpretation",``mk_constrained_interpretation0 ^mem``);
+
+val gcbc = MATCH_MP good_context_base_case (UNDISCH good_select_base_select)
+
+val good_context_mk_constrained_interpretation =
+  prove(
+  `is_set_theory ^mem ⇒
+   wf_to_inner ind_to_inner ⇒
+    is_std_sig sig ∧
+    EVERY inhabited (MAP SND tys) ∧
+    EVERY (λ((name,args),v).
+              ∃ty. FLOOKUP (tmsof sig) name = SOME ty ∧
+                   LENGTH (tyvars ty) = LENGTH args ∧
+                   ∀τ. is_type_valuation τ ⇒
+                       v <: typesem (tyaof (mk_constrained_interpretation ind_to_inner (tys,tms)))
+                              (τ =++ ZIP(MAP implode (STRING_SORT (MAP explode (tyvars ty))),args))
+                              ty)
+          tms
+   ⇒ good_context ^mem sig (mk_constrained_interpretation ind_to_inner (tys,tms))`,
+  PairCases_on`sig`
+  \\ reverse(rw[good_context_def,mk_constrained_interpretation_def])
+  >- (
+    rw[is_std_interpretation_def,is_std_type_assignment_def,
+       mk_constrained_type_assignment_def,mk_constrained_term_assignment_def,
+       interprets_def]
+    \\ assume_tac gcbc
+    \\ fs[good_context_unpaired,is_std_interpretation_def,is_std_type_assignment_def,interprets_def] )
+  \\ rw[is_interpretation_def,is_type_assignment_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP]
+  >- (
+    rw[mk_constrained_type_assignment_def]
+    \\ TRY CASE_TAC \\ rw[]
+    \\ assume_tac gcbc
+    \\ fs[good_context_unpaired,is_type_assignment_def,is_interpretation_def,
+          FEVERY_ALL_FLOOKUP,is_std_interpretation_def,is_std_type_assignment_def,
+          LENGTH_NIL]
+    >- metis_tac[mem_boolset]
+    >- (
+      fs[quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ metis_tac[inhabited
+      max_print_depth := 15
+
+  rw[is_type_assignment_def,FEVERY_ALL_FLOOKUP,mk_constrained_type_assignment_def]
+  \\ reverse CASE_TAC >- (
+    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+    \\ metis_tac[ALOOKUP_MEM] )
+\\ is_interpretation_ho
 *)
 
 val _ = export_theory()

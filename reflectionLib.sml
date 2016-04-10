@@ -1940,6 +1940,17 @@ fun prove_wf_to_inner ty =
   in th before wf_to_inners := Redblackmap.insert (!wf_to_inners,ty,th) end
 end
 
+val ranges_distincts = ref (Redblackmap.mkDict (Lib.pair_compare(Type.compare,Type.compare))
+                                : (hol_type * hol_type, thm) Redblackmap.dict)
+
+fun prove_ranges_distinct ty1 ty2 =
+  Redblackmap.find (!ranges_distincts, (ty1,ty2))
+  handle Redblackmap.NotFound =>
+  let val th = ranges_distinct [] ty1 ty2
+             |> PROVE_HYP (prove_wf_to_inner ty1)
+             |> PROVE_HYP (prove_wf_to_inner ty2)
+  in th before ranges_distincts := Redblackmap.insert (!ranges_distincts,(ty1,ty2),th) end
+
 (*
 val th = INST_TYPE[alpha|->``:num``,beta|->``:bool``]MAP
 val ty = hd tys
