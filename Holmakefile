@@ -1,5 +1,5 @@
 ifndef CAKEMLDIR
-CAKEMLDIR = ../vml
+CAKEMLDIR = $HOME/cakeml
 endif
 
 HOLHOL = $(CAKEMLDIR)/candle

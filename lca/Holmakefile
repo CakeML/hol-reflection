@@ -1,8 +1,8 @@
-ifndef VMLDIR
-VMLDIR = ../vml
+ifndef CAKEMLDIR
+CAKEMLDIR = $HOME/cakeml
 endif
 
-HOLHOL = $(VMLDIR)/hol-light
+HOLHOL = $(CAKEMLDIR)/candle
 INCLUDES = .. $(HOLDIR)/examples/set-theory/hol_sets
 OPTIONS = QUIT_ON_FAILURE
 
