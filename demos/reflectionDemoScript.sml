@@ -18,7 +18,7 @@ val prod_updates_thm = prove(
   match_mp_tac (updates_rules |> CONJUNCTS |> el 5) >>
   exists_tac(term_to_deep``λa b. (a=x) ∧ (b=y)``) >>
   conj_tac >- (
-      TextIO.openIn("lca/opentheory/prodWitness.art")
+      TextIO.openIn("../lca/opentheory/prodWitness.art")
       |> readArticle hol_ctxt_reader
       |> Net.listItems
       |> hd |> ACCEPT_TAC ) >>

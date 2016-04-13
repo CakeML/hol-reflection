@@ -1,0 +1,25 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/cakeml
+endif
+
+HOLHOL = $(CAKEMLDIR)/candle
+INCLUDES = $(CAKEMLDIR) $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics $(HOLDIR)/examples/countable $(HOLDIR)/examples/set-theory/hol_sets .. ../lca
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
+BARE_THYS = $(HOLDIR)/examples/set-theory/hol_sets/ordinalTheory $(HOLHOL)/syntax-lib/holSyntaxLibTheory $(HOLHOL)/set-theory/setSpecTheory $(HOLHOL)/standard/syntax/holAxiomsSyntaxTheory ../reflectionTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
