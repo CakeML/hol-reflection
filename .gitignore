@@ -1,4 +1,5 @@
 .HOLMK
+.hollogs
 *Theory.sig
 *Theory.sml
 heap
