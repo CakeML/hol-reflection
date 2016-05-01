@@ -2000,15 +2000,75 @@ in
     end
 end
 
-(*
 fun prove_types_ok distinct_tys tys tms =
   let
     val is_std_sig = MATCH_MP NewTypes_ctxt_extends_hol_ctxt distinct_tys
-    |> MATCH_MP is_std_sig_extends
-    |> hol_is_std_sig
-    val (EVAL_type_ok,_) = EVAL_type_ok_term_ok
-    val P = ``type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt))``
-*)
+                     |> MATCH_MP is_std_sig_extends
+                     |> C MATCH_MP hol_is_std_sig
+    val (EVAL_type_ok,_) = EVAL_type_ok_term_ok EVAL is_std_sig
+    val (tmsl,tmsy) = listSyntax.dest_list tms
+    val P = typedTerm`(type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt)) o FST o SND)`(tmsy-->bool)
+    (* val tmel = el 1 tmsl *)
+    fun prove_P tmel =
+      mk_comb(P,tmel)
+      |> (REWR_CONV o_THM THENC
+          RAND_CONV (REWR_CONV o_THM) THENC
+          RAND_CONV (RAND_CONV (REWR_CONV SND)) THENC
+          RAND_CONV (REWR_CONV FST) THENC
+          RATOR_CONV (RAND_CONV (REWR_CONV (SYM (CONJUNCT1 of_sigof_rwt))))
+          THENC EVAL_type_ok)
+      |> EQT_ELIM
+  in
+    join_EVERY P (map prove_P tmsl)
+  end
+
+local
+  val (ALL_DISTINCT_NIL,ALL_DISTINCT_CONS) = CONJ_PAIR ALL_DISTINCT
+  val AND_CLAUSES_TX = AND_CLAUSES |> SPEC_ALL |> CONJUNCT1
+  val NOT_CLAUSES_F = NOT_CLAUSES |> CONJUNCTS |> last
+in
+  fun ALL_DISTINCT_CONV distinct_conv =
+    let
+      fun conv tm = tm |>
+        ((REWR_CONV ALL_DISTINCT_NIL) ORELSEC
+         (REWR_CONV ALL_DISTINCT_CONS
+          THENC (FORK_CONV
+                  (RAND_CONV (IS_EL_CONV distinct_conv)
+                   THENC (REWR_CONV NOT_CLAUSES_F),
+                  conv))
+          THENC (REWR_CONV AND_CLAUSES_TX)))
+    in conv end
+end
+
+fun ranges_distinct_conv equ =
+  let
+    val (l,r) = dest_eq equ
+    val th = prove_ranges_distinct
+              (l |> rand |> type_of |> dom_rng |> #1)
+              (r |> rand |> type_of |> dom_rng |> #1)
+  in
+    EQF_INTRO th
+  end
+
+fun prove_disjoint tys =
+  let
+    val (tysl,tysy) = listSyntax.dest_list tys
+    val P = typedTerm`((ALL_DISTINCT o MAP FST) o SND o SND)`(tysy --> bool)
+    (* val tyel = el 2 tysl *)
+    fun prove_P tyel =
+      mk_comb(P,tyel)
+      |> (REWR_CONV o_THM
+          THENC (RAND_CONV (REWR_CONV o_THM)
+                 THENC (RAND_CONV (RAND_CONV (REWR_CONV SND)))
+                 THENC (RAND_CONV (REWR_CONV SND))
+                 THENC (REWR_CONV o_THM)
+                 THENC (RAND_CONV (MAP_CONV (REWR_CONV FST))))
+          THENC (ALL_DISTINCT_CONV (list_EQ_CONV ranges_distinct_conv)))
+      |> ADD_ASSUM is_set_theory_mem (* in case it's not there already, don't want join_EVERY to rename mem *)
+      |> EQT_ELIM
+  in
+    join_EVERY P (map prove_P tysl)
+  end
 
 (*
 example:
@@ -2031,6 +2091,9 @@ val tms = ``[(^name0,^ty0,[([],^(mk_comb(mk_to_inner[]``:num``,``0n``)))]);
 val distinct_tys = prove_distinct_tys tys
 val distinct_tms = prove_distinct_tms tms
 val inhabited_tys = prove_inhabited_tys tys
+val types_ok = prove_types_ok distinct_tys tys tms
+val disjoint_tys = prove_disjoint tys
+val disjoint_tms = prove_disjoint tms
 
 *)
 

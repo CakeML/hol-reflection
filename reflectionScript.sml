@@ -2070,6 +2070,10 @@ val hol_is_bool_sig = store_thm("hol_is_bool_sig",
   match_mp_tac bool_has_bool_sig >>
   ACCEPT_TAC (MATCH_MP theory_ok_sig init_theory_ok |> SIMP_RULE std_ss[]))
 
+val hol_is_std_sig = Q.store_thm("hol_is_std_sig",
+  `is_std_sig (sigof hol_ctxt)`,
+  metis_tac[hol_is_bool_sig,is_bool_sig_std]);
+
 fun use_termsem_equation (g as (asl,w)) =
   let
     val tm = find_term(can(match_term``termsem s i v (a === b)``)) w
@@ -2641,7 +2645,7 @@ val distinct_tms = ``ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt ^tms ++ h
 val disjoint_tys = ``EVERY ((ALL_DISTINCT o MAP FST) o SND o SND) ^tys``
 val disjoint_tms = ``EVERY ((ALL_DISTINCT o MAP FST) o SND o SND) ^tms``
 val inhabited_tys = ``EVERY (EVERY (inhabited o SND) o SND o SND) ^tys``
-val types_ok = ``EVERY (type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt))) (MAP (FST o SND) ^tms)``
+val types_ok = ``EVERY (type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt)) o FST o SND) ^tms``
 val _ = overload_on("intype",``λδ ty (args,u).
         u <: typesem δ ((K boolset) =++ ZIP (mlstring_sort (tyvars ty),args)) ty``);
 (*  - ... constrained constant values in appropriate typesem ...  *)
@@ -2694,7 +2698,7 @@ val NewTypes_ctxt_extends_hol_ctxt = Q.store_thm("NewTypes_ctxt_extends_hol_ctxt
 val NewConsts_ctxt_extends = Q.store_thm("NewConsts_ctxt_extends",
   `∀tms ctxt.
    ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt tms ++ ctxt))) ∧
-   EVERY (type_ok (tysof ctxt)) (MAP (FST o SND) tms)
+   EVERY (type_ok (tysof ctxt) o FST o SND) tms
    ⇒
    NewConsts_ctxt tms ++ ctxt extends ctxt`,
   simp[NewConsts_ctxt_def]
@@ -2808,7 +2812,7 @@ val is_term_assignment_ax_tmass = Q.store_thm("is_term_assignment_ax_tmass",
    is_type_assignment (tysof ctxt) δ ∧
    const_list ctxt = const_list hol_ctxt ∧
    (∀name. name ∈ FDOM (tysof hol_ctxt) ⇒ δ name = tyaof (hol_model select (to_inner Ind)) name) ∧
-   EVERY (type_ok (tysof ctxt)) (MAP (FST o SND) tms) ∧
+   EVERY (type_ok (tysof ctxt) o FST o SND) tms ∧
    EVERY (λ(name,ty,cs). EVERY (intype δ ty) cs) tms
    ⇒
    is_term_assignment (tmsof (NewConsts_ctxt tms ++ ctxt)) δ (ax_tmass select δ tms)`,
