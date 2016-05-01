@@ -1951,9 +1951,87 @@ fun prove_ranges_distinct ty1 ty2 =
              |> PROVE_HYP (prove_wf_to_inner ty2)
   in th before ranges_distincts := Redblackmap.insert (!ranges_distincts,(ty1,ty2),th) end
 
+fun prove_distinct_tys tys =
+  EVAL``ALL_DISTINCT (MAP FST (type_list (NewTypes_ctxt ^tys ++ hol_ctxt)))``
+  |> EQT_ELIM
+
+fun prove_distinct_tms tms =
+  EVAL``ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt ^tms ++ hol_ctxt)))``
+  |> EQT_ELIM
+
+local
+  val P1 = ``(EVERY (inhabited o SND) o SND o SND) : mlstring # num # ('U list # 'U) list -> bool``
+  val P2 = P1 |> rator |> rand |> rand
+in
+  fun prove_inhabited_tys tys =
+    let
+      val (tysl,_) = listSyntax.dest_list tys
+      (*
+      val tyel = tysl |> el 1
+      val (cs,_) = tyel |> pairSyntax.strip_pair |> last |> listSyntax.dest_list
+      val csel = cs |> el 1
+      *)
+      fun prove_P2 csel =
+        let
+          val wf_to_inner_thm =
+            prove_wf_to_inner(csel |> rand |> rand |> type_of |> dom_rng |> #1)
+          val inhab = MATCH_MP inhabited_range wf_to_inner_thm
+        in
+          mk_comb(P2,csel)
+          |> (REWR_CONV o_THM THENC BETA_CONV
+              THENC QUANT_CONV (RAND_CONV (REWR_CONV SND)))
+          |> SYM |> C EQ_MP inhab
+        end
+      fun prove_P1 tyel =
+        let
+          val (cs,_) = tyel |> pairSyntax.strip_pair |> last |> listSyntax.dest_list
+          val csths = map prove_P2 cs
+          val EVERY_cs = join_EVERY P2 csths
+        in
+          mk_comb(P1,tyel)
+          |> (REWR_CONV o_THM THENC
+              RAND_CONV (REWR_CONV o_THM) THENC
+              RAND_CONV (RAND_CONV (REWR_CONV SND)) THENC
+              RAND_CONV (REWR_CONV SND))
+          |> SYM |> C EQ_MP EVERY_cs
+        end
+    in
+      join_EVERY P1 (map prove_P1 tysl)
+    end
+end
+
 (*
-val th = INST_TYPE[alpha|->``:num``,beta|->``:bool``]MAP
-val ty = hd tys
+fun prove_types_ok distinct_tys tys tms =
+  let
+    val is_std_sig = MATCH_MP NewTypes_ctxt_extends_hol_ctxt distinct_tys
+    |> MATCH_MP is_std_sig_extends
+    |> hol_is_std_sig
+    val (EVAL_type_ok,_) = EVAL_type_ok_term_ok
+    val P = ``type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt))``
+*)
+
+(*
+example:
+
+val inner_num = mk_range [] ``:num``
+val inner_bool = mk_range [] ``:bool``
+
+val tys = ``[(strlit"num",0n,[([],^inner_num)]);
+             (strlit"list",1,
+                [([^inner_num],^(mk_range[]``:num list``));
+                 ([^inner_bool],^(mk_range[]``:bool list``))])]``;
+
+val [name0,ty0] = strip_comb(term_to_deep``0n``) |> #2
+val [namenil,tynil] = strip_comb(term_to_deep``[]``) |> #2
+val tms = ``[(^name0,^ty0,[([],^(mk_comb(mk_to_inner[]``:num``,``0n``)))]);
+             (^namenil,^tynil,[([^inner_bool],^(mk_comb(mk_to_inner[]``:bool list``,``[]:bool list``)));
+                               ([^inner_num],^(mk_comb(mk_to_inner[]``:num list``,``[]:num list``)))])]``
+
+
+val distinct_tys = prove_distinct_tys tys
+val distinct_tms = prove_distinct_tms tms
+val inhabited_tys = prove_inhabited_tys tys
+
 *)
 
 (*
