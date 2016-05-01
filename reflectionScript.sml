@@ -25,6 +25,10 @@ val FLAT_MAP_SING = Q.store_thm("FLAT_MAP_SING",
   `∀ls. FLAT (MAP (λx. [f x]) ls) = MAP f ls`,
   Induct \\ simp[]);
 
+val FLAT_MAP_NIL = Q.store_thm("FLAT_MAP_NIL",
+  `FLAT (MAP (λx. []) ls) = []`,
+  rw[FLAT_EQ_NIL,EVERY_MAP]);
+
 val termsem_typesem_matchable = store_thm("termsem_typesem_matchable",
 ``is_set_theory ^mem ⇒
    ∀sig i tm v δ τ tmenv ty.
@@ -2638,6 +2642,8 @@ val disjoint_tys = ``EVERY ((ALL_DISTINCT o MAP FST) o SND o SND) ^tys``
 val disjoint_tms = ``EVERY ((ALL_DISTINCT o MAP FST) o SND o SND) ^tms``
 val inhabited_tys = ``EVERY (EVERY (inhabited o SND) o SND o SND) ^tys``
 val types_ok = ``EVERY (type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt))) (MAP (FST o SND) ^tms)``
+val _ = overload_on("intype",``λδ ty (args,u).
+        u <: typesem δ ((K boolset) =++ ZIP (mlstring_sort (tyvars ty),args)) ty``);
 (*  - ... constrained constant values in appropriate typesem ...  *)
 
 val ALL_DISTINCT_MAP_FST_type_list_NewTypes_ctxt = Q.store_thm("ALL_DISTINCT_MAP_FST_type_list_NewTypes_ctxt",
@@ -2657,6 +2663,18 @@ val MEM_const_list_NewConsts_ctxt = Q.store_thm("MEM_const_list_NewConsts_ctxt",
   `MEM x (const_list (NewConsts_ctxt tms)) ⇔ MEM x (MAP (λ(name,type,cs). (name,type)) tms)`,
   rw[MEM_FLAT,MAP_MAP_o,NewConsts_ctxt_def,o_DEF,UNCURRY,MEM_MAP,EQ_IMP_THM] \\ fs[PULL_EXISTS]
   \\ metis_tac[]);
+
+val ALOOKUP_type_list_NewTypes_ctxt = Q.store_thm("ALOOKUP_type_list_NewTypes_ctxt",
+  `ALOOKUP (type_list (NewTypes_ctxt tys)) k =
+   OPTION_MAP FST (ALOOKUP tys k)`,
+  rw[NewTypes_ctxt_def,MAP_MAP_o,o_DEF,UNCURRY,FLAT_MAP_SING]
+  \\ rw[ALOOKUP_MAP_gen,Once LAMBDA_PROD,ETA_AX]);
+
+val ALOOKUP_const_list_NewConsts_ctxt = Q.store_thm("ALOOKUP_const_list_NewConsts_ctxt",
+  `ALOOKUP (const_list (NewConsts_ctxt tms)) k =
+   OPTION_MAP FST (ALOOKUP tms k)`,
+  rw[NewConsts_ctxt_def,MAP_MAP_o,o_DEF,UNCURRY,FLAT_MAP_SING]
+  \\ rw[ALOOKUP_MAP_gen,Once LAMBDA_PROD,ETA_AX]);
 
 val NewTypes_ctxt_extends_hol_ctxt = Q.store_thm("NewTypes_ctxt_extends_hol_ctxt",
   `∀tys.
@@ -2698,6 +2716,10 @@ val const_list_NewTypes_ctxt = Q.store_thm("const_list_NewTypes_ctxt[simp]",
   `const_list (NewTypes_ctxt tys) = []`,
   rw[NewTypes_ctxt_def,MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
 
+val tysof_NewConsts_ctxt = Q.store_thm("tysof_NewConsts_ctxt[simp]",
+  `tysof (NewConsts_ctxt tms ++ ctxt) = tysof ctxt`,
+  rw[NewConsts_ctxt_def,MAP_MAP_o,o_DEF,UNCURRY,FLAT_MAP_NIL]);
+
 val ax_ctxt_extends_hol_ctxt = Q.store_thm("ax_ctxt_extends_hol_ctxt",
   `^distinct_tys ∧
    ^distinct_tms ∧
@@ -2721,12 +2743,6 @@ val ax_tyass_def = xDefine"ax_tyass"`
        | NONE => One
        | SOME u => u)`;
 val _ = overload_on("ax_tyass",``ax_tyass0 ^mem``);
-
-val ALOOKUP_type_list_NewTypes_ctxt = Q.store_thm("ALOOKUP_type_list_NewTypes_ctxt",
-  `ALOOKUP (type_list (NewTypes_ctxt tys)) k =
-   OPTION_MAP FST (ALOOKUP tys k)`,
-  rw[NewTypes_ctxt_def,MAP_MAP_o,o_DEF,UNCURRY,FLAT_MAP_SING]
-  \\ rw[ALOOKUP_MAP_gen,Once LAMBDA_PROD,ETA_AX]);
 
 val is_type_assignment_ax_tyass = Q.store_thm("is_type_assignment_ax_tyass",
   `is_set_theory ^mem ∧
@@ -2772,84 +2788,210 @@ val ax_tyass_values = Q.store_thm("ax_tyass_values",
     imp_res_tac ALOOKUP_FAILS \\ fs[] )
   \\ res_tac \\ fs[]);
 
-(*
 val ax_tmass_def = xDefine"ax_tmass"`
-  ax_tmass0 ^mem tms
-*)
+  ax_tmass0 ^mem select δ tms name args =
+  case ALOOKUP tms name of
+  | NONE => tmaof (hol_model select (to_inner Ind)) name args
+  | SOME (ty,cs) =>
+    (case ALOOKUP cs args of
+     | NONE =>
+       @u.  u <: typesem δ
+                   ((K boolset) =++ ZIP(mlstring_sort (tyvars ty), args))
+                   ty
+     | SOME u => u)`;
+val _ = overload_on("ax_tmass",``ax_tmass0 ^mem``);
 
-(*
-val mk_constrained_type_assignment_def = xDefine"mk_constrained_type_assignment"`
-  mk_constrained_type_assignment0 ^mem ind_to_inner ls name args =
-    TODO: lookup by name first, to ensure you catch things in your signature but not in hol_model's signature, and send the unconstrained ones to a good thing
-    if (name=strlit"bool" ∧ LENGTH args = 0) ∨
-       (name=strlit"fun" ∧ LENGTH args = 2)
-    then tyaof (hol_model base_select ind_to_inner) name args
-    else
-    case ALOOKUP ls (name,args) of
-    | SOME v => v
-    | NONE => tyaof (hol_model base_select ind_to_inner) name args`;
-val _ = overload_on("mk_constrained_type_assignment",``mk_constrained_type_assignment0 ^mem``);
-
-val mk_constrained_term_assignment_def = xDefine"mk_constrained_term_assignment"`
-  mk_constrained_term_assignment0 ^mem ind_to_inner ls name args =
-    if (name=strlit"=" ∧ LENGTH args = 1)
-    then tmaof (hol_model base_select ind_to_inner) name args
-    else
-    (case ALOOKUP ls (name,args) of
-     | SOME v => v
-     | NONE => tmaof (hol_model base_select ind_to_inner) name args)`;
-val _ = overload_on("mk_constrained_term_assignment",``mk_constrained_term_assignment0 ^mem``);
-
-val mk_constrained_interpretation_def = xDefine"mk_constrained_interpretation"`
-  mk_constrained_interpretation0 ^mem ind_to_inner (tys,tms) =
-    (mk_constrained_type_assignment0 mem ind_to_inner tys,
-     mk_constrained_term_assignment0 mem ind_to_inner tms)`;
-val _ = overload_on("mk_constrained_interpretation",``mk_constrained_interpretation0 ^mem``);
-
-val gcbc = MATCH_MP good_context_base_case (UNDISCH good_select_base_select)
-
-val good_context_mk_constrained_interpretation =
-  prove(
-  `is_set_theory ^mem ⇒
-   wf_to_inner ind_to_inner ⇒
-    is_std_sig sig ∧
-    EVERY inhabited (MAP SND tys) ∧
-    EVERY (λ((name,args),v).
-              ∃ty. FLOOKUP (tmsof sig) name = SOME ty ∧
-                   LENGTH (tyvars ty) = LENGTH args ∧
-                   ∀τ. is_type_valuation τ ⇒
-                       v <: typesem (tyaof (mk_constrained_interpretation ind_to_inner (tys,tms)))
-                              (τ =++ ZIP(MAP implode (STRING_SORT (MAP explode (tyvars ty))),args))
-                              ty)
-          tms
-   ⇒ good_context ^mem sig (mk_constrained_interpretation ind_to_inner (tys,tms))`,
-  PairCases_on`sig`
-  \\ reverse(rw[good_context_def,mk_constrained_interpretation_def])
+val is_term_assignment_ax_tmass = Q.store_thm("is_term_assignment_ax_tmass",
+  `is_set_theory ^mem ∧
+   good_select select ∧
+   wf_to_inner (to_inner Ind : ind -> 'U) ∧
+   is_type_assignment (tysof ctxt) δ ∧
+   const_list ctxt = const_list hol_ctxt ∧
+   (∀name. name ∈ FDOM (tysof hol_ctxt) ⇒ δ name = tyaof (hol_model select (to_inner Ind)) name) ∧
+   EVERY (type_ok (tysof ctxt)) (MAP (FST o SND) tms) ∧
+   EVERY (λ(name,ty,cs). EVERY (intype δ ty) cs) tms
+   ⇒
+   is_term_assignment (tmsof (NewConsts_ctxt tms ++ ctxt)) δ (ax_tmass select δ tms)`,
+  rw[is_term_assignment_def,FEVERY_ALL_FLOOKUP,ALOOKUP_APPEND,ALOOKUP_const_list_NewConsts_ctxt]
+  \\ rw[ax_tmass_def]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   >- (
-    rw[is_std_interpretation_def,is_std_type_assignment_def,
-       mk_constrained_type_assignment_def,mk_constrained_term_assignment_def,
-       interprets_def]
-    \\ assume_tac gcbc
-    \\ fs[good_context_unpaired,is_std_interpretation_def,is_std_type_assignment_def,interprets_def] )
-  \\ rw[is_interpretation_def,is_type_assignment_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP]
+    imp_res_tac hol_model_def
+    \\ fs[models_def,is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP]
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ qmatch_abbrev_tac`_ <: m1 ⇒ _ <: m2`
+    \\ `m2 = m1` suffices_by rw[]
+    \\ unabbrev_all_tac
+    \\ match_mp_tac typesem_sig
+    \\ qexists_tac`tysof hol_ctxt`
+    \\ simp[]
+    \\ mp_tac theory_ok_hol_ctxt
+    \\ simp[theory_ok_def,IN_FRANGE_FLOOKUP,PULL_EXISTS]
+    \\ metis_tac[] )
+  \\ split_pair_case_tac \\ fs[]
+  \\ BasicProvers.CASE_TAC
   >- (
-    rw[mk_constrained_type_assignment_def]
-    \\ TRY CASE_TAC \\ rw[]
-    \\ assume_tac gcbc
-    \\ fs[good_context_unpaired,is_type_assignment_def,is_interpretation_def,
-          FEVERY_ALL_FLOOKUP,is_std_interpretation_def,is_std_type_assignment_def,
-          LENGTH_NIL]
-    >- metis_tac[mem_boolset]
+    SELECT_ELIM_TAC
+    \\ conj_tac
     >- (
-      fs[quantHeuristicsTheory.LIST_LENGTH_2]
-      \\ metis_tac[inhabited
-      max_print_depth := 15
+      match_mp_tac (MP_CANON typesem_inhabited)
+      \\ first_assum(part_match_exists_tac(el 3 o strip_conj) o concl)
+      \\ simp[]
+      \\ conj_tac
+      >- (
+        match_mp_tac (MP_CANON is_type_valuation_update_list)
+        \\ simp[is_type_valuation_base]
+        \\ simp[mlstring_sort_def]
+        \\ simp[MAP_MAP_o,EVERY_MEM,MEM_ZIP,PULL_EXISTS,EL_MAP]
+        \\ fs[is_type_valuation_def] )
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[EVERY_MAP,EVERY_MEM,FORALL_PROD]
+      \\ first_x_assum match_mp_tac
+      \\ first_assum(match_exists_tac o concl)
+      \\ simp[] )
+    \\ gen_tac
+    \\ qmatch_abbrev_tac`_ <: m1 ⇒ _ <: m2`
+    \\ `m2 = m1` suffices_by rw[]
+    \\ unabbrev_all_tac
+    \\ match_mp_tac typesem_tyvars
+    \\ simp[APPLY_UPDATE_LIST_ALOOKUP]
+    \\ rw[]
+    \\ BasicProvers.CASE_TAC
+    >- (
+      imp_res_tac ALOOKUP_FAILS
+      \\ fs[MEM_ZIP,mlstring_sort_def]
+      \\ fs[GSYM mlstring_sort_def]
+      \\ qmatch_assum_rename_tac`MEM z _`
+      \\ `¬MEM z (mlstring_sort(tyvars ty))`
+      by ( simp[MEM_EL] \\ fs[mlstring_sort_def] )
+      \\ fs[mlstring_sort_def,MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode] )
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ fs[MEM_ZIP,mlstring_sort_def]
+    \\ fs[GSYM mlstring_sort_def]
+    \\ rw[]
+    \\ fs[mlstring_sort_def,EL_MAP] )
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[EVERY_MEM,FORALL_PROD]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ qmatch_abbrev_tac`_ <: m1 ⇒ _ <: m2`
+  \\ `m2 = m1` suffices_by rw[]
+  \\ unabbrev_all_tac
+  \\ match_mp_tac typesem_tyvars
+  \\ simp[APPLY_UPDATE_LIST_ALOOKUP]
+  \\ rw[]
+  \\ BasicProvers.CASE_TAC
+  >- (
+      imp_res_tac ALOOKUP_FAILS
+      \\ fs[MEM_ZIP,mlstring_sort_def]
+      \\ fs[GSYM mlstring_sort_def]
+      \\ qmatch_assum_rename_tac`MEM z _`
+      \\ `¬MEM z (mlstring_sort(tyvars ty))`
+      by ( simp[MEM_EL] \\ fs[mlstring_sort_def] )
+      \\ fs[mlstring_sort_def,MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode] )
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[MEM_ZIP,mlstring_sort_def]
+  \\ fs[GSYM mlstring_sort_def]
+  \\ rw[]
+  \\ fs[mlstring_sort_def,EL_MAP] );
 
-  rw[is_type_assignment_def,FEVERY_ALL_FLOOKUP,mk_constrained_type_assignment_def]
-  \\ reverse CASE_TAC >- (
-    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
-    \\ metis_tac[ALOOKUP_MEM] )
-\\ is_interpretation_ho
-*)
+val ax_tmass_values = Q.store_thm("ax_tmass_values",
+  `^distinct_tms ∧
+   ^disjoint_tms
+   ⇒
+   EVERY
+    (λ(name,ty,cs).
+      EVERY
+        (λ(args,v). ax_tmass select δ tms name args = v)
+        cs)
+    tms`,
+  rw[ax_tmass_def,EVERY_MEM]
+  \\ pairarg_tac \\ fs[] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ BasicProvers.CASE_TAC
+  >- (
+    imp_res_tac ALOOKUP_FAILS \\ fs[] )
+  \\ split_pair_case_tac \\ fs[] \\ rw[]
+  \\ fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_MAP_FST_const_list_NewConsts_ctxt]
+  \\ imp_res_tac ALOOKUP_ALL_DISTINCT_MEM \\ fs[] \\ rw[]
+  \\ BasicProvers.CASE_TAC
+  >- (
+    imp_res_tac ALOOKUP_FAILS \\ fs[] )
+  \\ res_tac \\ fs[]);
+
+val ax_int_def = xDefine"ax_int"`
+  ax_int0 ^mem select tys tms =
+    (ax_tyass select tys,
+     ax_tmass select (ax_tyass select tys) tms)`;
+val _ = overload_on("ax_int",``ax_int0 ^mem``);
+
+val is_interpretation_ax_int = Q.store_thm("is_interpretation_ax_int",
+  `is_set_theory ^mem ∧
+   good_select select ∧
+   wf_to_inner (to_inner Ind : ind -> 'U) ∧
+   ^distinct_tys ∧
+   ^inhabited_tys ∧
+   ^types_ok ∧
+   EVERY (λ(name,ty,cs). EVERY (intype (ax_tyass select tys) ty) cs) tms
+   ⇒ is_interpretation (sigof (ax_ctxt tys tms)) (ax_int select tys tms)`,
+  strip_tac
+  \\ REWRITE_TAC[is_interpretation_def,ax_int_def,ax_ctxt_def]
+  \\ REWRITE_TAC[tysof_NewConsts_ctxt,GSYM APPEND_ASSOC]
+  \\ conj_asm1_tac
+  >- (
+    match_mp_tac is_type_assignment_ax_tyass
+    \\ rw[] )
+  \\ match_mp_tac is_term_assignment_ax_tmass
+  \\ rw[]
+  \\ rw[FUN_EQ_THM,ax_tyass_def]
+  \\ BasicProvers.CASE_TAC
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS,EXISTS_PROD,MEM_type_list_NewTypes_ctxt]
+  \\ metis_tac[PAIR] );
+
+val is_std_interpretation_ax_int = Q.store_thm("is_std_interpretation_ax_int",
+  `is_set_theory ^mem ∧
+   good_select select ∧
+   wf_to_inner (to_inner Ind : ind -> 'U) ∧
+   ^distinct_tys ∧
+   ^distinct_tms
+   ⇒
+   is_std_interpretation (ax_int select tys tms)`,
+  strip_tac
+  \\ match_mp_tac (GEN_ALL is_std_interpretation_equal_on)
+  \\ qexists_tac`sigof hol_ctxt`
+  \\ qexists_tac`hol_model select (to_inner Ind)`
+  \\ imp_res_tac hol_model_def
+  \\ fs[models_def]
+  \\ reverse conj_tac
+  >- metis_tac[hol_is_bool_sig,is_bool_sig_std]
+  \\ simp[equal_on_def,ax_int_def]
+  \\ rw[ax_tyass_def,ax_tmass_def,FUN_EQ_THM]
+  \\ BasicProvers.CASE_TAC
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[ALL_DISTINCT_APPEND,MEM_type_list_NewTypes_ctxt,MEM_const_list_NewConsts_ctxt,
+        MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+  \\ metis_tac[PAIR]);
+
+val good_context_ax = Q.store_thm("good_context_ax",
+  `is_set_theory ^mem ∧
+   good_select select ∧
+   wf_to_inner (to_inner Ind : ind -> 'U) ∧
+   ^distinct_tys ∧
+   ^distinct_tms ∧
+   ^inhabited_tys ∧
+   ^types_ok ∧
+   EVERY (λ(name,ty,cs). EVERY (intype (ax_tyass select tys) ty) cs) tms
+   ⇒
+   good_context ^mem (sigof (ax_ctxt tys tms)) (ax_int select tys tms)`,
+  strip_tac
+  \\ REWRITE_TAC[good_context_unpaired]
+  \\ conj_tac >- first_assum ACCEPT_TAC
+  \\ conj_tac
+  >- metis_tac[ax_ctxt_extends_hol_ctxt,is_std_sig_extends,hol_is_bool_sig,is_bool_sig_std]
+  \\ conj_tac
+  >- metis_tac[is_interpretation_ax_int]
+  \\ metis_tac[is_std_interpretation_ax_int]);
 
 val _ = export_theory()
