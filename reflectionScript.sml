@@ -2629,9 +2629,38 @@ val ax_ctxt_def = Define`
     NewTypes_ctxt tys ++
     hol_ctxt`;
 
+(* assumptions on tys and tms: *)
+val [tys,tms] = ax_ctxt_def |> INST_TYPE[alpha|->universe_ty,beta|->universe_ty]
+                |> SPEC_ALL |> concl |> lhs |> strip_comb |> #2
+val distinct_tys = ``ALL_DISTINCT (MAP FST (type_list (NewTypes_ctxt ^tys ++ hol_ctxt)))``
+val distinct_tms = ``ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt ^tms ++ hol_ctxt)))``
+val disjoint_tys = ``EVERY ((ALL_DISTINCT o MAP FST) o SND o SND) ^tys``
+val disjoint_tms = ``EVERY ((ALL_DISTINCT o MAP FST) o SND o SND) ^tms``
+val inhabited_tys = ``EVERY (EVERY (inhabited o SND) o SND o SND) ^tys``
+val types_ok = ``EVERY (type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt))) (MAP (FST o SND) ^tms)``
+(*  - ... constrained constant values in appropriate typesem ...  *)
+
+val ALL_DISTINCT_MAP_FST_type_list_NewTypes_ctxt = Q.store_thm("ALL_DISTINCT_MAP_FST_type_list_NewTypes_ctxt",
+  `ALL_DISTINCT (MAP FST (type_list (NewTypes_ctxt tys))) ⇔ ALL_DISTINCT (MAP FST tys)`,
+  rw[NewTypes_ctxt_def,MAP_MAP_o,o_DEF,UNCURRY,FLAT_MAP_SING,ETA_AX]);
+
+val ALL_DISTINCT_MAP_FST_const_list_NewConsts_ctxt = Q.store_thm("ALL_DISTINCT_MAP_FST_const_list_NewConsts_ctxt",
+  `ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt tms))) ⇔ ALL_DISTINCT (MAP FST tms)`,
+  rw[NewConsts_ctxt_def,MAP_MAP_o,o_DEF,UNCURRY,FLAT_MAP_SING,ETA_AX]);
+
+val MEM_type_list_NewTypes_ctxt = Q.store_thm("MEM_type_list_NewTypes_ctxt",
+  `MEM x (type_list (NewTypes_ctxt tys)) ⇔ MEM x (MAP (λ(name,arity,cs). (name,arity)) tys)`,
+  rw[MEM_FLAT,MAP_MAP_o,NewTypes_ctxt_def,o_DEF,UNCURRY,MEM_MAP,EQ_IMP_THM] \\ fs[PULL_EXISTS]
+  \\ metis_tac[]);
+
+val MEM_const_list_NewConsts_ctxt = Q.store_thm("MEM_const_list_NewConsts_ctxt",
+  `MEM x (const_list (NewConsts_ctxt tms)) ⇔ MEM x (MAP (λ(name,type,cs). (name,type)) tms)`,
+  rw[MEM_FLAT,MAP_MAP_o,NewConsts_ctxt_def,o_DEF,UNCURRY,MEM_MAP,EQ_IMP_THM] \\ fs[PULL_EXISTS]
+  \\ metis_tac[]);
+
 val NewTypes_ctxt_extends_hol_ctxt = Q.store_thm("NewTypes_ctxt_extends_hol_ctxt",
   `∀tys.
-   ALL_DISTINCT (MAP FST (type_list (NewTypes_ctxt tys ++ hol_ctxt)))
+   ^distinct_tys
    ⇒
    NewTypes_ctxt tys ++ hol_ctxt extends hol_ctxt`,
   simp[NewTypes_ctxt_def]
@@ -2670,9 +2699,9 @@ val const_list_NewTypes_ctxt = Q.store_thm("const_list_NewTypes_ctxt[simp]",
   rw[NewTypes_ctxt_def,MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
 
 val ax_ctxt_extends_hol_ctxt = Q.store_thm("ax_ctxt_extends_hol_ctxt",
-  `ALL_DISTINCT (MAP FST (type_list (NewTypes_ctxt tys ++ hol_ctxt))) ∧
-   ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt tms ++ hol_ctxt))) ∧
-   EVERY (type_ok (tysof (NewTypes_ctxt tys ++ hol_ctxt))) (MAP (FST o SND) tms)
+  `^distinct_tys ∧
+   ^distinct_tms ∧
+   ^types_ok
    ⇒
    ax_ctxt tys tms extends hol_ctxt`,
   rw[ax_ctxt_def]
@@ -2703,7 +2732,7 @@ val is_type_assignment_ax_tyass = Q.store_thm("is_type_assignment_ax_tyass",
   `is_set_theory ^mem ∧
    good_select select ∧
    wf_to_inner (to_inner Ind : ind -> 'U) ∧
-   EVERY (EVERY (inhabited o SND) o SND o SND) tys
+   ^inhabited_tys
    ⇒
    is_type_assignment (tysof (NewTypes_ctxt tys ++ hol_ctxt)) (ax_tyass select tys)`,
   rw[is_type_assignment_def,FEVERY_ALL_FLOOKUP,ALOOKUP_APPEND,ALOOKUP_type_list_NewTypes_ctxt]
@@ -2718,6 +2747,30 @@ val is_type_assignment_ax_tyass = Q.store_thm("is_type_assignment_ax_tyass",
   \\ imp_res_tac ALOOKUP_MEM
   \\ fs[EVERY_MEM,FORALL_PROD]
   \\ metis_tac[]);
+
+val ax_tyass_values = Q.store_thm("ax_tyass_values",
+  `^distinct_tys ∧
+   ^disjoint_tys
+   ⇒
+   EVERY
+    (λ(name,arity,cs).
+      EVERY
+        (λ(args,v). ax_tyass select tys name args = v)
+        cs)
+    tys`,
+  rw[ax_tyass_def,EVERY_MEM]
+  \\ pairarg_tac \\ fs[] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ BasicProvers.CASE_TAC
+  >- (
+    imp_res_tac ALOOKUP_FAILS \\ fs[] )
+  \\ split_pair_case_tac \\ fs[] \\ rw[]
+  \\ fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_MAP_FST_type_list_NewTypes_ctxt]
+  \\ imp_res_tac ALOOKUP_ALL_DISTINCT_MEM \\ fs[] \\ rw[]
+  \\ BasicProvers.CASE_TAC
+  >- (
+    imp_res_tac ALOOKUP_FAILS \\ fs[] )
+  \\ res_tac \\ fs[]);
 
 (*
 val ax_tmass_def = xDefine"ax_tmass"`
