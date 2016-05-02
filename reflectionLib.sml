@@ -2022,6 +2022,10 @@ fun prove_types_ok distinct_tys tys tms =
     join_EVERY P (map prove_P tmsl)
   end
 
+(* TODO:
+  if this can be made more general (so that it can return F as well as T) then
+  it should move to listLib
+*)
 local
   val (ALL_DISTINCT_NIL,ALL_DISTINCT_CONS) = CONJ_PAIR ALL_DISTINCT
   val AND_CLAUSES_TX = AND_CLAUSES |> SPEC_ALL |> CONJUNCT1
@@ -2071,6 +2075,40 @@ fun prove_disjoint tys =
   end
 
 (*
+fun prove_intypes tyass tyass_asms tys tms =
+  let
+    val (tmsl,tmsy) = listSyntax.dest_list tms
+    val P1 = typedTerm`λ(name,ty,cs). EVERY (intype tyass ty) cs`(tmsy --> bool)
+    (* val tmel = el 2 tmsl *)
+    (* val csel = el 1 csl *)
+    fun prove_P2 csel =
+      let
+        val th2 = mk_comb(P2,csel) |> PAIRED_BETA_CONV
+        val th3 =
+          prim_typesem_cert []
+            (th2 |> concl |> rhs |> rator |> rand |> rator |> type_of |> dom_rng |> #1)
+          |> Q.INST[`tyass`|->`^tyass`]
+          |> itlist PROVE_HYP tyass_asms
+        val tyval = th2 |> concl |> rhs |> rand |> rator |> rand
+        val th4 = th3
+          |> Q.INST[`tyval`|->`^tyval`]
+          (* TODO: need to push the tyval up to get th4 and th2 to match *)
+        th2 |> Q.INST[`tyass`|->`^tyass`] |> CONV_RULE(RAND_CONV(RAND_CONV (REWR_CONV th4)))
+        th2 |> Q.INST[`tyass`|->`^tyass`]|> concl |> rand |> rand
+        th4 |> concl |> lhs
+    fun prove_P1 tmel =
+      let
+        val th1 = mk_comb(P1,tmel) |> PAIRED_BETA_CONV
+        val (_,[P2,cs]) = th1 |> concl |> rhs |> strip_comb
+        val (csl,_) = listSyntax.dest_list cs
+        val EVERY_cs = join_EVERY P2 (map prove_P2 csl)
+      in
+        th1 |> SYM |> C EQ_MP EVERY_cs
+      end
+  in
+*)
+
+(*
 example:
 
 val inner_num = mk_range [] ``:num``
@@ -2094,6 +2132,27 @@ val inhabited_tys = prove_inhabited_tys tys
 val types_ok = prove_types_ok distinct_tys tys tms
 val disjoint_tys = prove_disjoint tys
 val disjoint_tms = prove_disjoint tms
+val tyass = ``ax_tyass select ^tys``
+val tyass_asms_values =
+  ax_tyass_values
+  |> ADD_ASSUM is_set_theory_mem
+  |> C MATCH_MP (CONJ distinct_tys disjoint_tys)
+  |> SIMP_RULE (bool_ss++pairSimps.PAIR_ss) [EVERY_DEF]
+  |> CONJUNCTS
+val ax_int_std =
+  is_std_interpretation_ax_int
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+  |> funpow 3 UNDISCH
+  |> C MATCH_MP distinct_tys
+  |> C MATCH_MP distinct_tms
+val ax_tyass_std =
+  ax_int_std
+  |> PURE_REWRITE_RULE[is_std_interpretation_def]
+  |> CONJUNCT1
+  |> PURE_REWRITE_RULE[ax_int_def,FST]
+val tyass_asms = ax_tyass_std::tyass_asms_values
+
+(* tyass_asms |> el 2 |> concl |> lhs |> rator |> rator |> equal tyass *)
 
 *)
 
