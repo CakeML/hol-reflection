@@ -2074,39 +2074,61 @@ fun prove_disjoint tys =
     join_EVERY P (map prove_P tysl)
   end
 
-(*
-fun prove_intypes tyass tyass_asms tys tms =
-  let
-    val (tmsl,tmsy) = listSyntax.dest_list tms
-    val P1 = typedTerm`λ(name,ty,cs). EVERY (intype tyass ty) cs`(tmsy --> bool)
-    (* val tmel = el 2 tmsl *)
-    (* val csel = el 1 csl *)
-    fun prove_P2 csel =
-      let
-        val th2 = mk_comb(P2,csel) |> PAIRED_BETA_CONV
-        val th3 =
-          prim_typesem_cert []
-            (th2 |> concl |> rhs |> rator |> rand |> rator |> type_of |> dom_rng |> #1)
-          |> Q.INST[`tyass`|->`^tyass`]
-          |> itlist PROVE_HYP tyass_asms
-        val tyval = th2 |> concl |> rhs |> rand |> rator |> rand
-        val th4 = th3
-          |> Q.INST[`tyval`|->`^tyval`]
-          (* TODO: need to push the tyval up to get th4 and th2 to match *)
-        th2 |> Q.INST[`tyass`|->`^tyass`] |> CONV_RULE(RAND_CONV(RAND_CONV (REWR_CONV th4)))
-        th2 |> Q.INST[`tyass`|->`^tyass`]|> concl |> rand |> rand
-        th4 |> concl |> lhs
-    fun prove_P1 tmel =
-      let
-        val th1 = mk_comb(P1,tmel) |> PAIRED_BETA_CONV
-        val (_,[P2,cs]) = th1 |> concl |> rhs |> strip_comb
-        val (csl,_) = listSyntax.dest_list cs
-        val EVERY_cs = join_EVERY P2 (map prove_P2 csl)
-      in
-        th1 |> SYM |> C EQ_MP EVERY_cs
-      end
-  in
-*)
+local
+  (*
+  val lc = listLib.list_compset();
+  val () = fix_list_compset lc;
+  val lcupd = listLib.list_compset();
+  val () = fix_list_compset lcupd;
+  val () = add_pair_compset lcupd;
+  val () = computeLib.add_thms [UPDATE_LIST_THM] lcupd;
+  *)
+  val IMP_CLAUSES_TX = IMP_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 1 |> GEN_ALL
+in
+  fun prove_intypes tyass tyass_asms tmtys tys tms =
+    let
+      val (tmsl,tmsy) = listSyntax.dest_list tms
+      val P1 = typedTerm`λ(name,ty,cs). EVERY (intype ^tyass ty) cs`(tmsy --> bool)
+      (* val tmel = el 1 tmsl *)
+      (* val tmty = el 1 tmtys *)
+      (* val csel = el 1 csl *)
+      fun prove_P2 P2 tmty csel =
+        let
+          val th2 = mk_comb(P2,csel) |> PAIRED_BETA_CONV
+          val ty = th2 |> concl |> rhs |> rator |> rand |> rator |> type_of |> dom_rng |> #1
+          val th3 =
+            prim_typesem_cert (complete_match_type tmty ty) tmty
+            |> Q.INST[`tyass`|->`^tyass`]
+            |> itlist PROVE_HYP tyass_asms
+          val tyval = th2 |> concl |> rhs |> rand |> rator |> rand
+          (* maybe want to use this plus other stuff instead of the EVAL below
+          val tyval_rwt =
+            (RAND_CONV (RAND_CONV (LAND_CONV EVAL) THENC computeLib.CBV_CONV lc)
+             THENC computeLib.CBV_CONV lcupd) tyval
+          *)
+          val th4 =
+            th3
+            |> itlist DISCH (filter is_eq (hyp th3))
+            |> Q.INST[`tyval`|->`^tyval`]
+            |> CONV_RULE(REPEATC(LAND_CONV EVAL THENC REWR_CONV IMP_CLAUSES_TX))
+          val th5 =
+            th2
+            |> CONV_RULE(RAND_CONV(RAND_CONV (REWR_CONV th4)))
+            |> CONV_RULE(RAND_CONV(PURE_REWRITE_CONV[MATCH_MP wf_to_inner_range_thm (prove_wf_to_inner ty)]))
+        in th5 |> EQT_ELIM end
+      fun prove_P1 tmel tmty =
+        let
+          val th1 = mk_comb(P1,tmel) |> PAIRED_BETA_CONV
+          val (_,[P2,cs]) = th1 |> concl |> rhs |> strip_comb
+          val (csl,_) = listSyntax.dest_list cs
+          val EVERY_cs = join_EVERY P2 (map (prove_P2 P2 tmty) csl)
+        in
+          th1 |> SYM |> C EQ_MP EVERY_cs
+        end
+    in
+      join_EVERY P1 (map2 prove_P1 tmsl tmtys)
+    end
+end
 
 (*
 example:
@@ -2124,7 +2146,7 @@ val [namenil,tynil] = strip_comb(term_to_deep``[]``) |> #2
 val tms = ``[(^name0,^ty0,[([],^(mk_comb(mk_to_inner[]``:num``,``0n``)))]);
              (^namenil,^tynil,[([^inner_bool],^(mk_comb(mk_to_inner[]``:bool list``,``[]:bool list``)));
                                ([^inner_num],^(mk_comb(mk_to_inner[]``:num list``,``[]:num list``)))])]``
-
+val tmtys = map type_of [``0n``,``[]``]
 
 val distinct_tys = prove_distinct_tys tys
 val distinct_tms = prove_distinct_tms tms
@@ -2151,8 +2173,40 @@ val ax_tyass_std =
   |> CONJUNCT1
   |> PURE_REWRITE_RULE[ax_int_def,FST]
 val tyass_asms = ax_tyass_std::tyass_asms_values
-
 (* tyass_asms |> el 2 |> concl |> lhs |> rator |> rator |> equal tyass *)
+val intypes = prove_intypes tyass tyass_asms tmtys tys tms
+
+val ax_int_intro =
+  ax_int_def
+  |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(REWR_CONV(GSYM PAIR)) THENC REWR_CONV PAIR_EQ))
+
+val tmass_values =
+  ax_tmass_values
+  |> ADD_ASSUM is_set_theory_mem
+  |> C MATCH_MP (CONJ distinct_tms disjoint_tms)
+  |> Q.GEN`δ` |> SPEC tyass
+  |> PURE_REWRITE_RULE[ax_int_intro |> SPEC_ALL |> CONJUNCT2 |> SYM]
+  |> SIMP_RULE (bool_ss++pairSimps.PAIR_ss) [EVERY_DEF]
+  |> CONJUNCTS
+
+val tyass_values =
+  tyass_asms_values
+  |> map(PURE_REWRITE_RULE[
+    ax_int_intro
+    |> Q.SPECL[`mem`,`select`]
+    |> ISPECL [tys,tms]
+    |> CONJUNCT1
+    |> SYM])
+
+val gc_thm =
+  good_context_ax
+  |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+  |> funpow 3 UNDISCH
+  |> C MATCH_MP distinct_tys
+  |> C MATCH_MP distinct_tms
+  |> C MATCH_MP inhabited_tys
+  |> C MATCH_MP types_ok
+  |> C MATCH_MP intypes
 
 *)
 
