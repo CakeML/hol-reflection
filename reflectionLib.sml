@@ -2211,25 +2211,78 @@ val gc_thm =
 *)
 
 (*
-fun build_axiomatic_interpretation th =
-  let
-    val ptm = concl th
-    val tys = base_types_of_term ptm
-    val tms = base_terms_of_term ptm
-    fun mapthis ty =
-      let
-        val (tyop,args) = dest_type ty
-      in
-        mk_pair(
-          mk_pair(string_to_inner tyop, listSyntax.mk_list(map (mk_range []) args, universe_ty)),
-          mk_range [] ty)
-      end
-    val mk_type_assignment_tm = ``reflection$mk_type_assignment``
-    val tyass_tm = mk_comb(mk_type_assignment_tm,
-                           listSyntax.mk_list(List.map mapthis tys,
-                             listSyntax.dest_list_type(#1(dom_rng(type_of mk_type_assignment_tm)))))
-    val tmass_tm =
-    val int_tm =
+
+val outer_tys = [``:bool``,``:num list``]
+val outer_tms = [``0n``,``[]:bool list``]
+val outer_ths = [EVAL``LENGTH ([]:num list)``]
+
+val ty = el 1 all_outer_tys
+val tm = el 1 all_outer_tms
+
 *)
 
+local
+  (* ``:num list`` |-> (("list",1),``([^(mk_range [] ``:num``)],^(mk_range[]``:num list``))`` *)
+  fun mk_tyel ty =
+    let
+      val (name,args) = dest_type ty
+    in
+      ((name, length args),
+       (map (mk_range []) args, mk_range[] ty))
+    end
+
+  fun insert_el (k,v) =
+    let fun f acc [] = (k,[v])::acc
+          | f acc ((k',vs)::t) =
+            if k = k' then
+              (k,v::vs)::acc
+            else
+              f ((k',vs)::acc) t
+    in f [] end
+
+  fun mk_tmel tm =
+    let
+      val {Name=name,Thy=Thy,Ty=ity} = dest_thy_const tm
+      val ty = generic_type {Name=name,Thy=Thy}
+      val args = const_tyargs tm
+    in
+      ((name,ty),
+       (map (mk_range[]) args,
+        mk_comb(mk_to_inner[] ity,tm)))
+    end
+
+  val constraint_ty = mk_prod(mk_list_type universe_ty,universe_ty)
+
+  fun fix_constraint (x,y) = mk_pair(mk_list(x,universe_ty),y)
+
+  fun fix_ty ((name,arity),vs) =
+    mk_pair(mk_pair(string_to_inner name, numSyntax.term_of_int arity),
+            listSyntax.mk_list(map fix_constraint vs, constraint_ty))
+
+  fun fix_tm ((name,ty),vs) =
+    mk_pair(mk_pair(string_to_inner name, type_to_deep ty),
+            listSyntax.mk_list(map fix_constraint vs, constraint_ty))
+
+in
+
+  fun build_axiomatic_interpretation outer_tys outer_tms outer_ths =
+    let
+      val all_outer_tms =
+        union (Lib.U (map base_terms_of_term outer_tms))
+        (Lib.U (map (base_terms_of_term o concl) outer_ths))
+      val all_outer_tys =
+        union (Lib.U (map base_types_of_type outer_tys))
+              (Lib.U (map base_types_of_term all_outer_tms))
+      val tys0 = foldl (uncurry insert_el) [] (map mk_tyel all_outer_tys)
+      val tys = mk_list(map fix_ty tys0,
+                  mk_prod(mk_prod(mlstringSyntax.mlstring_ty,numSyntax.num),
+                          mk_list_type(constraint_ty)))
+      val tms0 = foldl (uncurry insert_el) [] (map mk_tmel all_outer_tms)
+      val tms = mk_list(map fix_tm tms0,
+                  mk_prod(mk_prod(mlstringSyntax.mlstring_ty,type_ty),
+                          mk_list_type(constraint_ty)))
+    in
+      raise(Fail"unimplemented")
+    end
+  end
 end
