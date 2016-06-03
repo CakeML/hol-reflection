@@ -2221,6 +2221,8 @@ val tm = el 1 all_outer_tms
 
 *)
 
+val ax_tyass_tm = mk_comb(prim_mk_const{Name="ax_tyass0",Thy="reflection"},mem);
+
 local
   (* ``:num list`` |-> (("list",1),``([^(mk_range [] ``:num``)],^(mk_range[]``:num list``))`` *)
   fun mk_tyel ty =
@@ -2256,12 +2258,18 @@ local
   fun fix_constraint (x,y) = mk_pair(mk_list(x,universe_ty),y)
 
   fun fix_ty ((name,arity),vs) =
-    mk_pair(mk_pair(string_to_inner name, numSyntax.term_of_int arity),
-            listSyntax.mk_list(map fix_constraint vs, constraint_ty))
+    mk_pair(string_to_inner name,
+            mk_pair(numSyntax.term_of_int arity,
+                    listSyntax.mk_list(map fix_constraint vs, constraint_ty)))
 
   fun fix_tm ((name,ty),vs) =
-    mk_pair(mk_pair(string_to_inner name, type_to_deep ty),
-            listSyntax.mk_list(map fix_constraint vs, constraint_ty))
+    mk_pair(string_to_inner name,
+            mk_pair(type_to_deep ty,
+                    listSyntax.mk_list(map fix_constraint vs, constraint_ty)))
+
+  val ax_int_intro =
+    ax_int_def
+    |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(REWR_CONV(GSYM PAIR)) THENC REWR_CONV PAIR_EQ))
 
 in
 
@@ -2275,14 +2283,99 @@ in
               (Lib.U (map base_types_of_term all_outer_tms))
       val tys0 = foldl (uncurry insert_el) [] (map mk_tyel all_outer_tys)
       val tys = mk_list(map fix_ty tys0,
-                  mk_prod(mk_prod(mlstringSyntax.mlstring_ty,numSyntax.num),
-                          mk_list_type(constraint_ty)))
+                  mk_prod(mlstringSyntax.mlstring_ty,
+                          mk_prod(numSyntax.num,mk_list_type(constraint_ty))))
       val tms0 = foldl (uncurry insert_el) [] (map mk_tmel all_outer_tms)
       val tms = mk_list(map fix_tm tms0,
-                  mk_prod(mk_prod(mlstringSyntax.mlstring_ty,type_ty),
-                          mk_list_type(constraint_ty)))
+                  mk_prod(mlstringSyntax.mlstring_ty,
+                          mk_prod(type_ty,mk_list_type(constraint_ty))))
+      val distinct_tys = prove_distinct_tys tys
+      val distinct_tms = prove_distinct_tms tms
+      val inhabited_tys = prove_inhabited_tys tys
+      val types_ok = prove_types_ok distinct_tys tys tms
+      val disjoint_tys = prove_disjoint tys
+      val disjoint_tms = prove_disjoint tms
+      val select_tys = filter (same_const boolSyntax.select) all_outer_tms
+        |> map (snd o dom_rng o type_of)
+      fun foldthis (ty,th) =
+        let
+          val wf = prove_wf_to_inner ty
+          val th1 = MATCH_MP good_select_extend_base_select wf
+          val th2 = MATCH_MP th1 th
+        in th2 end
+      val good_select =
+        foldl foldthis
+          (UNDISCH holAxiomsTheory.good_select_base_select)
+          select_tys
+      val select = rand(concl good_select)
+      val tyass = mk_icomb(mk_comb(ax_tyass_tm,select),tys)
+      val tyass_asms_values =
+        ax_tyass_values
+        |> ADD_ASSUM is_set_theory_mem
+        |> C MATCH_MP (CONJ distinct_tys disjoint_tys)
+        |> SIMP_RULE (bool_ss++pairSimps.PAIR_ss) [EVERY_DEF]
+        |> Q.GEN`select` |> SPEC select
+        |> CONJUNCTS
+      val ax_int_std =
+        is_std_interpretation_ax_int
+        |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+        |> UNDISCH |> C MATCH_MP good_select |> UNDISCH
+        |> C MATCH_MP distinct_tys
+        |> C MATCH_MP distinct_tms
+      val ax_tyass_std =
+        ax_int_std
+        |> PURE_REWRITE_RULE[is_std_interpretation_def]
+        |> CONJUNCT1
+        |> PURE_REWRITE_RULE[ax_int_def,FST]
+      val wf_to_inners = map prove_wf_to_inner all_outer_tys
+      val tyass_asms = ax_tyass_std::(tyass_asms_values@wf_to_inners)
+      val tmtys = map (#2 o #1) tms0
+      val intypes = prove_intypes tyass tyass_asms tmtys tys tms
+      val tyass_values =
+        tyass_asms_values
+        |> map(PURE_REWRITE_RULE[
+          ax_int_intro
+          |> SPECL[mem,select]
+          |> ISPECL [tys,tms]
+          |> CONJUNCT1
+          |> SYM])
+      val tmass_values =
+        ax_tmass_values
+        |> ADD_ASSUM is_set_theory_mem
+        |> C MATCH_MP (CONJ distinct_tms disjoint_tms)
+        |> Q.GEN`δ` |> SPEC tyass
+        |> PURE_REWRITE_RULE[ax_int_intro |> SPEC_ALL |> CONJUNCT2 |> SYM]
+        |> SIMP_RULE (bool_ss++pairSimps.PAIR_ss) [EVERY_DEF]
+        |> Q.GEN`select` |> SPEC select
+        |> CONJUNCTS
+      val gcth =
+        good_context_ax
+        |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+        |> UNDISCH |> C MATCH_MP good_select |> UNDISCH
+        |> C MATCH_MP distinct_tys
+        |> C MATCH_MP distinct_tms
+        |> C MATCH_MP inhabited_tys
+        |> C MATCH_MP types_ok
+        |> C MATCH_MP intypes
+      val vti = []
+      val tyassums = flatten (map (base_type_assums vti) all_outer_tys)
+           |> filter (not o can (assert (equal tyval) o fst o strip_comb o lhs))
+      val tmassums = flatten (map (base_term_assums vti) all_outer_tms)
+      val assums0 = tyassums @ tmassums
+      val args = snd(strip_comb(concl gcth))
+      val s = [tysig |-> ``tysof ^(el 2 args)``,
+               tmsig |-> ``tmsof ^(el 2 args)``,
+               tyass |-> ``tyaof ^(el 3 args)``,
+               tmass |-> ``tmaof ^(el 3 args)``]
+      val assums = map (subst s) assums0
     in
-      raise(Fail"unimplemented")
+      {
+        good_context_thm = gcth,
+        models_thm = TRUTH (* TODO *),
+        int_assums = [] (* TODO *),
+        sig_assums = [] (* TODO *),
+        wf_to_inners = [] (* TODO *)
+      }
     end
   end
 end
