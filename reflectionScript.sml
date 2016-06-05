@@ -2683,6 +2683,18 @@ val ALOOKUP_const_list_NewConsts_ctxt = Q.store_thm("ALOOKUP_const_list_NewConst
   rw[NewConsts_ctxt_def,MAP_MAP_o,o_DEF,UNCURRY,FLAT_MAP_SING]
   \\ rw[ALOOKUP_MAP_gen,Once LAMBDA_PROD,ETA_AX]);
 
+val const_list_NewTypes_ctxt = Q.store_thm("const_list_NewTypes_ctxt[simp]",
+  `const_list (NewTypes_ctxt tys) = []`,
+  rw[NewTypes_ctxt_def,MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
+
+val type_list_NewConsts_ctxt = Q.store_thm("type_list_NewConsts_ctxt[simp]",
+  `type_list (NewConsts_ctxt tys) = []`,
+  rw[NewConsts_ctxt_def,MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
+
+val type_list_NewAxioms_ctxt = Q.store_thm("type_list_NewAxioms_ctxt[simp]",
+  `type_list (MAP NewAxiom ths) = []`,
+  rw[MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
+
 val NewTypes_ctxt_extends = Q.store_thm("NewTypes_ctxt_extends",
   `∀tys.
    ^distinct_tys
@@ -2700,12 +2712,19 @@ val NewTypes_ctxt_extends = Q.store_thm("NewTypes_ctxt_extends",
 
 val NewConsts_ctxt_extends = Q.store_thm("NewConsts_ctxt_extends",
   `∀tms.
-   ^distinct_tms ∧
-   EVERY (type_ok (tysof ctxt) o FST o SND) tms
+   ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt ^tms ++ ctxt))) ∧
+   EVERY (type_ok (tysof (NewTypes_ctxt ^tys ++ ctxt)) o FST o SND) tms
    ⇒
-   NewConsts_ctxt tms ++ ctxt extends ctxt`,
-  simp[NewConsts_ctxt_def]
-  \\ Induct \\ simp[]
+   NewConsts_ctxt tms ++ NewTypes_ctxt tys ++ ctxt extends NewTypes_ctxt tys ++ ctxt`,
+  gen_tac
+  \\ `const_list (NewConsts_ctxt tms ++ ctxt) =
+      const_list (NewConsts_ctxt tms ++ NewTypes_ctxt tys ++ ctxt)` by (simp[])
+  \\ pop_assum SUBST_ALL_TAC
+  \\ REWRITE_TAC[GSYM APPEND_ASSOC]
+  \\ qspec_tac(`NewTypes_ctxt tys ++ ctxt`,`ttxt`)
+  \\ qx_gen_tac`ctxt`
+  \\ simp[NewConsts_ctxt_def]
+  \\ Induct_on`tms` \\ simp[]
   >- metis_tac[extends_def,RTC_REFL]
   \\ fs[ALL_DISTINCT_APPEND] \\ rw[]
   \\ pairarg_tac \\ fs[]
@@ -2734,21 +2753,8 @@ val NewAxioms_ctxt_extends = Q.store_thm("NewAxioms_ctxt_extends",
   \\ match_mp_tac term_ok_extend
   \\ first_assum(part_match_exists_tac (last o strip_conj) o concl)
   \\ simp[]
-  \\ conj_tac
   \\ match_mp_tac SUBMAP_FUNION
   \\ simp[IN_DISJOINT,MEM_FLAT,MEM_MAP,FORALL_PROD,PULL_EXISTS]);
-
-val const_list_NewTypes_ctxt = Q.store_thm("const_list_NewTypes_ctxt[simp]",
-  `const_list (NewTypes_ctxt tys) = []`,
-  rw[NewTypes_ctxt_def,MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
-
-val type_list_NewConsts_ctxt = Q.store_thm("type_list_NewConsts_ctxt[simp]",
-  `type_list (NewConsts_ctxt tys) = []`,
-  rw[NewConsts_ctxt_def,MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
-
-val type_list_NewAxioms_ctxt = Q.store_thm("type_list_NewAxioms_ctxt[simp]",
-  `type_list (MAP NewAxiom ths) = []`,
-  rw[MAP_FLAT,MAP_MAP_o,o_DEF,UNCURRY,FLAT_EQ_NIL,EVERY_MAP]);
 
 val tysof_NewConsts_ctxt = Q.store_thm("tysof_NewConsts_ctxt[simp]",
   `tysof (NewConsts_ctxt tms ++ ctxt) = tysof ctxt`,
@@ -2774,10 +2780,8 @@ val ax_ctxt_extends_ctxt = Q.store_thm("ax_ctxt_extends_ctxt",
   \\ qspec_then`tys`(part_match_exists_tac(last o strip_conj) o concl o UNDISCH)NewTypes_ctxt_extends
   \\ simp[NewTypes_ctxt_extends]
   \\ match_mp_tac extends_trans
-  \\ qpat_abbrev_tac`t = NewTypes_ctxt _ ++ _`
-  \\ qspecl_then[`t`,`tms`](part_match_exists_tac(last o strip_conj) o concl o UNDISCH)(Q.GEN`ctxt`NewConsts_ctxt_extends)
-  \\ dep_rewrite.DEP_REWRITE_TAC[NewConsts_ctxt_extends]
-  \\ simp[Abbr`t`]
+  \\ qspec_then`tms`(part_match_exists_tac(last o strip_conj) o concl o UNDISCH)NewConsts_ctxt_extends
+  \\ simp[NewConsts_ctxt_extends]
   \\ REWRITE_TAC[GSYM APPEND_ASSOC]
   \\ match_mp_tac NewAxioms_ctxt_extends
   \\ fs[]);
