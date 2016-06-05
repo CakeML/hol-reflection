@@ -1951,12 +1951,12 @@ fun prove_ranges_distinct ty1 ty2 =
              |> PROVE_HYP (prove_wf_to_inner ty2)
   in th before ranges_distincts := Redblackmap.insert (!ranges_distincts,(ty1,ty2),th) end
 
-fun prove_distinct_tys tys =
-  EVAL``ALL_DISTINCT (MAP FST (type_list (NewTypes_ctxt ^tys ++ hol_ctxt)))``
+fun prove_distinct_tys ctxt tys =
+  EVAL``ALL_DISTINCT (MAP FST (type_list (NewTypes_ctxt ^tys ++ ^ctxt)))``
   |> EQT_ELIM
 
-fun prove_distinct_tms tms =
-  EVAL``ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt ^tms ++ hol_ctxt)))``
+fun prove_distinct_tms ctxt tms =
+  EVAL``ALL_DISTINCT (MAP FST (const_list (NewConsts_ctxt ^tms ++ ^ctxt)))``
   |> EQT_ELIM
 
 local
@@ -2000,11 +2000,11 @@ in
     end
 end
 
-fun prove_types_ok distinct_tys tys tms =
+fun prove_types_ok base_is_std_sig distinct_tys tys tms =
   let
-    val is_std_sig = MATCH_MP NewTypes_ctxt_extends_hol_ctxt distinct_tys
+    val is_std_sig = MATCH_MP NewTypes_ctxt_extends distinct_tys
                      |> MATCH_MP is_std_sig_extends
-                     |> C MATCH_MP hol_is_std_sig
+                     |> C MATCH_MP base_is_std_sig
     val (EVAL_type_ok,_) = EVAL_type_ok_term_ok EVAL is_std_sig
     val (tmsl,tmsy) = listSyntax.dest_list tms
     val P = typedTerm`(type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt)) o FST o SND)`(tmsy-->bool)
@@ -2089,8 +2089,8 @@ in
     let
       val (tmsl,tmsy) = listSyntax.dest_list tms
       val P1 = typedTerm`λ(name,ty,cs). EVERY (intype ^tyass ty) cs`(tmsy --> bool)
-      (* val tmel = el 1 tmsl *)
-      (* val tmty = el 1 tmtys *)
+      (* val tmel = el 3 tmsl *)
+      (* val tmty = el 3 tmtys *)
       (* val csel = el 1 csl *)
       fun prove_P2 P2 tmty csel =
         let
@@ -2130,22 +2130,58 @@ in
     end
 end
 
+fun prove_props_ok base_is_std_sig distinct_tys distinct_tms types_ok ths =
+  let
+    val tys_is_std_sig
+      = MATCH_MP NewTypes_ctxt_extends distinct_tys
+        |> MATCH_MP is_std_sig_extends
+        |> C MATCH_MP base_is_std_sig
+    val is_std_sig
+      = MATCH_MP NewConsts_ctxt_extends (CONJ distinct_tms types_ok)
+        |> MATCH_MP is_std_sig_extends
+        |> C MATCH_MP tys_is_std_sig
+    val (EVAL_type_ok,EVAL_term_ok) = holSyntaxLib.EVAL_type_ok_term_ok EVAL is_std_sig
+    val P = Term`λp. term_ok ^(rand (concl is_std_sig)) p ∧ (typeof p = Bool)`
+    (* val p = el 1 ths *)
+    fun prove_P p =
+      let
+        val target = mk_comb(P,p)
+        val th0 = target |> BETA_CONV
+        val (t1,t2) = th0 |> concl |> rand |> dest_conj
+        val th1 =
+          EVAL_term_ok t1
+          |> CONV_RULE(RAND_CONV(
+               SIMP_CONV(srw_ss())[holSyntaxLibTheory.tyvar_inst_exists,tyvar_inst_exists2,tyvar_inst_exists2_diff]))
+          |> EQT_ELIM
+        val th2 = CONJ th1 (EVAL_typeof t2 |> EQT_ELIM)
+      in
+        EQ_MP (SYM th0) th2
+      end
+  in
+    join_EVERY P (map prove_P ths)
+  end
+
 (*
 example:
 
 val inner_num = mk_range [] ``:num``
 val inner_bool = mk_range [] ``:bool``
+val inner_alpha = mk_range [] ``:'a``
 
 val tys = ``[(strlit"num",0n,[([],^inner_num)]);
              (strlit"list",1,
                 [([^inner_num],^(mk_range[]``:num list``));
-                 ([^inner_bool],^(mk_range[]``:bool list``))])]``;
+                 ([^inner_bool],^(mk_range[]``:bool list``));
+                 ([^inner_alpha],^(mk_range[]``:'a list``))
+                 ])]``;
 
 val [name0,ty0] = strip_comb(term_to_deep``0n``) |> #2
 val [namenil,tynil] = strip_comb(term_to_deep``[]``) |> #2
 val tms = ``[(^name0,^ty0,[([],^(mk_comb(mk_to_inner[]``:num``,``0n``)))]);
              (^namenil,^tynil,[([^inner_bool],^(mk_comb(mk_to_inner[]``:bool list``,``[]:bool list``)));
-                               ([^inner_num],^(mk_comb(mk_to_inner[]``:num list``,``[]:num list``)))])]``
+                               ([^inner_num],^(mk_comb(mk_to_inner[]``:num list``,``[]:num list``)));
+                               ([^inner_alpha],^(mk_comb(mk_to_inner[]``:'a list``,``[]:'a list``)))
+                               ])]``
 val tmtys = map type_of [``0n``,``[]``]
 
 val distinct_tys = prove_distinct_tys tys
@@ -2216,12 +2252,33 @@ val outer_tys = [``:bool``,``:num list``]
 val outer_tms = [``0n``,``[]:bool list``]
 val outer_ths = [EVAL``LENGTH ([]:num list)``]
 
+fun base_from_good_select good_select =
+  let
+    val base_ok_thm = theory_ok_hol_ctxt
+    val select = rand (concl good_select)
+    val base_models_thm =
+      (CONJUNCT1 hol_model_models
+       |> DISCH_ALL
+       |> C MATCH_MP(prove_wf_to_inner``:ind``)
+       |> C MATCH_MP good_select
+       |> UNDISCH)
+  in
+    (base_ok_thm,base_models_thm)
+  end
+
 val ty = el 1 all_outer_tys
 val tm = el 1 all_outer_tms
 
 *)
 
 val ax_tyass_tm = mk_comb(prim_mk_const{Name="ax_tyass0",Thy="reflection"},mem);
+
+val sigof_thyof = ``sigof (thyof x) = sigof x`` |> EVAL |> EQT_ELIM
+
+val tmaof_tm = ``tmaof``
+val tyaof_tm = ``tyaof``
+fun mk_tyaof tm = mk_icomb(tyaof_tm,tm)
+fun mk_tmaof tm = mk_icomb(tmaof_tm,tm)
 
 local
   (* ``:num list`` |-> (("list",1),``([^(mk_range [] ``:num``)],^(mk_range[]``:num list``))`` *)
@@ -2272,8 +2329,7 @@ local
     |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(REWR_CONV(GSYM PAIR)) THENC REWR_CONV PAIR_EQ))
 
 in
-
-  fun build_axiomatic_interpretation outer_tys outer_tms outer_ths =
+  fun build_axiomatic_interpretation base_from_good_select outer_tys outer_tms outer_ths =
     let
       val all_outer_tms =
         union (Lib.U (map base_terms_of_term outer_tms))
@@ -2289,12 +2345,8 @@ in
       val tms = mk_list(map fix_tm tms0,
                   mk_prod(mlstringSyntax.mlstring_ty,
                           mk_prod(type_ty,mk_list_type(constraint_ty))))
-      val distinct_tys = prove_distinct_tys tys
-      val distinct_tms = prove_distinct_tms tms
-      val inhabited_tys = prove_inhabited_tys tys
-      val types_ok = prove_types_ok distinct_tys tys tms
-      val disjoint_tys = prove_disjoint tys
-      val disjoint_tms = prove_disjoint tms
+      val ths = map (term_to_deep o concl) outer_ths
+
       val select_tys = filter (same_const boolSyntax.select) all_outer_tms
         |> map (snd o dom_rng o type_of)
       fun foldthis (ty,th) =
@@ -2308,18 +2360,40 @@ in
           (UNDISCH holAxiomsTheory.good_select_base_select)
           select_tys
       val select = rand(concl good_select)
-      val tyass = mk_icomb(mk_comb(ax_tyass_tm,select),tys)
+
+      val (base_ok_thm,base_models_thm) = base_from_good_select good_select
+      val base_is_std_sig =
+        MATCH_MP theory_ok_sig base_ok_thm
+        |> CONV_RULE(RAND_CONV(REWR_CONV sigof_thyof))
+      val ctxt = base_ok_thm |> concl |> funpow 5 rand
+      val base_int = base_models_thm |> concl |> rator |> rand
+      val base_tyass = mk_tyaof base_int
+      val base_tmass = mk_tmaof base_int
+      val [base_is_int, base_is_std_int, base_satisfies] =
+        base_models_thm
+        |> PURE_REWRITE_RULE[models_def,sigof_thyof]
+        |> CONJUNCTS
+      val distinct_tys = prove_distinct_tys ctxt tys
+      val distinct_tms = prove_distinct_tms ctxt tms
+      val inhabited_tys = prove_inhabited_tys tys
+      val types_ok = prove_types_ok base_is_std_sig distinct_tys tys tms
+      val disjoint_tys = prove_disjoint tys
+      val disjoint_tms = prove_disjoint tms
+
+      val tyass = mk_icomb(mk_icomb(ax_tyass_tm,base_tyass),tys)
       val tyass_asms_values =
         ax_tyass_values
         |> ADD_ASSUM is_set_theory_mem
         |> C MATCH_MP (CONJ distinct_tys disjoint_tys)
         |> SIMP_RULE (bool_ss++pairSimps.PAIR_ss) [EVERY_DEF]
-        |> Q.GEN`select` |> SPEC select
+        |> Q.GEN`δ` |> SPEC base_tyass
         |> CONJUNCTS
       val ax_int_std =
         is_std_interpretation_ax_int
         |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-        |> UNDISCH |> C MATCH_MP good_select |> UNDISCH
+        |> UNDISCH
+        |> C MATCH_MP base_is_std_sig
+        |> C MATCH_MP base_is_std_int
         |> C MATCH_MP distinct_tys
         |> C MATCH_MP distinct_tms
       val ax_tyass_std =
@@ -2331,11 +2405,28 @@ in
       val tyass_asms = ax_tyass_std::(tyass_asms_values@wf_to_inners)
       val tmtys = map (#2 o #1) tms0
       val intypes = prove_intypes tyass tyass_asms tmtys tys tms
+
+      val props_ok = prove_props_ok base_is_std_sig distinct_tys distinct_tms types_ok ths
+
+      val gcth =
+        good_context_ax
+        |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+        |> UNDISCH
+        |> C MATCH_MP base_ok_thm
+        |> C MATCH_MP base_is_int
+        |> C MATCH_MP base_is_std_int
+        |> C MATCH_MP distinct_tys
+        |> C MATCH_MP distinct_tms
+        |> C MATCH_MP inhabited_tys
+        |> C MATCH_MP types_ok
+        |> C MATCH_MP intypes
+        |> C MATCH_MP props_ok
+
       val tyass_values =
         tyass_asms_values
         |> map(PURE_REWRITE_RULE[
           ax_int_intro
-          |> SPECL[mem,select]
+          |> SPECL[mem,base_int]
           |> ISPECL [tys,tms]
           |> CONJUNCT1
           |> SYM])
@@ -2343,20 +2434,12 @@ in
         ax_tmass_values
         |> ADD_ASSUM is_set_theory_mem
         |> C MATCH_MP (CONJ distinct_tms disjoint_tms)
-        |> Q.GEN`δ` |> SPEC tyass
+        |> Q.GEN`i` |> SPEC (mk_pair(tyass,base_tmass))
         |> PURE_REWRITE_RULE[ax_int_intro |> SPEC_ALL |> CONJUNCT2 |> SYM]
         |> SIMP_RULE (bool_ss++pairSimps.PAIR_ss) [EVERY_DEF]
-        |> Q.GEN`select` |> SPEC select
         |> CONJUNCTS
-      val gcth =
-        good_context_ax
-        |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO]
-        |> UNDISCH |> C MATCH_MP good_select |> UNDISCH
-        |> C MATCH_MP distinct_tys
-        |> C MATCH_MP distinct_tms
-        |> C MATCH_MP inhabited_tys
-        |> C MATCH_MP types_ok
-        |> C MATCH_MP intypes
+
+      (*
       val vti = []
       val tyassums = flatten (map (base_type_assums vti) all_outer_tys)
            |> filter (not o can (assert (equal tyval) o fst o strip_comb o lhs))
@@ -2368,6 +2451,7 @@ in
                tyass |-> ``tyaof ^(el 3 args)``,
                tmass |-> ``tmaof ^(el 3 args)``]
       val assums = map (subst s) assums0
+      *)
     in
       {
         good_context_thm = gcth,
