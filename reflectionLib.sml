@@ -6,6 +6,7 @@ open setSpecTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSe
 open holBoolTheory holConstrainedExtensionTheory
 open reflectionTheory basicReflectionLib
 open holSyntaxLib holSyntaxLibTheory
+local open finite_mapSyntax in end
 
 (* TODO: miscLib.prove_hyps_by is wrong: it needs to call PROVE_HYP multiple times *)
 
@@ -2161,6 +2162,60 @@ fun prove_props_ok base_is_std_sig distinct_tys distinct_tms types_ok ths =
     join_EVERY P (map prove_P ths)
   end
 
+val tysof_tm = ``tysof:sig->tysig``
+val tmsof_tm = ``tmsof:sig->tmsig``
+val tyaof_tm = ``tyaof``
+val tmaof_tm = ``tmaof``
+fun mk_tysof_sig tm = mk_icomb(tysof_tm,tm)
+fun mk_tmsof_sig tm = mk_icomb(tmsof_tm,tm)
+fun mk_tyaof tm = mk_icomb(tyaof_tm,tm)
+fun mk_tmaof tm = mk_icomb(tmaof_tm,tm)
+(*
+val tysof_tm = ``tysof:update list->tysig``
+val tmsof_tm = ``tmsof:update list->tmsig``
+fun mk_tysof tm = mk_icomb(tysof_tm,tm) |> beta_conv
+fun mk_tmsof tm = mk_icomb(tmsof_tm,tm) |> beta_conv
+*)
+
+fun prove_props_true gcth sig_assums int_assums wf_to_inners outer_ths =
+  let
+    val args = snd(strip_comb(concl gcth))
+    val ax_sig = el 2 args
+    val ax_int = el 3 args
+    val ax_tysig = mk_tysof_sig ax_sig
+    val ax_tmsig = mk_tmsof_sig ax_sig
+
+    val gcth1 = gcth
+                |> CONV_RULE (RAND_CONV(REWR_CONV(GSYM PAIR)))
+                |> CONV_RULE (RATOR_CONV(RAND_CONV(REWR_CONV(GSYM PAIR))))
+
+    val P = Term`λp. ∀v. is_valuation ^ax_tysig ^(mk_tyaof ax_int) v ⇒
+                         (termsem ^ax_tmsig ^ax_int v p = True)`
+    (* val th = el 1 outer_ths *)
+    fun prove_P th =
+      let
+        val outer_p = th |> concl
+        val p = outer_p |> term_to_deep
+        val th1 = mk_comb(P,p) |> BETA_CONV
+        val (v,t) = th1 |> concl |> rand |> dest_forall
+        val cert = termsem_cert_unint outer_p |> DISCH_ALL
+        val th2 = MATCH_MP cert gcth1 |> UNDISCH_ALL
+                  |> C (foldl (uncurry PROVE_HYP)) (wf_to_inners@sig_assums@int_assums)
+                  |> INST[tyval |-> ``tyvof ^v``,
+                          tmval |-> ``tmvof ^v``]
+                  |> CONV_RULE(LAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(PAIR))))))
+                  |> CONV_RULE(LAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(PAIR)))))
+                  |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(EQT_INTRO th))))
+                  |> CONV_RULE(RAND_CONV(REWR_CONV bool_to_inner_true))
+                  |> DISCH (#1(dest_imp t))
+                  |> GEN v
+      in
+        EQ_MP (SYM th1) th2
+      end
+  in
+    join_EVERY P (map prove_P outer_ths)
+  end
+
 (*
 example:
 
@@ -2274,11 +2329,6 @@ val tm = el 1 all_outer_tms
 val ax_tyass_tm = mk_comb(prim_mk_const{Name="ax_tyass0",Thy="reflection"},mem);
 
 val sigof_thyof = ``sigof (thyof x) = sigof x`` |> EVAL |> EQT_ELIM
-
-val tmaof_tm = ``tmaof``
-val tyaof_tm = ``tyaof``
-fun mk_tyaof tm = mk_icomb(tyaof_tm,tm)
-fun mk_tmaof tm = mk_icomb(tmaof_tm,tm)
 
 val wf_to_inner_tm = ``wf_to_inner``
 fun is_wf_to_inner tm = is_comb tm andalso can (match_term wf_to_inner_tm) (rator tm)
@@ -2448,10 +2498,12 @@ in
       val tmassums = flatten (map (base_term_assums vti) all_outer_tms)
       val assums0 = tyassums @ tmassums
       val args = snd(strip_comb(concl gcth))
-      val s = [tysig |-> ``tysof ^(el 2 args)``,
-               tmsig |-> ``tmsof ^(el 2 args)``,
-               tyass |-> ``tyaof ^(el 3 args)``,
-               tmass |-> ``tmaof ^(el 3 args)``]
+      val ax_sig = el 2 args
+      val ax_int = el 3 args
+      val s = [tysig |-> mk_tysof_sig ax_sig,
+               tmsig |-> mk_tmsof_sig ax_sig,
+               tyass |-> mk_tyaof ax_int,
+               tmass |-> mk_tmaof ax_int]
       val assums = map (subst s) assums0
 
       val (wf_to_inner_tms,assums1) = partition is_wf_to_inner assums
@@ -2479,6 +2531,8 @@ in
           FIRST (eq_int_tac::(map ACCEPT_TAC (tmass_values@tyass_values)))))
         int_tms
 
+      val props_true = prove_props_true gcth sig_assums int_assums wf_to_inners outer_ths
+
       val models_thm =
         ax_int_models
         |> ADD_ASSUM is_set_theory_mem
@@ -2487,7 +2541,7 @@ in
         |> C MATCH_MP distinct_tms
         |> C MATCH_MP gcth
         |> C MATCH_MP base_models_thm
-        (* TODO: remove last assumption *)
+        |> C MATCH_MP props_true
 
     in
       {

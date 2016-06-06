@@ -3056,8 +3056,8 @@ val ax_int_models = Q.store_thm("ax_int_models",
    ^distinct_tms ⇒
    good_context ^mem (sigof (ax_ctxt ctxt ths tys tms)) (ax_int i tys tms) ⇒
    i models thyof ctxt ⇒
-   EVERY (λp. ∀v. is_valuation (tysof (ax_ctxt ctxt ths tys tms)) (tyaof (ax_int i tys tms)) v ⇒
-                  (termsem (tmsof (ax_ctxt ctxt ths tys tms)) (ax_int i tys tms) v p = True)) ths
+   EVERY (λp. ∀v. is_valuation (tysof (sigof (ax_ctxt ctxt ths tys tms))) (tyaof (ax_int i tys tms)) v ⇒
+                  (termsem (tmsof (sigof (ax_ctxt ctxt ths tys tms))) (ax_int i tys tms) v p = True)) ths
    ⇒
    ax_int i tys tms models (thyof (ax_ctxt ctxt ths tys tms))`,
   rw[models_def,good_context_unpaired,satisfies_def,EVERY_MEM] \\ fs[]
