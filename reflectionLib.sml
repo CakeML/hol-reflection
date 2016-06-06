@@ -2280,6 +2280,9 @@ val tyaof_tm = ``tyaof``
 fun mk_tyaof tm = mk_icomb(tyaof_tm,tm)
 fun mk_tmaof tm = mk_icomb(tmaof_tm,tm)
 
+val wf_to_inner_tm = ``wf_to_inner``
+fun is_wf_to_inner tm = is_comb tm andalso can (match_term wf_to_inner_tm) (rator tm)
+
 local
   (* ``:num list`` |-> (("list",1),``([^(mk_range [] ``:num``)],^(mk_range[]``:num list``))`` *)
   fun mk_tyel ty =
@@ -2380,7 +2383,7 @@ in
       val disjoint_tys = prove_disjoint tys
       val disjoint_tms = prove_disjoint tms
 
-      val tyass = mk_icomb(mk_icomb(ax_tyass_tm,base_tyass),tys)
+      val ax_tyass = mk_icomb(mk_icomb(ax_tyass_tm,base_tyass),tys)
       val tyass_asms_values =
         ax_tyass_values
         |> ADD_ASSUM is_set_theory_mem
@@ -2404,7 +2407,7 @@ in
       val wf_to_inners = map prove_wf_to_inner all_outer_tys
       val tyass_asms = ax_tyass_std::(tyass_asms_values@wf_to_inners)
       val tmtys = map (#2 o #1) tms0
-      val intypes = prove_intypes tyass tyass_asms tmtys tys tms
+      val intypes = prove_intypes ax_tyass tyass_asms tmtys tys tms
 
       val props_ok = prove_props_ok base_is_std_sig distinct_tys distinct_tms types_ok ths
 
@@ -2434,12 +2437,11 @@ in
         ax_tmass_values
         |> ADD_ASSUM is_set_theory_mem
         |> C MATCH_MP (CONJ distinct_tms disjoint_tms)
-        |> Q.GEN`i` |> SPEC (mk_pair(tyass,base_tmass))
+        |> Q.GEN`i` |> SPEC (mk_pair(ax_tyass,base_tmass))
         |> PURE_REWRITE_RULE[ax_int_intro |> SPEC_ALL |> CONJUNCT2 |> SYM]
         |> SIMP_RULE (bool_ss++pairSimps.PAIR_ss) [EVERY_DEF]
         |> CONJUNCTS
 
-      (*
       val vti = []
       val tyassums = flatten (map (base_type_assums vti) all_outer_tys)
            |> filter (not o can (assert (equal tyval) o fst o strip_comb o lhs))
@@ -2451,14 +2453,49 @@ in
                tyass |-> ``tyaof ^(el 3 args)``,
                tmass |-> ``tmaof ^(el 3 args)``]
       val assums = map (subst s) assums0
-      *)
+
+      val (wf_to_inner_tms,assums1) = partition is_wf_to_inner assums
+      val _ = assert (set_eq wf_to_inner_tms) (map concl wf_to_inners)
+
+      val (sig_tms,int_tms) =
+        partition (fn tm =>
+          is_eq tm andalso
+          finite_mapSyntax.is_flookup (lhs tm))
+        assums1
+
+      val sig_assums = map
+        (fn tm => VALID_TAC_PROOF(([],tm),EVAL_TAC))
+        sig_tms
+
+      val eq_int = std_equality |> UNDISCH |> C MATCH_MP ax_int_std
+      val eq_int_tac =
+        match_mp_tac eq_int
+        \\ FIRST (map ACCEPT_TAC wf_to_inners)
+
+      (* TODO: need to handle int_assums about select *)
+
+      val int_assums = map
+        (fn tm => VALID_TAC_PROOF((base_hyps,tm),
+          FIRST (eq_int_tac::(map ACCEPT_TAC (tmass_values@tyass_values)))))
+        int_tms
+
+      val models_thm =
+        ax_int_models
+        |> ADD_ASSUM is_set_theory_mem
+        |> C MATCH_MP base_ok_thm
+        |> C MATCH_MP distinct_tys
+        |> C MATCH_MP distinct_tms
+        |> C MATCH_MP gcth
+        |> C MATCH_MP base_models_thm
+        (* TODO: remove last assumption *)
+
     in
       {
         good_context_thm = gcth,
-        models_thm = TRUTH (* TODO *),
-        int_assums = [] (* TODO *),
-        sig_assums = [] (* TODO *),
-        wf_to_inners = [] (* TODO *)
+        models_thm = models_thm,
+        int_assums = int_assums,
+        sig_assums = sig_assums,
+        wf_to_inners = wf_to_inners
       }
     end
   end

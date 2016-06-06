@@ -3042,4 +3042,94 @@ val good_context_ax = Q.store_thm("good_context_ax",
   >- metis_tac[is_interpretation_ax_int]
   \\ metis_tac[is_std_interpretation_ax_int,theory_ok_sig,FST,SND]);
 
+val MEM_axiom_list_ax_ctxt = Q.store_thm("MEM_axiom_list_ax_ctxt[simp]",
+  `MEM p (axiom_list (ax_ctxt ctxt ths tys tms)) ⇔ MEM p ths ∨ MEM p (axiom_list ctxt)`,
+  rw[ax_ctxt_def,NewConsts_ctxt_def,NewTypes_ctxt_def,
+     MEM_MAP,MEM_FLAT,PULL_EXISTS,EXISTS_PROD,EQ_IMP_THM]
+  \\ fs[axexts_of_upd_def,conexts_of_upd_def]
+  \\ fsrw_tac[boolSimps.DNF_ss][]
+  \\ metis_tac[]);
+
+val ax_int_models = Q.store_thm("ax_int_models",
+  `theory_ok (thyof ctxt) ⇒
+   ^distinct_tys ⇒
+   ^distinct_tms ⇒
+   good_context ^mem (sigof (ax_ctxt ctxt ths tys tms)) (ax_int i tys tms) ⇒
+   i models thyof ctxt ⇒
+   EVERY (λp. ∀v. is_valuation (tysof (ax_ctxt ctxt ths tys tms)) (tyaof (ax_int i tys tms)) v ⇒
+                  (termsem (tmsof (ax_ctxt ctxt ths tys tms)) (ax_int i tys tms) v p = True)) ths
+   ⇒
+   ax_int i tys tms models (thyof (ax_ctxt ctxt ths tys tms))`,
+  rw[models_def,good_context_unpaired,satisfies_def,EVERY_MEM] \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then(qspec_then`v`mp_tac)
+  \\ impl_tac
+  >- (
+    fs[is_valuation_def,is_term_valuation_def]
+    \\ rw[]
+    \\ `type_ok (tysof (ax_ctxt ctxt ths tys tms) ) ty`
+    by (
+      match_mp_tac type_ok_extend
+      \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+      \\ simp[ax_ctxt_def]
+      \\ match_mp_tac SUBMAP_FUNION
+      \\ fs[IN_DISJOINT,ALL_DISTINCT_APPEND,MEM_FLAT,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+      \\ metis_tac[] )
+    \\ `typesem (tyaof i) (tyvof v) ty =
+        typesem (tyaof (ax_int i tys tms)) (tyvof v) ty`
+    by (
+      match_mp_tac typesem_sig
+      \\ last_assum(part_match_exists_tac(hd o strip_conj) o concl)
+      \\ simp[ax_int_def,ax_tyass_def,FUN_EQ_THM]
+      \\ rw[]
+      \\ BasicProvers.CASE_TAC
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[ALL_DISTINCT_APPEND,MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS,NewTypes_ctxt_def]
+      \\ metis_tac[PAIR] )
+    \\ rw[] )
+  \\ disch_then(SUBST_ALL_TAC o SYM)
+  \\ `tmsof ctxt ⊑ tmsof (ax_ctxt ctxt ths tys tms)`
+  by (
+    simp[ax_ctxt_def]
+    \\ match_mp_tac SUBMAP_FUNION
+    \\ fs[IN_DISJOINT,ALL_DISTINCT_APPEND,MEM_FLAT,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ metis_tac[] )
+  \\ `term_ok (sigof ctxt) p` by fs[theory_ok_def]
+  \\ imp_res_tac termsem_extend \\ simp[]
+  \\ match_mp_tac termsem_sig
+  \\ qexists_tac`sigof ctxt`
+  \\ fs[theory_ok_def]
+  \\ simp[equal_on_def]
+  \\ simp[ax_int_def,ax_tyass_def,ax_tmass_def,FUN_EQ_THM]
+  \\ rw[]
+  \\ BasicProvers.CASE_TAC
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[ALL_DISTINCT_APPEND,MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS,NewTypes_ctxt_def,NewConsts_ctxt_def]
+  \\ metis_tac[PAIR]);
+
+val std_equality = Q.store_thm("std_equality",
+  `is_set_theory ^mem ⇒
+   is_std_interpretation i ⇒
+   wf_to_inner ina ⇒
+   (tmaof i (strlit "=") [range ina] =
+    fun_to_inner ina (fun_to_inner ina bool_to_inner) $=)`,
+  rw[is_std_interpretation_def,interprets_def,fun_to_inner_def]
+  \\ first_x_assum(qspec_then`((strlit"A")=+range ina)(K boolset)`mp_tac)
+  \\ impl_tac
+  >- (
+    simp[is_type_valuation_def,APPLY_UPDATE_THM]
+    \\ rw[]
+    >- ( match_mp_tac inhabited_range \\ rw[] )
+    \\ metis_tac[mem_boolset] )
+  \\ rw[APPLY_UPDATE_THM,range_fun_to_inner,wf_to_inner_bool_to_inner,range_bool_to_inner]
+  \\ match_mp_tac (UNDISCH abstract_eq)
+  \\ rw[]
+  \\ TRY (
+    match_mp_tac (UNDISCH abstract_in_funspace)
+    \\ rw[boolean_in_boolset,bool_to_inner_def] )
+  \\ match_mp_tac (UNDISCH abstract_eq)
+  \\ rw[boolean_in_boolset,bool_to_inner_def]
+  \\ rw[boolean_def]
+  \\ metis_tac[wf_to_inner_finv_right]);
+
 val _ = export_theory()
