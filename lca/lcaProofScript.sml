@@ -368,19 +368,7 @@ val type_ok_Num = store_thm("type_ok_Num",
 
 val LCA_l_UNIV = term_to_deep ``LCA l (UNIV:'U set)``
 
-(* TODO: stolen from holDerivationScript.sml *)
-fun replace_term from to =
-  let
-    fun f tm =
-      if tm = from then to else
-        case dest_term tm of
-          COMB(t1,t2) => mk_comb(f t1, f t2)
-        | LAMB(t1,t2) => mk_abs(f t1, f t2)
-        | _ => tm
-  in
-    f
-  end
-(* -- *)
+fun replace_term from to = Term.subst[from |-> to]
 
 val EVAL_STRING_SORT = basicReflectionLib.EVAL_STRING_SORT
 val (EVAL_type_ok0,EVAL_term_ok0) =
