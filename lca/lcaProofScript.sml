@@ -1694,13 +1694,13 @@ val Holds_Abstract = store_thm("Holds_Abstract",
     simp[] ) >>
   simp[])
 
-val termsem_countable = store_thm("termsem_countable",
-  ``is_set_theory ^mem ⇒
+val termsem_countable_gen = Q.store_thm("termsem_countable_gen",
+  `is_set_theory ^mem ⇒
     ∀i v ty1 a tya a0 tyin.
     i models thyof lca_ctxt ∧
     is_valuation (tysof lca_ctxt) (tyaof i) v ∧
-    wf_to_inner ((to_inner Num):num->'U) ∧
-    tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
+    wf_to_inner ((to_inner_Num ^mem):num->'U) ∧
+    tyaof i (strlit"num") [] = range((to_inner_Num mem):num->'U) ∧
     a = INST tyin a0 ∧
     ty1 = Fun (Fun tya Bool) Bool ∧
     tya = REV_ASSOCD(Tyvar(strlit"A"))tyin(Tyvar(strlit"A")) ∧
@@ -1710,7 +1710,7 @@ val termsem_countable = store_thm("termsem_countable",
     ⇒
     termsem (tmsof lca_ctxt) i v
       (Comb (Const (strlit "countable") ty1) a) =
-      Boolean (countable (ext(typesem (tyaof i) (tyvof v) tya) ∩ Holds (termsem (tmsof lca_ctxt) i v a)))``,
+      Boolean (countable (ext(typesem (tyaof i) (tyvof v) tya) ∩ Holds (termsem (tmsof lca_ctxt) i v a)))`,
   rpt strip_tac >>
   qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Comb (Const g ty) a) = R` >>
   qspecl_then[`lca_ctxt`,`i`,`v`,`g`,`ty`,`tyin`,`a`]mp_tac (UNDISCH termsem_comb1_ax) >>
@@ -1781,7 +1781,7 @@ val termsem_countable = store_thm("termsem_countable",
   EQ_TAC >- (
     strip_tac >>
     qmatch_assum_abbrev_tac`termsem (tmsof lca_ctxt) i vvx bd = True` >>
-    qexists_tac`finv(to_inner Num) o $' x` >>
+    qexists_tac`finv(to_inner_Num mem) o $' x` >>
     qpat_assum`X:'U = True`mp_tac >>
     simp[Abbr`bd`] >>
     `is_valuation (tysof lca_ctxt) (tyaof i) vvx` by (
@@ -1811,7 +1811,7 @@ val termsem_countable = store_thm("termsem_countable",
     metis_tac[wf_to_inner_finv_right]) >>
   disch_then(qx_choose_then`g`strip_assume_tac) >>
   qexists_tac`Abstract (typesem (tyaof i) (tyvof v) tya) (tyaof i (strlit"num")[])
-                (λm. (* if Holds (termsem (tmsof lca_ctxt) i v a) m then *) to_inner Num (g m)
+                (λm. (* if Holds (termsem (tmsof lca_ctxt) i v a) m then *) to_inner_Num mem (g m)
                      (* else  *) )` >>
   conj_asm1_tac >- (
     simp[] >>
@@ -1864,6 +1864,30 @@ val termsem_countable = store_thm("termsem_countable",
   disch_then SUBST1_TAC >>
   metis_tac[wf_to_inner_finv_left])
 
+fun ungen_tac th =
+  qspec_then`combin$C to_inner0 Num`mp_tac(Q.GEN`to_inner_Num` th)
+  \\ PURE_REWRITE_TAC[Q.ISPECL[`to_inner0`,`Num`]C_THM]
+  \\ disch_then ACCEPT_TAC
+
+val termsem_countable = store_thm("termsem_countable",
+  ``is_set_theory ^mem ⇒
+    ∀i v ty1 a tya a0 tyin.
+    i models thyof lca_ctxt ∧
+    is_valuation (tysof lca_ctxt) (tyaof i) v ∧
+    wf_to_inner ((to_inner Num):num->'U) ∧
+    tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
+    a = INST tyin a0 ∧
+    ty1 = Fun (Fun tya Bool) Bool ∧
+    tya = REV_ASSOCD(Tyvar(strlit"A"))tyin(Tyvar(strlit"A")) ∧
+    EVERY (type_ok (tysof lca_ctxt)) (MAP FST tyin) ∧
+    term_ok (sigof lca_ctxt) a0 ∧
+    typeof a0 = (Fun (Tyvar(strlit"A")) Bool)
+    ⇒
+    termsem (tmsof lca_ctxt) i v
+      (Comb (Const (strlit "countable") ty1) a) =
+      Boolean (countable (ext(typesem (tyaof i) (tyvof v) tya) ∩ Holds (termsem (tmsof lca_ctxt) i v a)))``,
+  ungen_tac termsem_countable_gen);
+
 fun use_termsem_countable f tyinq (g as (asl,w)) =
   let
     val tm = find_term(can(match_term``termsem s i v (Comb (Const (strlit"countable") ty) a)``)) w
@@ -1888,20 +1912,44 @@ fun use_termsem_countable f tyinq (g as (asl,w)) =
     disch_then(CHANGED_TAC o SUBST1_TAC)
   end g
 
+fun use_termsem_countable_gen f tyinq (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term``termsem s i v (Comb (Const (strlit"countable") ty) a)``)) w
+    val (_,args) = strip_comb tm
+    val app = el 5 args
+    val ty = app |> rator |> rand |> rand
+    val a = app |> rand
+    val th =
+      UNDISCH termsem_countable_gen
+      |> SPECL[el 3 args, el 4 args, ty, a]
+  in
+    mp_tac th >> simp[] >>
+    disch_then(qspec_then tyinq mp_tac o SPEC(f a)) >>
+    impl_keep_tac >- (
+      conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+      conj_tac >- (simp[REV_ASSOCD]) >>
+      conj_tac >- (simp[] >> rpt conj_tac >> CONV_TAC(EVAL_type_ok)) >>
+      conj_tac >- (CONV_TAC(EVAL_term_ok)) >>
+      (CONV_TAC(LAND_CONV(EVAL_typeof))>>REFL_TAC)) >>
+    pop_assum(fn th =>
+      map_every (SUBST1_TAC o SYM) (List.take((CONJUNCTS th),2))) >>
+    disch_then(CHANGED_TAC o SUBST1_TAC)
+  end g
+
 val SUC_tac =
   simp[EVAL``FLOOKUP (tmsof lca_ctxt) (strlit "SUC")``,identity_instance] >>
   EVAL_STRING_SORT >> simp[]
 
-val termsem_LESS = store_thm("termsem_LESS",
-  ``is_set_theory ^mem ⇒
+val termsem_LESS_gen = Q.store_thm("termsem_LESS_gen",
+  `is_set_theory ^mem ⇒
     ∀i v a b ty1.
     i models thyof lca_ctxt ∧
     is_valuation (tysof lca_ctxt) (tyaof i) v ∧
-    wf_to_inner ((to_inner Num):num->'U) ∧
-    tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
+    wf_to_inner ((to_inner_Num ^mem):num->'U) ∧
+    tyaof i (strlit"num") [] = range((to_inner_Num mem):num->'U) ∧
     tmaof i (strlit"SUC") [] =
       Abstract(tyaof i (strlit"num")[])(tyaof i (strlit"num")[])
-        (λm. to_inner Num (SUC (finv (to_inner Num) m))) ∧
+        (λm. to_inner_Num mem (SUC (finv (to_inner_Num mem) m))) ∧
     ty1 = Fun Num (Fun Num Bool) ∧
     term_ok (sigof lca_ctxt) a ∧
     term_ok (sigof lca_ctxt) b ∧
@@ -1911,8 +1959,8 @@ val termsem_LESS = store_thm("termsem_LESS",
     termsem (tmsof lca_ctxt) i v
       (Comb (Comb (Const (strlit "<") ty1) a) b) =
       Boolean (prim_rec$<
-                (finv (to_inner Num) (termsem (tmsof lca_ctxt) i v a))
-                (finv (to_inner Num) (termsem (tmsof lca_ctxt) i v b)))``,
+                (finv (to_inner_Num mem) (termsem (tmsof lca_ctxt) i v a))
+                (finv (to_inner_Num mem) (termsem (tmsof lca_ctxt) i v b)))`,
   rpt strip_tac >>
   qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Comb (Comb (Const g ty) a) b) = R` >>
   qspecl_then[`lca_ctxt`,`i`,`v`,`g`,`ty`,`[]`,`a`,`b`]mp_tac (UNDISCH termsem_comb2_ax) >>
@@ -1965,7 +2013,7 @@ val termsem_LESS = store_thm("termsem_LESS",
   qho_match_abbrev_tac`(∃x. P x ∧ Q x) ⇔ (∃y. B y)` >>
   qho_match_abbrev_tac`(∃x. A x) ⇔ (∃y. B y)` >>
   map_every qunabbrev_tac[`P`,`Q`] >>
-  `∀x. A (Abstract (tyaof i (strlit"num") []) boolset (λm. Boolean (x (finv (to_inner Num) m)))) ⇔ B x`
+  `∀x. A (Abstract (tyaof i (strlit"num") []) boolset (λm. Boolean (x (finv (to_inner_Num mem) m)))) ⇔ B x`
   suffices_by (
     disch_then(mp_tac o GSYM) >> simp[] >>
     disch_then kall_tac >>
@@ -1976,7 +2024,7 @@ val termsem_LESS = store_thm("termsem_LESS",
     fs[models_def,is_std_interpretation_def] >>
     imp_res_tac typesem_Fun >> fs[] >>
     imp_res_tac (UNDISCH in_funspace_abstract) >>
-    qexists_tac`finv bool_to_inner o f o to_inner Num` >>
+    qexists_tac`finv bool_to_inner o f o to_inner_Num mem` >>
     Q.PAT_ABBREV_TAC`x' = Abstract X Y Z` >>
     `x' = x` suffices_by rw[] >>
     qunabbrev_tac`x'` >> simp[] >>
@@ -2023,14 +2071,14 @@ val termsem_LESS = store_thm("termsem_LESS",
     use_termsem_forall >>
     simp[boolean_eq_true] >>
     qho_match_abbrev_tac`(∀x. A x) ⇔ (∀y. B y)` >>
-    `∀x. A (to_inner Num x) ⇔ B x` suffices_by (
+    `∀x. A (to_inner_Num mem x) ⇔ B x` suffices_by (
       disch_then(mp_tac o GSYM) >> simp[] >>
       disch_then kall_tac >>
       simp[Abbr`A`,Abbr`B`] >>
       EQ_TAC >> simp[] >>
       strip_tac >> gen_tac >>
       simp[Once typesem_def] >>
-      first_x_assum(qspec_then`finv (to_inner Num) x`mp_tac) >>
+      first_x_assum(qspec_then`finv (to_inner_Num mem) x`mp_tac) >>
       simp[Once typesem_def] >>
       metis_tac[wf_to_inner_finv_right] ) >>
     simp[Abbr`A`,Abbr`B`] >>
@@ -2107,6 +2155,29 @@ val termsem_LESS = store_thm("termsem_LESS",
     simp[typesem_def] ) >>
   disch_then SUBST1_TAC >>
   simp[boolean_eq_true])
+
+val termsem_LESS = store_thm("termsem_LESS",
+  ``is_set_theory ^mem ⇒
+    ∀i v a b ty1.
+    i models thyof lca_ctxt ∧
+    is_valuation (tysof lca_ctxt) (tyaof i) v ∧
+    wf_to_inner ((to_inner Num):num->'U) ∧
+    tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
+    tmaof i (strlit"SUC") [] =
+      Abstract(tyaof i (strlit"num")[])(tyaof i (strlit"num")[])
+        (λm. to_inner Num (SUC (finv (to_inner Num) m))) ∧
+    ty1 = Fun Num (Fun Num Bool) ∧
+    term_ok (sigof lca_ctxt) a ∧
+    term_ok (sigof lca_ctxt) b ∧
+    typeof a = Num ∧
+    typeof b = Num
+    ⇒
+    termsem (tmsof lca_ctxt) i v
+      (Comb (Comb (Const (strlit "<") ty1) a) b) =
+      Boolean (prim_rec$<
+                (finv (to_inner Num) (termsem (tmsof lca_ctxt) i v a))
+                (finv (to_inner Num) (termsem (tmsof lca_ctxt) i v b)))``,
+  ungen_tac termsem_LESS_gen);
 
 val inter_subset = prove(
   ``a ∩ b ⊆ c ⇔ a ∩ b ⊆ a ∩ c``,simp[])
@@ -2839,13 +2910,13 @@ fun use_termsem_regular_cardinal_simple (g as (asl,w)) =
     disch_then(CHANGED_TAC o SUBST1_TAC)
   end g
 
-val termsem_strongly_inaccessible = store_thm("termsem_strongly_inaccessible",
-  ``is_set_theory ^mem ⇒
+val termsem_strongly_inaccessible_gen = Q.store_thm("termsem_strongly_inaccessible_gen",
+  `is_set_theory ^mem ⇒
     ∀i v ty1 a ty a0 tyin.
     i models thyof lca_ctxt ∧
     is_valuation (tysof lca_ctxt) (tyaof i) v ∧
-    wf_to_inner ((to_inner Num):num->'U) ∧
-    tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
+    wf_to_inner ((to_inner_Num ^mem):num->'U) ∧
+    tyaof i (strlit"num") [] = range((to_inner_Num mem):num->'U) ∧
     a = INST tyin a0 ∧
     ty1 = Fun (Fun ty Bool) Bool ∧
     ty = REV_ASSOCD (Tyvar(strlit"A")) tyin (Tyvar(strlit"A")) ∧
@@ -2856,7 +2927,7 @@ val termsem_strongly_inaccessible = store_thm("termsem_strongly_inaccessible",
       (Comb (Const (strlit "strongly_inaccessible") ty1) a)
     = Boolean(
         strongly_inaccessible(
-          ext (typesem (tyaof i) (tyvof v) ty) ∩ Holds (termsem (tmsof lca_ctxt) i v a)))``,
+          ext (typesem (tyaof i) (tyvof v) ty) ∩ Holds (termsem (tmsof lca_ctxt) i v a)))`,
   rpt strip_tac >>
   qmatch_abbrev_tac`termsem (tmsof lca_ctxt) i v (Comb (Const g gy) a) = R` >>
   qspecl_then[`lca_ctxt`,`i`,`v`,`g`,`gy`,`tyin`,`a`]mp_tac (UNDISCH termsem_comb1_ax) >>
@@ -2949,13 +3020,33 @@ val termsem_strongly_inaccessible = store_thm("termsem_strongly_inaccessible",
     simp[Abbr`vvv`] ) >>
   use_termsem_not >>
   simp[boolean_eq_true] >>
-  use_termsem_countable I `[]` >>
+  use_termsem_countable_gen I `[]` >>
   simp[boolean_eq_true] >>
   simp[typesem_def,termsem_def] >>
   simp[Abbr`vv`,Abbr`s`,APPLY_UPDATE_THM,UPDATE_LIST_THM] >>
   qspecl_then[`sigof lca_ctxt`,`a0`,`tyin`]mp_tac termsem_INST >> simp[] >>
   disch_then kall_tac >>
   simp[Abbr`vvv`])
+
+val termsem_strongly_inaccessible = store_thm("termsem_strongly_inaccessible",
+  ``is_set_theory ^mem ⇒
+    ∀i v ty1 a ty a0 tyin.
+    i models thyof lca_ctxt ∧
+    is_valuation (tysof lca_ctxt) (tyaof i) v ∧
+    wf_to_inner ((to_inner Num):num->'U) ∧
+    tyaof i (strlit"num") [] = range((to_inner Num):num->'U) ∧
+    a = INST tyin a0 ∧
+    ty1 = Fun (Fun ty Bool) Bool ∧
+    ty = REV_ASSOCD (Tyvar(strlit"A")) tyin (Tyvar(strlit"A")) ∧
+    EVERY (type_ok (tysof lca_ctxt)) (MAP FST tyin) ∧
+    term_ok (sigof lca_ctxt) a0 ∧
+    typeof a0 = (Fun (Tyvar(strlit"A")) Bool) ⇒
+    termsem (tmsof lca_ctxt) i v
+      (Comb (Const (strlit "strongly_inaccessible") ty1) a)
+    = Boolean(
+        strongly_inaccessible(
+          ext (typesem (tyaof i) (tyvof v) ty) ∩ Holds (termsem (tmsof lca_ctxt) i v a)))``,
+  ungen_tac termsem_strongly_inaccessible_gen);
 
 fun use_termsem_strongly_inaccessible f tyinq (g as (asl,w)) =
   let
@@ -2981,28 +3072,52 @@ fun use_termsem_strongly_inaccessible f tyinq (g as (asl,w)) =
     disch_then(CHANGED_TAC o SUBST1_TAC)
   end g
 
+fun use_termsem_strongly_inaccessible_gen f tyinq (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term``termsem s i v (Comb (Const (strlit"strongly_inaccessible") ty) a)``)) w
+    val (_,args) = strip_comb tm
+    val app = el 5 args
+    val ty = app |> rator |> rand |> rand
+    val a = app |> rand
+    val th =
+      UNDISCH termsem_strongly_inaccessible_gen
+      |> SPECL[el 3 args, el 4 args, ty, a]
+  in
+    mp_tac th >> simp[] >>
+    disch_then(qspec_then tyinq mp_tac o SPEC(f a)) >>
+    impl_keep_tac >- (
+      conj_tac >- (CONV_TAC(RAND_CONV EVAL_INST) >> REFL_TAC) >>
+      conj_tac >- (simp[REV_ASSOCD]) >>
+      conj_tac >- (simp[] >> rpt conj_tac >> CONV_TAC(EVAL_type_ok)) >>
+      conj_tac >- (CONV_TAC(EVAL_term_ok)) >>
+      (CONV_TAC(LAND_CONV(EVAL_typeof))>>REFL_TAC)) >>
+    pop_assum(fn th =>
+      map_every (SUBST1_TAC o SYM) (List.take((CONJUNCTS th),2))) >>
+    disch_then(CHANGED_TAC o SUBST1_TAC)
+  end g
+
 val name = ``name:mlstring``
 val LCA_name_UNIV = replace_term ``strlit"l"``name LCA_l_UNIV
 
-val intermediate_thm = store_thm("intermediate_thm",
-  ``(name ≠ strlit"f" ∧ name ≠ strlit"k") (* makes proof easier *) ⇒
+val intermediate_thm_gen = Q.store_thm("intermediate_thm_gen",
+  `(name ≠ strlit"f" ∧ name ≠ strlit"k") (* makes proof easier *) ⇒
     LCA (SUC l) (UNIV:'U set) ⇒
     ∃(mem:'U reln).
       is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
       wf_to_inner ((to_inner Ind):ind->'U) ∧
-      (wf_to_inner ((to_inner Num):num->'U) ∧
+      (wf_to_inner ((to_inner_Num mem):num->'U) ∧
        (gi mem) models (thyof lca_ctxt) ∧
        tyaof (gi mem) (strlit"ind") [] = range((to_inner Ind):ind->'U) ∧
-       tyaof (gi mem) (strlit"num") [] = range((to_inner Num):num->'U) ∧
-       tmaof (gi mem) (strlit"0") [] = to_inner Num (0:num) ∧
+       tyaof (gi mem) (strlit"num") [] = range((to_inner_Num mem):num->'U) ∧
+       tmaof (gi mem) (strlit"0") [] = to_inner_Num mem (0:num) ∧
        tmaof (gi mem) (strlit"SUC") [] =
-         Abstract(range((to_inner Num):num->'U))(range((to_inner Num):num->'U))
-           (λm. to_inner Num (SUC (finv (to_inner Num) m)))
+         Abstract(range((to_inner_Num mem):num->'U))(range((to_inner_Num mem):num->'U))
+           (λm. to_inner_Num mem (SUC (finv (to_inner_Num mem) m)))
        ⇒
          ∃v.
            is_valuation (tysof lca_ctxt) (tyaof (gi mem)) v ∧
-           (tmvof v (^name,Num) = to_inner Num l) ∧
-           (termsem (tmsof lca_ctxt) (gi mem) v ^LCA_name_UNIV = True))``,
+           (tmvof v (^name,Num) = to_inner_Num mem l) ∧
+           (termsem (tmsof lca_ctxt) (gi mem) v ^LCA_name_UNIV = True))`,
   strip_tac >>
   CONV_TAC(LAND_CONV(REWR_CONV LCA_alt)) >> strip_tac >>
   first_assum(qspec_then`l`mp_tac) >>
@@ -3080,7 +3195,7 @@ val intermediate_thm = store_thm("intermediate_thm",
   qspecl_then[`tysof lca_ctxt`,`tyaof i`,`K fl`]mp_tac(UNDISCH constrained_term_valuation_exists) >>
   simp[] >>
   impl_tac >- fs[models_def,is_interpretation_def] >>
-  disch_then(qspec_then`[((name,Num),to_inner Num l)]`mp_tac) >>
+  disch_then(qspec_then`[((name,Num),to_inner_Num mem l)]`mp_tac) >>
   impl_tac >- (
     simp[type_ok_Num] >>
     simp[typesem_def] >>
@@ -3127,10 +3242,10 @@ val intermediate_thm = store_thm("intermediate_thm",
   simp[boolean_eq_true] >>
   qexists_tac`
     Abstract
-      (range ((to_inner Num):num->'U))
+      (range ((to_inner_Num mem):num->'U))
       (Funspace fl boolset)
       (λm. Abstract fl boolset
-             (Boolean o (f (finv (to_inner Num) m))))` >>
+             (Boolean o (f (finv (to_inner_Num mem) m))))` >>
   conj_asm1_tac >- (
     simp[] >>
     fs[models_def,is_std_interpretation_def] >>
@@ -3262,8 +3377,8 @@ val intermediate_thm = store_thm("intermediate_thm",
   use_termsem_implies >>
   simp[boolean_eq_true] >>
   strip_tac >>
-  `finv (to_inner Num) x < l` by (
-    qspecl_then[`i`,`vu`,`Var(strlit"k")Num`,`Var name Num`]mp_tac (UNDISCH termsem_LESS) >>
+  `finv (to_inner_Num mem) x < l` by (
+    qspecl_then[`i`,`vu`,`Var(strlit"k")Num`,`Var name Num`]mp_tac (UNDISCH termsem_LESS_gen) >>
     simp[] >>
     impl_tac >- (
       CONJ_TAC >> CONV_TAC EVAL_term_ok ) >>
@@ -3273,7 +3388,7 @@ val intermediate_thm = store_thm("intermediate_thm",
     simp[Abbr`vv`,APPLY_UPDATE_THM] >>
     simp[Abbr`v`] >>
     PROVE_TAC[wf_to_inner_finv_left] ) >>
-  first_assum(qspec_then`(finv (to_inner Num) x):num`mp_tac) >>
+  first_assum(qspec_then`(finv (to_inner_Num mem) x):num`mp_tac) >>
   impl_tac >- simp[] >>
   strip_tac >>
   use_termsem_and >>
@@ -3296,7 +3411,7 @@ val intermediate_thm = store_thm("intermediate_thm",
       simp[] ) >>
     metis_tac[SUBSET_TRANS] ) >>
   conj_tac >- (
-    use_termsem_strongly_inaccessible
+    use_termsem_strongly_inaccessible_gen
       (replace_term``Tyvar(strlit"U")````Tyvar(strlit"A")``)
       `[(Tyvar(strlit"U"),Tyvar(strlit"A"))]` >>
     simp[boolean_eq_true] >>
@@ -3420,6 +3535,27 @@ val intermediate_thm = store_thm("intermediate_thm",
   `ext fl = f l` by simp[ext_def] >>
   `(∀x. x < l ⇒ x ≤ l ∧ SUC x ≤ l)` by DECIDE_TAC >>
   metis_tac[])
+
+val intermediate_thm = store_thm("intermediate_thm",
+  ``(name ≠ strlit"f" ∧ name ≠ strlit"k") (* makes proof easier *) ⇒
+    LCA (SUC l) (UNIV:'U set) ⇒
+    ∃(mem:'U reln).
+      is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
+      wf_to_inner ((to_inner Ind):ind->'U) ∧
+      (wf_to_inner ((to_inner Num):num->'U) ∧
+       (gi mem) models (thyof lca_ctxt) ∧
+       tyaof (gi mem) (strlit"ind") [] = range((to_inner Ind):ind->'U) ∧
+       tyaof (gi mem) (strlit"num") [] = range((to_inner Num):num->'U) ∧
+       tmaof (gi mem) (strlit"0") [] = to_inner Num (0:num) ∧
+       tmaof (gi mem) (strlit"SUC") [] =
+         Abstract(range((to_inner Num):num->'U))(range((to_inner Num):num->'U))
+           (λm. to_inner Num (SUC (finv (to_inner Num) m)))
+       ⇒
+         ∃v.
+           is_valuation (tysof lca_ctxt) (tyaof (gi mem)) v ∧
+           (tmvof v (^name,Num) = to_inner Num l) ∧
+           (termsem (tmsof lca_ctxt) (gi mem) v ^LCA_name_UNIV = True))``,
+  ungen_tac intermediate_thm_gen);
 
 val entails_imp_eq_true = store_thm("entails_imp_eq_true",
   ``(thy,[]) |= c ⇒
