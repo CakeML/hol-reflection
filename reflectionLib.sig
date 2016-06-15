@@ -34,7 +34,6 @@ signature reflectionLib = sig include Abbrev
   val prove_wf_to_inner : hol_type -> thm
 
 val build_axiomatic_interpretation :
-  (thm -> thm * thm) -> (* good_select select |-> (theory_ok (thyof ctxt), i models (thyof ctxt)) *)
-    hol_type list -> term list -> (*axioms*)thm list -> interpretation_cert
+  thm -> update list -> hol_type list -> term list -> thm list -> interpretation_cert
 
 end

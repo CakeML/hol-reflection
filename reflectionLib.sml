@@ -1546,7 +1546,7 @@ fun build_interpretation length_ctxt vti wf_to_inner_hyps [] tys consts =
         VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
           FIRST (select_tac::ind_tac::(map (wf_match_accept_tac o prepare_bool_thm)
                                            (onto_thm::one_one_thm::bool_thms))))
-      )
+      ) (el 4 int_tms)
       int_tms
   in
     { good_context_thm = gcth,
@@ -2131,6 +2131,8 @@ in
     end
 end
 
+val conj_elim = PROVE[]``a /\ b /\ a <=> a /\ b``
+
 fun prove_props_ok base_is_std_sig distinct_tys distinct_tms types_ok ths =
   let
     val tys_is_std_sig
@@ -2152,7 +2154,11 @@ fun prove_props_ok base_is_std_sig distinct_tys distinct_tms types_ok ths =
         val th1 =
           EVAL_term_ok t1
           |> CONV_RULE(RAND_CONV(
-               SIMP_CONV(srw_ss())[holSyntaxLibTheory.tyvar_inst_exists,tyvar_inst_exists2,tyvar_inst_exists2_diff]))
+               SIMP_CONV(srw_ss())
+                 [holSyntaxLibTheory.tyvar_inst_exists,
+                  tyvar_inst_exists2,
+                  tyvar_inst_exists2_diff,
+                  conj_elim]))
           |> EQT_ELIM
         val th2 = CONJ th1 (EVAL_typeof t2 |> EQT_ELIM)
       in
@@ -2333,6 +2339,43 @@ val sigof_thyof = ``sigof (thyof x) = sigof x`` |> EVAL |> EQT_ELIM
 val wf_to_inner_tm = ``wf_to_inner``
 fun is_wf_to_inner tm = is_comb tm andalso can (match_term wf_to_inner_tm) (rator tm)
 
+val init_ctxt_consts = [``$=``]
+val init_ctxt_tys = [bool,alpha-->beta]
+val bool_ctxt_consts = [``$~``,``F``,``$\/``,``$?``,``$!``,``$==>``,``$/\``,``T``]
+val select_ctxt_consts = [``$@``]
+val infinity_ctxt_consts = [``ONE_ONE``,``ONTO``]
+val hol_ctxt_consts = infinity_ctxt_consts @ select_ctxt_consts @ bool_ctxt_consts @ init_ctxt_consts
+val hol_ctxt_tys = ind::init_ctxt_tys
+
+val init_update:update = {
+  sound_update_thm = TRUTH,
+  constrainable_thm = TRUTH,
+  updates_thm = TRUTH,
+  extends_init_thm = TRUTH,
+  tys = hol_ctxt_tys,
+  consts = hol_ctxt_consts,
+  axs = [] }
+
+fun term_in_update tm (upd:update) = List.exists (same_const tm) (#consts upd)
+local
+  fun type_name ty = let val {Thy,Tyop,...} = dest_thy_type ty in (Thy,Tyop) end
+in
+  fun type_in_update ty (upd:update) = List.exists (fn ty' => type_name ty = type_name ty') (#tys upd)
+end
+fun term_in_ctxt upds tm = List.exists (term_in_update tm) (init_update::upds)
+fun type_in_ctxt upds ty = List.exists (type_in_update ty) (init_update::upds)
+
+
+(*
+
+val base_ok_thm = theory_ok_hol_ctxt
+val outer_ctxt:update list = []
+val outer_tys = [``:bool list``,``:ind``]
+val outer_tms = [``MAP:(bool -> ind) -> bool list -> ind list``,``T``]
+val outer_ths = [EVAL``MAP (K (ARB:ind)) [F;F]``,SELECT_AX |> INST_TYPE[alpha|->ind]]
+
+*)
+
 local
   (* ``:num list`` |-> (("list",1),``([^(mk_range [] ``:num``)],^(mk_range[]``:num list``))`` *)
   fun mk_tyel ty =
@@ -2347,7 +2390,7 @@ local
     let fun f acc [] = (k,[v])::acc
           | f acc ((k',vs)::t) =
             if k = k' then
-              (k,v::vs)::acc
+              (k,v::vs)::acc@t
             else
               f ((k',vs)::acc) t
     in f [] end
@@ -2382,7 +2425,7 @@ local
     |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(REWR_CONV(GSYM PAIR)) THENC REWR_CONV PAIR_EQ))
 
 in
-  fun build_axiomatic_interpretation base_from_good_select outer_tys outer_tms outer_ths =
+  fun build_axiomatic_interpretation base_ok_thm outer_ctxt outer_tys outer_tms outer_ths =
     let
       val all_outer_tms =
         union (Lib.U (map base_terms_of_term outer_tms))
@@ -2390,31 +2433,31 @@ in
       val all_outer_tys =
         union (Lib.U (map base_types_of_type outer_tys))
               (Lib.U (map base_types_of_term all_outer_tms))
-      val tys0 = foldl (uncurry insert_el) [] (map mk_tyel all_outer_tys)
+
+      val wf_to_inners = map prove_wf_to_inner all_outer_tys
+
+      val (base_outer_tms,ax_outer_tms) =
+        partition (term_in_ctxt outer_ctxt) all_outer_tms
+      val (base_outer_tys,ax_outer_tys) =
+        partition (type_in_ctxt outer_ctxt) all_outer_tys
+
+      val { good_context_thm = base_good_context_thm,
+            models_thm = base_models_thm,
+            wf_to_inners = base_wf_to_inners,
+            sig_assums = base_sig_assums,
+            int_assums = base_int_assums } =
+          build_interpretation (map concl wf_to_inners) outer_ctxt base_outer_tys base_outer_tms
+
+      val tys0 = foldl (uncurry insert_el) [] (map mk_tyel ax_outer_tys)
       val tys = mk_list(map fix_ty tys0,
                   mk_prod(mlstringSyntax.mlstring_ty,
                           mk_prod(numSyntax.num,mk_list_type(constraint_ty))))
-      val tms0 = foldl (uncurry insert_el) [] (map mk_tmel all_outer_tms)
+      val tms0 = foldl (uncurry insert_el) [] (map mk_tmel ax_outer_tms)
       val tms = mk_list(map fix_tm tms0,
                   mk_prod(mlstringSyntax.mlstring_ty,
                           mk_prod(type_ty,mk_list_type(constraint_ty))))
       val ths = map (term_to_deep o concl) outer_ths
 
-      val select_tys = filter (same_const boolSyntax.select) all_outer_tms
-        |> map (snd o dom_rng o type_of)
-      fun foldthis (ty,th) =
-        let
-          val wf = prove_wf_to_inner ty
-          val th1 = MATCH_MP good_select_extend_base_select wf
-          val th2 = MATCH_MP th1 th
-        in th2 end
-      val good_select =
-        foldl foldthis
-          (UNDISCH holAxiomsTheory.good_select_base_select)
-          select_tys
-      val select = rand(concl good_select)
-
-      val (base_ok_thm,base_models_thm) = base_from_good_select good_select
       val base_is_std_sig =
         MATCH_MP theory_ok_sig base_ok_thm
         |> CONV_RULE(RAND_CONV(REWR_CONV sigof_thyof))
@@ -2454,7 +2497,6 @@ in
         |> PURE_REWRITE_RULE[is_std_interpretation_def]
         |> CONJUNCT1
         |> PURE_REWRITE_RULE[ax_int_def,FST]
-      val wf_to_inners = map prove_wf_to_inner all_outer_tys
       val tyass_asms = ax_tyass_std::(tyass_asms_values@wf_to_inners)
       val tmtys = map (#2 o #1) tms0
       val intypes = prove_intypes ax_tyass tyass_asms tmtys tys tms
@@ -2515,20 +2557,28 @@ in
           finite_mapSyntax.is_flookup (lhs tm))
         assums1
 
+      val ax_extends_thm =
+        ax_ctxt_extends_ctxt
+        |> C MATCH_MP (LIST_CONJ [distinct_tys,distinct_tms,types_ok,props_ok])
+        of_sigof_thy
+
+      val tysof_extends = MATCH_MP FLOOKUP_tysof_extends ax_extends_thm
+      val tmsof_extends = MATCH_MP FLOOKUP_tmsof_extends ax_extends_thm
+      val extended_base_sig_assums =
+        List.map (fn th => MATCH_MP tysof_extends th handle HOL_ERR _ => MATCH_MP tmsof_extends th)
+        base_sig_assums
+
+      val extended_base_int_assums = base_int_assums
+      (* TODO: need to show ax_int is equal_on the base ctxt, and that this
+               implies tmaof/tyaof assumptions can be extended *)
+
       val sig_assums = map
-        (fn tm => VALID_TAC_PROOF(([],tm),EVAL_TAC))
+        (fn tm => VALID_TAC_PROOF(([],tm),FIRST (map ACCEPT_TAC extended_base_sig_assums) ORELSE EVAL_TAC))
         sig_tms
-
-      val eq_int = std_equality |> UNDISCH |> C MATCH_MP ax_int_std
-      val eq_int_tac =
-        match_mp_tac eq_int
-        \\ FIRST (map ACCEPT_TAC wf_to_inners)
-
-      (* TODO: need to handle int_assums about select *)
 
       val int_assums = map
         (fn tm => VALID_TAC_PROOF((base_hyps,tm),
-          FIRST (eq_int_tac::(map ACCEPT_TAC (tmass_values@tyass_values)))))
+          FIRST (map ACCEPT_TAC (extended_base_int_assums@tmass_values@tyass_values))))
         int_tms
 
       val props_true = prove_props_true gcth sig_assums int_assums wf_to_inners outer_ths

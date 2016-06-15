@@ -3132,4 +3132,35 @@ val std_equality = Q.store_thm("std_equality",
   \\ rw[boolean_def]
   \\ metis_tac[wf_to_inner_finv_right]);
 
+(* TODO: move? *)
+
+val FLOOKUP_tysof_extends = Q.store_thm("FLOOKUP_tysof_extends",
+  `∀ctxt2 ctxt1. ctxt1 extends ctxt2 ⇒
+   (FLOOKUP (tysof (sigof ctxt2)) k = SOME v) ⇒
+   (FLOOKUP (tysof (sigof ctxt1)) k = SOME v)`,
+  ho_match_mp_tac extends_ind
+  \\ REWRITE_TAC[GSYM o_DEF]
+  \\ rw[ALOOKUP_APPEND]
+  \\ CASE_TAC
+  \\ fs[updates_cases]
+  \\ rw[] \\ fs[]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[]);
+
+val FLOOKUP_tmsof_extends = Q.store_thm("FLOOKUP_tmsof_extends",
+  `∀ctxt2 ctxt1. ctxt1 extends ctxt2 ⇒
+   (FLOOKUP (tmsof (sigof ctxt2)) k = SOME v) ⇒
+   (FLOOKUP (tmsof (sigof ctxt1)) k = SOME v)`,
+  ho_match_mp_tac extends_ind
+  \\ REWRITE_TAC[GSYM o_DEF]
+  \\ rw[ALOOKUP_APPEND]
+  \\ CASE_TAC
+  \\ fs[updates_cases]
+  \\ rw[] \\ fs[]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ TRY(qpat_assum`_ = SOME _`mp_tac \\ rw[])
+  \\ metis_tac[]);
+
 val _ = export_theory()
