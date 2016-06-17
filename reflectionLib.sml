@@ -1546,7 +1546,7 @@ fun build_interpretation length_ctxt vti wf_to_inner_hyps [] tys consts =
         VALID_TAC_PROOF((hypotheses@wf_to_inner_hyps,tm),
           FIRST (select_tac::ind_tac::(map (wf_match_accept_tac o prepare_bool_thm)
                                            (onto_thm::one_one_thm::bool_thms))))
-      ) (el 4 int_tms)
+      )
       int_tms
   in
     { good_context_thm = gcth,
@@ -2076,14 +2076,6 @@ fun prove_disjoint tys =
   end
 
 local
-  (*
-  val lc = listLib.list_compset();
-  val () = fix_list_compset lc;
-  val lcupd = listLib.list_compset();
-  val () = fix_list_compset lcupd;
-  val () = add_pair_compset lcupd;
-  val () = computeLib.add_thms [UPDATE_LIST_THM] lcupd;
-  *)
   val IMP_CLAUSES_TX = IMP_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 1 |> GEN_ALL
 in
   fun prove_intypes tyass tyass_asms tmtys tys tms =
@@ -2205,12 +2197,15 @@ fun prove_props_true gcth sig_assums int_assums wf_to_inners outer_ths =
         val th1 = mk_comb(P,p) |> BETA_CONV
         val (v,t) = th1 |> concl |> rand |> dest_forall
         val cert = termsem_cert_unint outer_p |> DISCH_ALL
-        val th2 = MATCH_MP cert gcth1 |> UNDISCH_ALL
-                  |> C (foldl (uncurry PROVE_HYP)) (wf_to_inners@sig_assums@int_assums)
+                   |> PURE_REWRITE_RULE[AND_IMP_INTRO]
+                   |> CONV_RULE(LAND_CONV(move_conj_left(can(match_term good_context))))
+                   |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+        val th2 = MATCH_MP cert gcth1
                   |> INST[tyval |-> ``tyvof ^v``,
                           tmval |-> ``tmvof ^v``]
-                  |> CONV_RULE(LAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(PAIR))))))
-                  |> CONV_RULE(LAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(PAIR)))))
+                  |> CONV_RULE(DEPTH_CONV(REWR_CONV PAIR))
+                  |> UNDISCH_ALL
+                  |> C (foldl (uncurry PROVE_HYP)) (wf_to_inners@sig_assums@int_assums)
                   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(EQT_INTRO th))))
                   |> CONV_RULE(RAND_CONV(REWR_CONV bool_to_inner_true))
                   |> DISCH (#1(dest_imp t))
@@ -2427,6 +2422,7 @@ local
 in
   fun build_axiomatic_interpretation base_ok_thm outer_ctxt outer_tys outer_tms outer_ths =
     let
+
       val all_outer_tms =
         union (Lib.U (map base_terms_of_term outer_tms))
         (Lib.U (map (base_terms_of_term o concl) outer_ths))
@@ -2500,6 +2496,7 @@ in
       val tyass_asms = ax_tyass_std::(tyass_asms_values@wf_to_inners)
       val tmtys = map (#2 o #1) tms0
       val intypes = prove_intypes ax_tyass tyass_asms tmtys tys tms
+                    |> PROVE_HYP (prove_wf_to_inner bool) (* TODO: investigate why... *)
 
       val props_ok = prove_props_ok base_is_std_sig distinct_tys distinct_tms types_ok ths
 
@@ -2560,7 +2557,6 @@ in
       val ax_extends_thm =
         ax_ctxt_extends_ctxt
         |> C MATCH_MP (LIST_CONJ [distinct_tys,distinct_tms,types_ok,props_ok])
-        of_sigof_thy
 
       val tysof_extends = MATCH_MP FLOOKUP_tysof_extends ax_extends_thm
       val tmsof_extends = MATCH_MP FLOOKUP_tmsof_extends ax_extends_thm
@@ -2568,9 +2564,26 @@ in
         List.map (fn th => MATCH_MP tysof_extends th handle HOL_ERR _ => MATCH_MP tmsof_extends th)
         base_sig_assums
 
-      val extended_base_int_assums = base_int_assums
-      (* TODO: need to show ax_int is equal_on the base ctxt, and that this
-               implies tmaof/tyaof assumptions can be extended *)
+      val (tyaof_extends_thm,tmaof_extends_thm) =
+        ax_int_equal_on
+        |> ADD_ASSUM is_set_theory_mem
+        |> C MATCH_MP distinct_tys
+        |> C MATCH_MP distinct_tms
+        |> CONV_RULE(REWR_CONV(equal_on_def |> SIMP_RULE std_ss [FDOM_FLOOKUP,PULL_EXISTS]))
+        |> CONJ_PAIR
+
+      val int_extends_thms =
+        List.map (fn th =>
+                    SYM(MATCH_MP tyaof_extends_thm th handle HOL_ERR _ =>
+                        MATCH_MP tmaof_extends_thm th))
+                 base_sig_assums
+
+      val extended_base_int_assums =
+        List.map (fn th =>
+           Lib.tryfind (fn rth =>
+             CONV_RULE(LAND_CONV(RATOR_CONV(REWR_CONV rth)))th)
+           int_extends_thms)
+        (List.map (itlist PROVE_HYP wf_to_inners) base_int_assums)
 
       val sig_assums = map
         (fn tm => VALID_TAC_PROOF(([],tm),FIRST (map ACCEPT_TAC extended_base_sig_assums) ORELSE EVAL_TAC))

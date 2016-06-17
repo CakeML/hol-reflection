@@ -3050,6 +3050,21 @@ val MEM_axiom_list_ax_ctxt = Q.store_thm("MEM_axiom_list_ax_ctxt[simp]",
   \\ fsrw_tac[boolSimps.DNF_ss][]
   \\ metis_tac[]);
 
+val ax_int_equal_on = Q.store_thm("ax_int_equal_on",
+  `^distinct_tys ⇒
+   ^distinct_tms ⇒
+   equal_on (sigof ctxt) i (ax_int i tys tms)`,
+  rw[equal_on_def]
+  \\ rw[ax_int_def,ax_tyass_def,ax_tmass_def,FUN_EQ_THM]
+  \\ BasicProvers.CASE_TAC
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs[ALL_DISTINCT_APPEND,
+        MEM_type_list_NewTypes_ctxt,
+        MEM_const_list_NewConsts_ctxt,
+        MEM_MAP,PULL_EXISTS]
+  \\ res_tac \\ fs[UNCURRY]
+  \\ metis_tac[])
+
 val ax_int_models = Q.store_thm("ax_int_models",
   `theory_ok (thyof ctxt) ⇒
    ^distinct_tys ⇒
@@ -3162,5 +3177,9 @@ val FLOOKUP_tmsof_extends = Q.store_thm("FLOOKUP_tmsof_extends",
   \\ fs[MEM_MAP,EXISTS_PROD]
   \\ TRY(qpat_assum`_ = SOME _`mp_tac \\ rw[])
   \\ metis_tac[]);
+
+val FDOM_FLOOKUP = Q.store_thm("FDOM_FLOOKUP",
+  `x ∈ FDOM f ⇔ ∃v. FLOOKUP f x = SOME v`,
+  rw[FLOOKUP_DEF])
 
 val _ = export_theory()
