@@ -2079,10 +2079,10 @@ fun prove_disjoint tys =
 local
   val IMP_CLAUSES_TX = IMP_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 1 |> GEN_ALL
 in
-  fun prove_intypes tyass tyass_asms tmtys tys tms =
+  fun prove_intypes ax_tyass tyass_asms tmtys tys tms =
     let
       val (tmsl,tmsy) = listSyntax.dest_list tms
-      val P1 = typedTerm`λ(name,ty,cs). EVERY (intype ^tyass ty) cs`(tmsy --> bool)
+      val P1 = typedTerm`λ(name,ty,cs). EVERY (intype ^ax_tyass ty) cs`(tmsy --> bool)
       (* val tmel = el 3 tmsl *)
       (* val tmty = el 3 tmtys *)
       (* val csel = el 1 csl *)
@@ -2092,7 +2092,7 @@ in
           val ty = th2 |> concl |> rhs |> rator |> rand |> rator |> type_of |> dom_rng |> #1
           val th3 =
             prim_typesem_cert (complete_match_type tmty ty) tmty
-            |> Q.INST[`tyass`|->`^tyass`]
+            |> Q.INST[`tyass`|->`^ax_tyass`]
             |> itlist PROVE_HYP tyass_asms
           val tyval = th2 |> concl |> rhs |> rand |> rator |> rand
           (* maybe want to use this plus other stuff instead of the EVAL below
@@ -2102,9 +2102,10 @@ in
           *)
           val th4 =
             th3
-            |> itlist DISCH (filter is_eq (hyp th3))
+            |> itlist DISCH (filter (fn tm => is_eq tm andalso is_var(#1(strip_comb(lhs tm)))) (hyp th3))
             |> Q.INST[`tyval`|->`^tyval`]
-            |> CONV_RULE(REPEATC(LAND_CONV EVAL THENC REWR_CONV IMP_CLAUSES_TX))
+            |> CONV_RULE(REPEATC((fn tm => if is_imp tm then ALL_CONV tm else NO_CONV tm) THENC
+                                  LAND_CONV EVAL THENC REWR_CONV IMP_CLAUSES_TX))
           val th5 =
             th2
             |> CONV_RULE(RAND_CONV(RAND_CONV (REWR_CONV th4)))
@@ -2439,11 +2440,12 @@ in
         partition (type_in_ctxt outer_ctxt) all_outer_tys
 
       val { good_context_thm = base_good_context_thm,
-            models_thm = base_models_thm,
+            models_thm = base_models_thm0,
             wf_to_inners = base_wf_to_inners,
             sig_assums = base_sig_assums,
             int_assums = base_int_assums } =
           build_interpretation (map concl wf_to_inners) outer_ctxt base_outer_tys base_outer_tms
+      val base_models_thm = base_models_thm0 |> itlist PROVE_HYP wf_to_inners
 
       val tys0 = foldl (uncurry insert_el) [] (map mk_tyel ax_outer_tys)
       val tys = mk_list(map fix_ty tys0,
@@ -2597,7 +2599,14 @@ in
           FIRST (map ACCEPT_TAC (extended_base_int_assums@tmass_values@tyass_values))))
         int_tms
 
-      val props_true = prove_props_true gcth sig_assums int_assums wf_to_inners outer_ths
+      val gcth1 =
+        gcth |>
+        itlist PROVE_HYP
+          (mapfilter
+            (CONV_RULE(LAND_CONV(RATOR_CONV(RATOR_CONV(REWR_CONV(CONJUNCT1(SPEC_ALL ax_int_intro)))))))
+            extended_base_int_assums)
+
+      val props_true = prove_props_true gcth1 sig_assums int_assums wf_to_inners outer_ths
 
       val models_thm =
         ax_int_models
@@ -2605,13 +2614,13 @@ in
         |> C MATCH_MP base_ok_thm
         |> C MATCH_MP distinct_tys
         |> C MATCH_MP distinct_tms
-        |> C MATCH_MP gcth
+        |> C MATCH_MP gcth1
         |> C MATCH_MP base_models_thm
         |> C MATCH_MP props_true
 
     in
       {
-        good_context_thm = gcth,
+        good_context_thm = gcth1,
         models_thm = models_thm,
         int_assums = int_assums,
         sig_assums = sig_assums,
