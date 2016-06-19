@@ -2008,7 +2008,8 @@ fun prove_types_ok base_is_std_sig distinct_tys tys tms =
                      |> C MATCH_MP base_is_std_sig
     val (EVAL_type_ok,_) = EVAL_type_ok_term_ok EVAL is_std_sig
     val (tmsl,tmsy) = listSyntax.dest_list tms
-    val P = typedTerm`(type_ok (tysof (NewTypes_ctxt ^tys ++ hol_ctxt)) o FST o SND)`(tmsy-->bool)
+    val ax_ctxt = is_std_sig |> concl |> funpow 5 rand
+    val P = typedTerm`(type_ok (tysof ^ax_ctxt) o FST o SND)`(tmsy-->bool)
     (* val tmel = el 1 tmsl *)
     fun prove_P tmel =
       mk_comb(P,tmel)
@@ -2474,6 +2475,7 @@ in
 
       val ax_tyass = mk_icomb(mk_icomb(ax_tyass_tm,base_tyass),tys)
       val tyass_asms_values =
+        if null ax_outer_tys then [] else
         ax_tyass_values
         |> ADD_ASSUM is_set_theory_mem
         |> C MATCH_MP (CONJ distinct_tys disjoint_tys)
@@ -2523,6 +2525,7 @@ in
           |> CONJUNCT1
           |> SYM])
       val tmass_values =
+        if null ax_outer_tms then [] else
         ax_tmass_values
         |> ADD_ASSUM is_set_theory_mem
         |> C MATCH_MP (CONJ distinct_tms disjoint_tms)
