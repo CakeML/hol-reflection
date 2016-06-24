@@ -30,6 +30,8 @@ signature reflectionLib = sig include Abbrev
   val to_inner_prop : (hol_type,hol_type)Lib.subst -> hol_type -> term
   val base_types_of_term : term -> hol_type list
   val base_terms_of_term : term -> term list
+  val base_type_assums : hol_type -> term list
+  val base_term_assums : term -> term list
 
   val prove_wf_to_inner : hol_type -> thm
 

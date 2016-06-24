@@ -2628,4 +2628,7 @@ in
       }
     end
   end
+
+  val base_term_assums = base_term_assums []
+  val base_type_assums = base_type_assums []
 end
