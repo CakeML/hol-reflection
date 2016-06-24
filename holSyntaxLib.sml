@@ -161,11 +161,15 @@ val vsubst_inst_rws = [
   holSyntaxLibTheory.IS_CLASH_def]
   @ type_subst_rws
 
+val result_ty = holSyntaxLibTheory.RESULT_def
+  |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1
+  |> type_of |> dom_rng |> #1
+
 local
   val c = listLib.list_compset()
   val () = pairLib.add_pair_compset c
   val () = add_type_info c
-  val () = computeLib.add_datatype_info c (valOf(TypeBase.fetch``:'a result``))
+  val () = computeLib.add_datatype_info c (valOf(TypeBase.fetch result_ty))
   val () = computeLib.add_thms vsubst_inst_rws c
   val () = computeLib.add_thms (term_union_def::term_remove_def::term_image_def::orda_rws) c
 in

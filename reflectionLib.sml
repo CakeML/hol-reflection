@@ -1205,8 +1205,8 @@ fun prove_constrained_consts_in_type_thm
 
 local
   val tysig_extend_thm = prove(
-    ``(FLOOKUP (tysof (sigof ctxt)) name = SOME arity) ⇒ upd updates ctxt ⇒
-      (FLOOKUP (tysof (sigof (upd::ctxt))) name = SOME arity)``,
+    ``(FLOOKUP (tysof (sigof ctxt)) nm = SOME arity) ⇒ upd updates ctxt ⇒
+      (FLOOKUP (tysof (sigof (upd::ctxt))) nm = SOME arity)``,
     rw[finite_mapTheory.FLOOKUP_FUNION] >>
     BasicProvers.CASE_TAC >>
     imp_res_tac alistTheory.ALOOKUP_MEM  >>
@@ -1215,8 +1215,8 @@ local
     metis_tac[])
 
   val tmsig_extend_thm = prove(
-    ``(FLOOKUP (tmsof (sigof ctxt)) name = SOME ty) ⇒ upd updates ctxt ⇒
-      (FLOOKUP (tmsof (sigof (upd::ctxt))) name = SOME ty)``,
+    ``(FLOOKUP (tmsof (sigof ctxt)) nm = SOME ty) ⇒ upd updates ctxt ⇒
+      (FLOOKUP (tmsof (sigof (upd::ctxt))) nm = SOME ty)``,
     rw[finite_mapTheory.FLOOKUP_FUNION] >>
     BasicProvers.CASE_TAC >>
     imp_res_tac alistTheory.ALOOKUP_MEM  >>
@@ -1235,15 +1235,15 @@ end
 
 local
   val tyass_extend_thm = prove(
-    ``(tyaof i name args = ty) ⇒
-       equal_on sig i i' ⇒ name ∈ FDOM (tysof sig) ⇒
-      (tyaof i' name args = ty)``,
+    ``(tyaof i nm args = ty) ⇒
+       equal_on sig i i' ⇒ nm ∈ FDOM (tysof sig) ⇒
+      (tyaof i' nm args = ty)``,
     rw[equal_on_def] >> metis_tac[])
 
   val tmass_extend_thm = prove(
-    ``(tmaof i name args = m) ⇒
-      equal_on sig i i' ⇒ name ∈ FDOM (tmsof sig) ⇒
-      (tmaof i' name args = m)``,
+    ``(tmaof i nm args = m) ⇒
+      equal_on sig i i' ⇒ nm ∈ FDOM (tmsof sig) ⇒
+      (tmaof i' nm args = m)``,
     rw[equal_on_def] >> metis_tac[])
 in
   fun make_k_int_assum eqth ia =
@@ -1480,7 +1480,7 @@ fun build_interpretation length_ctxt vti wf_to_inner_hyps [] tys consts =
       (fn tm => VALID_TAC_PROOF((hypotheses,tm),first_assum ACCEPT_TAC))
       wf_to_inner_tms
     val (sig_tms,int_tms) =
-      partition (can(match_term``FLOOKUP sig name = SOME v``)) assums1
+      partition (can(match_term``FLOOKUP sig nm = SOME v``)) assums1
     val sig_assums = map
       (fn tm => VALID_TAC_PROOF((hypotheses,tm),EVAL_TAC))
       sig_tms
