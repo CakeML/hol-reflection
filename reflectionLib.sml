@@ -2620,7 +2620,7 @@ in
 
     in
       {
-        good_context_thm = gcth1,
+        good_context_thm = CONJ ax_extends_thm gcth1,
         models_thm = models_thm,
         int_assums = int_assums,
         sig_assums = sig_assums,

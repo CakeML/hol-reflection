@@ -8,7 +8,7 @@ val _ = new_theory"lcaCtxt"
 
 val _ = Globals.max_print_depth := 15
 
-(* stolen from holDerivationScript.sml - TODO: move? *)
+(* TODO: replace with Term.subst? *)
 fun replace_term from to =
   let
     fun f tm =

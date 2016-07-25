@@ -2,46 +2,8 @@ open preamble cardinalTheory ordinalTheory wellorderTheory
 open setSpecTheory
 val _ = new_theory"lca"
 
-(* TODO: this functionality should be implemented by Parse *)
-local val ct = current_theory () in
-fun remove_tyabbrev s =
-  let
-    val _ = Parse.temp_set_grammars(type_grammar.remove_abbreviation(Parse.type_grammar())s,Parse.term_grammar())
-    val q = String.concat["val ",ct,"_grammars = (type_grammar.remove_abbreviation(#1 ",ct,"_grammars)\"",s,"\",#2 ",ct,"_grammars);"]
-    val _ = adjoin_to_theory{sig_ps=NONE, struct_ps=SOME(fn pp => PP.add_string pp q)}
-  in () end
-end
-val _ = remove_tyabbrev"reln"
-val _ = remove_tyabbrev"inf"
-(* -- *)
-
-(* TODO: move *)
-val MULT_LE_EXP = store_thm("MULT_LE_EXP",
-  ``∀a:num b. a ≠ 1 ⇒ a * b ≤ a ** b``,
-  Induct_on`b` >> simp[arithmeticTheory.MULT,arithmeticTheory.EXP] >>
-  Cases >> simp[] >> strip_tac >>
-  first_x_assum(qspec_then`SUC n`mp_tac) >>
-  simp[arithmeticTheory.MULT] >>
-  Cases_on`b=0` >- (
-    simp[arithmeticTheory.EXP] ) >>
-  `SUC b ≤ b + b * n` suffices_by simp[] >>
-  simp[arithmeticTheory.ADD1] >>
-  Cases_on`b * n` >> simp[] >>
-  fs[arithmeticTheory.MULT_EQ_0] >> fs[])
-
-val domain_rrestrict_subset = store_thm("domain_rrestrict_subset",
-  ``domain (rrestrict r s) ⊆ domain r ∩ s``,
-  rw[set_relationTheory.domain_def,
-     set_relationTheory.rrestrict_def,
-     SUBSET_DEF] >> metis_tac[])
-
-val range_rrestrict_subset = store_thm("range_rrestrict_subset",
-  ``range (rrestrict r s) ⊆ range r ∩ s``,
-  rw[set_relationTheory.range_def,
-     set_relationTheory.rrestrict_def,
-     SUBSET_DEF] >> metis_tac[])
-
-(* -- *)
+val _ = Parse.remove_type_abbrev"reln"
+val _ = Parse.remove_type_abbrev"inf"
 
 val strong_limit_cardinal_def = Define`
   strong_limit_cardinal X ⇔
