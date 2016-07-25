@@ -2057,7 +2057,7 @@ val termsem_strong_limit_cardinal = store_thm("termsem_strong_limit_cardinal",
       simp[Abbr`vvx`,APPLY_UPDATE_THM] >>
       simp[Abbr`vv`,Abbr`s`,APPLY_UPDATE_THM,UPDATE_LIST_THM] >>
       CONV_TAC(LAND_CONV(REWR_CONV inter_subset)) >>
-      Q.PAT_ABBREV_TAC`P:'U set reln = $SUBSET` >>
+      Q.PAT_ABBREV_TAC`P:'U set -> 'U set -> bool = $SUBSET` >>
       simp[Holds_Abstract,boolean_in_boolset] >>
       simp[Abbr`P`,boolean_eq_true] >>
       simp[SUBSET_DEF,IN_DEF] ) >>
@@ -2120,7 +2120,7 @@ val termsem_strong_limit_cardinal = store_thm("termsem_strong_limit_cardinal",
   simp[Holds_Abstract,boolean_in_boolset] >>
   simp[boolean_eq_true] >>
   ONCE_REWRITE_TAC[inter_subset] >>
-  Q.PAT_ABBREV_TAC`P:'U set reln = $SUBSET` >>
+  Q.PAT_ABBREV_TAC`P:'U set -> 'U set -> bool = $SUBSET` >>
   simp[Holds_Abstract,boolean_in_boolset] >>
   simp[Abbr`P`,boolean_eq_true] >>
   simp[Abbr`vv`,APPLY_UPDATE_THM,UPDATE_LIST_THM,Abbr`s`] >>
@@ -2820,7 +2820,7 @@ val LCA_name_UNIV = replace_term ``strlit"l"``name LCA_l_UNIV
 val intermediate_thm_gen = Q.store_thm("intermediate_thm_gen",
   `(name ≠ strlit"f" ∧ name ≠ strlit"k") (* makes proof easier *) ⇒
     LCA (SUC l) (UNIV:'U set) ⇒
-    ∃(mem:'U reln).
+    ∃(mem:'U -> 'U -> bool).
       is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
       wf_to_inner ((to_inner Ind):ind->'U) ∧
       (wf_to_inner ((to_inner_Num mem):num->'U) ∧
@@ -3198,7 +3198,7 @@ val intermediate_thm_gen = Q.store_thm("intermediate_thm_gen",
     qmatch_abbrev_tac`A ∩ B ⊆ C` >>
     `A ∩ B ⊆ A ∩ C` suffices_by simp[] >>
     map_every qunabbrev_tac[`A`,`B`,`C`] >>
-    Q.PAT_ABBREV_TAC`P:'U set reln = $SUBSET` >>
+    Q.PAT_ABBREV_TAC`P:'U set -> 'U set -> bool = $SUBSET` >>
     simp[Holds_Abstract,boolean_in_boolset] >>
     simp[Abbr`P`,boolean_eq_true] >>
     fs[SUBSET_DEF] >>
@@ -3257,7 +3257,7 @@ val intermediate_thm_gen = Q.store_thm("intermediate_thm_gen",
 val intermediate_thm = store_thm("intermediate_thm",
   ``(name ≠ strlit"f" ∧ name ≠ strlit"k") (* makes proof easier *) ⇒
     LCA (SUC l) (UNIV:'U set) ⇒
-    ∃(mem:'U reln).
+    ∃(mem:'U -> 'U -> bool).
       is_set_theory mem ∧ (∃inf. is_infinite mem inf) ∧
       wf_to_inner ((to_inner Ind):ind->'U) ∧
       (wf_to_inner ((to_inner Num):num->'U) ∧
