@@ -205,7 +205,7 @@ val range_fun_to_inner = store_thm("range_fun_to_inner",
     rw[] ) >>
   qspecl_then[`a`,`range ina`,`range inb`]mp_tac (UNDISCH in_funspace_abstract) >>
   simp[] >> strip_tac >>
-  qpat_assum`a = X`(SUBST1_TAC) >>
+  qpat_x_assum`a = X`(SUBST1_TAC) >>
   qsuff_tac`∃x. Abstract (range ina) (range inb) f = fun_to_inner ina inb x` >- metis_tac[] >>
   rw[fun_to_inner_def] >>
   qexists_tac`finv inb o f o ina` >>
@@ -334,7 +334,7 @@ val tag_exists = prove(
     metis_tac[pair_not_empty] ) >>
   strip_tac >>
   imp_res_tac (UNDISCH in_funspace_abstract) >>
-  qpat_assum`X = Y`mp_tac >>
+  qpat_x_assum`X = Y`mp_tac >>
   imp_res_tac is_extensional >> fs[extensional_def] >> pop_assum kall_tac >>
   simp[EQ_IMP_THM,EXISTS_OR_THM] >> disj1_tac >>
   srw_tac[boolSimps.DNF_ss][mem_binary_union,mem_boolset,true_def] >> disj1_tac >>
@@ -461,7 +461,7 @@ val good_context_instance_equality = prove(
   impl_tac >- (
     simp[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >>
     reverse(rw[mem_boolset]) >- metis_tac[] >>
-    qpat_assum`X = Y` (SUBST1_TAC o SYM) >>
+    qpat_x_assum`X = Y` (SUBST1_TAC o SYM) >>
     match_mp_tac (UNDISCH typesem_inhabited) >>
     fs[is_valuation_def,is_interpretation_def] >>
     metis_tac[] ) >>
@@ -1285,7 +1285,7 @@ val termsem_comb1_ax = store_thm("termsem_comb1_ax",
   Q.PAT_ABBREV_TAC`s = [(a0,Var x tyia)]` >>
   `term_ok (sigof ctxt) t` by (
     fs[theory_ok_def] >> res_tac >>
-    qpat_assum`is_std_sig X`assume_tac >>
+    qpat_x_assum`is_std_sig X`assume_tac >>
     fs[term_ok_equation,term_ok_def] ) >>
   `term_ok (sigof ctxt) (VSUBST s t)` by (
     match_mp_tac term_ok_VSUBST >>
@@ -1385,7 +1385,7 @@ val termsem_comb2_ax = store_thm("termsem_comb2_ax",
   Q.PAT_ABBREV_TAC`s = [(a0,Var x tyia);Y]` >>
   `term_ok (sigof ctxt) t` by (
     fs[theory_ok_def] >> res_tac >>
-    qpat_assum`is_std_sig X`assume_tac >>
+    qpat_x_assum`is_std_sig X`assume_tac >>
     fs[term_ok_equation,term_ok_def] ) >>
   `term_ok (sigof ctxt) (VSUBST s t)` by (
     match_mp_tac term_ok_VSUBST >>
@@ -1516,7 +1516,7 @@ val termsem_comb3_ax = store_thm("termsem_comb3_ax",
   Q.PAT_ABBREV_TAC`s = (a0,Var x tyia)::Y	` >>
   `term_ok (sigof ctxt) t` by (
     fs[theory_ok_def] >> res_tac >>
-    qpat_assum`is_std_sig X`assume_tac >>
+    qpat_x_assum`is_std_sig X`assume_tac >>
     fs[term_ok_equation,term_ok_def] ) >>
   `term_ok (sigof ctxt) (VSUBST s t)` by (
     match_mp_tac term_ok_VSUBST >>

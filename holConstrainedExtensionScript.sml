@@ -429,7 +429,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
     PairCases_on`p`>>
     first_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
     fs[LET_THM] >>
-    qpat_assum`FLOOKUP X Y = Z`mp_tac >>
+    qpat_x_assum`FLOOKUP X Y = Z`mp_tac >>
     simp[FLOOKUP_FUNION] >>
     BasicProvers.CASE_TAC >- (
       BasicProvers.CASE_TAC >- (
@@ -458,7 +458,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
         metis_tac[] ) >>
       strip_tac >>
       imp_res_tac ALOOKUP_MEM >>
-      qpat_assum`∀X. Y`mp_tac >>
+      qpat_x_assum`∀X. Y`mp_tac >>
       qpat_abbrev_tac`vars = mlstring_sort X` >>
       disch_then(qspec_then`K boolset =++ ZIP(tyvars_of_upd upd, MAP τ vars)`mp_tac) >>
       impl_tac >- (
@@ -527,13 +527,13 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
     imp_res_tac ALOOKUP_MEM >> rfs[MEM_MAP,EXISTS_PROD,ZIP_MAP]>>
     imp_res_tac MEM_ZIP_MEM_MAP >> rfs[] >>
     metis_tac[]) >>
-  qpat_assum`FLOOKUP X Y = Z`mp_tac >>
+  qpat_x_assum`FLOOKUP X Y = Z`mp_tac >>
   simp[FLOOKUP_FUNION] >>
   BasicProvers.CASE_TAC >- (
     strip_tac >>
     fs[theory_ok_def] >>
     qsuff_tac`F`>-rw[]>>
-    qpat_assum`¬x`mp_tac >>simp[]>>
+    qpat_x_assum`¬x`mp_tac >>simp[]>>
     first_x_assum match_mp_tac >>
     simp[IN_FRANGE_FLOOKUP] >>
     metis_tac[] ) >>
@@ -555,7 +555,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
    is_std_type_assignment δ` by (
      reverse conj_asm2_tac >- fs[is_std_interpretation_def] >>
      simp[Abbr`d1`,GSYM constrain_assignment_def] ) >>
-  qpat_assum`_ = SOME v` mp_tac >>
+  qpat_x_assum`_ = SOME v` mp_tac >>
   Q.PAT_ABBREV_TAC`t1 = domain (typeof pred)` >>
   Q.PAT_ABBREV_TAC`t2 = Tyapp name X` >>
   fs[GSYM mlstring_sort_def] >>
@@ -579,7 +579,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
     match_mp_tac typesem_sig >>
     qexists_tac`tysof (ctxt)` >>
     imp_res_tac proves_term_ok >>
-    qpat_assum`k ∈ X`kall_tac >>
+    qpat_x_assum`k ∈ X`kall_tac >>
     fs[term_ok_def] >>
     conj_tac >- (
       imp_res_tac term_ok_type_ok >>
@@ -598,7 +598,7 @@ val constrain_tmass_is_term_assignment = store_thm("constrain_tmass_is_term_assi
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   qsuff_tac`set (tyvars v) = set (tvars pred)` >- (
-    qpat_assum`set (tyvars v) = X`kall_tac >>
+    qpat_x_assum`set (tyvars v) = X`kall_tac >>
     rw[] >>
     `mlstring_sort (tvars pred) = mlstring_sort (tyvars v)` by (
       `ALL_DISTINCT (tvars pred)` by simp[] >>
@@ -997,7 +997,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
     `mlstring_sort (tyvars ty0) = tyvars_of_upd upd` by (
       fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
       fs[tyvars_of_upd_def] >>
-      qpat_assum`X = mlstring_sort (tvars p)`(mp_tac o SYM) >>
+      qpat_x_assum`X = mlstring_sort (tvars p)`(mp_tac o SYM) >>
       simp[] >> strip_tac >>
       imp_res_tac ALOOKUP_MEM >>
       res_tac >>
