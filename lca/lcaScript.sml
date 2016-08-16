@@ -323,7 +323,7 @@ val regular_cardinal_alt = store_thm("regular_cardinal_alt",
     rpt strip_tac >>
     `a ∈ g y` by (
       metis_tac[EXTENSION,IN_INTER] ) >>
-    qpat_assum`a ∉ b`mp_tac >>
+    qpat_x_assum`a ∉ b`mp_tac >>
     simp[Abbr`b`] >>
     metis_tac[] ) >>
   simp[regular_cardinal_def,not_imp,AND_IMP_INTRO] >>
@@ -578,7 +578,7 @@ val implies_set_theory = store_thm("implies_set_theory",
     simp[Abbr`z`] >>
     qmatch_abbrev_tac`z ≺ u` >>
     `z = {a;b}` by ( simp[Abbr`z`,EXTENSION] ) >>
-    qpat_assum`Abbrev(z = X)`kall_tac >> rw[Abbr`u`] >>
+    qpat_x_assum`Abbrev(z = X)`kall_tac >> rw[Abbr`u`] >>
     fs[strong_limit_cardinal_def] >>
     `({}:'U set) ≺ (UNIV:'U set)` by ( simp[cardleq_def] ) >>
     last_assum(qspec_then`{}`mp_tac) >>

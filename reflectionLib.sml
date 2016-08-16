@@ -685,7 +685,7 @@ local
       range (fun_to_inner d1 r1) ≠ range (fun_to_inner d2 r2)``,
     rw[range_fun_to_inner] >>
     imp_res_tac wf_to_inner_range_thm >>
-    rpt(qpat_assum`wf_to_inner X`kall_tac) >>
+    rpt(qpat_x_assum`wf_to_inner X`kall_tac) >>
     rpt(first_x_assum(qspec_then`ARB`mp_tac)) >>
     pop_assum mp_tac >|[
       map_every qspec_tac
