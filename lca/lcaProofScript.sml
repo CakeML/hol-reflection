@@ -1353,7 +1353,7 @@ val termsem_cardleq = store_thm("termsem_cardleq",
   simp[Abbr`aa`,Abbr`bb`,Abbr`cc`,termsem_def] >>
   simp[Abbr`vvx`,APPLY_UPDATE_THM,Abbr`f`] >>
   simp[Abbr`vv`,UPDATE_LIST_THM,APPLY_UPDATE_THM,Abbr`s`] >>
-  rator_x_assum`INJ`mp_tac >>
+  qhdtm_x_assum`INJ`mp_tac >>
   qspecl_then[`sigof lca_ctxt`,`a0`,`tyin`]mp_tac termsem_INST >>
   simp[] >> disch_then kall_tac >>
   qspecl_then[`sigof lca_ctxt`,`b0`,`tyin`]mp_tac termsem_INST >>
@@ -1559,7 +1559,7 @@ val termsem_countable_gen = Q.store_thm("termsem_countable_gen",
   `tyvof vvv=vvy`by simp[Abbr`vvv`] >>
   pop_assum SUBST1_TAC >>
   simp[Abbr`vvy`] >>
-  rator_x_assum`INJ`mp_tac >>
+  qhdtm_x_assum`INJ`mp_tac >>
   qspecl_then[`sigof lca_ctxt`,`a0`,`tyin`]mp_tac termsem_INST >>
   simp[] >> disch_then kall_tac >>
   simp[INJ_DEF,ext_def] >>
@@ -1781,8 +1781,8 @@ val termsem_LESS_gen = Q.store_thm("termsem_LESS_gen",
   use_termsem_and >>
   simp[boolean_eq_true] >>
   qmatch_abbrev_tac`A ∧ B ⇔ A' ∧ B'` >>
-  rator_x_assum`term_ok`kall_tac >>
-  rator_x_assum`term_ok`kall_tac >>
+  qhdtm_x_assum`term_ok`kall_tac >>
+  qhdtm_x_assum`term_ok`kall_tac >>
   `A = A' ∧ B = B'` suffices_by metis_tac[] >>
   map_every qunabbrev_tac[`A`,`A'`,`B`,`B'`] >>
   conj_tac >- (

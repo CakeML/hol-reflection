@@ -954,7 +954,7 @@ val constrain_interpretation_satisfies = store_thm("constrain_interpretation_sat
     qspecl_then[`tmsig`,`constrain_interpretation upd cs (j0,j1)`,`name`,`ty`]mp_tac instance_def >>
     simp[constrain_interpretation_def] >> disch_then kall_tac >>
     simp[GSYM mlstring_sort_def] >>
-    rator_x_assum`FLOOKUP`mp_tac >>
+    qhdtm_x_assum`FLOOKUP`mp_tac >>
     simp[Abbr`tmsig`,FLOOKUP_FUNION] >>
     BasicProvers.CASE_TAC >- (
       rw[Once constrain_assignment_def] >>
