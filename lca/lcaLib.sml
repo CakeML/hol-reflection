@@ -83,7 +83,7 @@ fun build_ax_master_theorem outer_ctxt outer_ths base_extends_lca_thm term_ok_ph
       int_assums = int_assums } =
         build_axiomatic_interpretation base_ok_thm outer_ctxt outer_tys outer_tms outer_ths
     val (extends_thm,good_context_thm) = CONJ_PAIR extends_and_good_context_thm
-    val extends_lca_thm = MATCH_MP extends_trans (CONJ extends_thm base_extends_lca_thm)
+    val extends_lca_thm = MATCH_MP holSyntaxExtraTheory.extends_trans (CONJ extends_thm base_extends_lca_thm)
     val inner_ctxt = extends_lca_thm |> concl |> rator |> rand
     val thy = ``thyof ^inner_ctxt``
     val tma = mk_asm1_concl (term_to_deep phi) l n
