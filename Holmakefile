@@ -3,7 +3,7 @@ CAKEMLDIR = $HOME/cakeml
 endif
 
 HOLHOL = $(CAKEMLDIR)/candle
-INCLUDES = $(CAKEMLDIR) $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics $(HOLDIR)/examples/countable
+INCLUDES = $(CAKEMLDIR) $(CAKEMLDIR)/basis/pure $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics $(HOLDIR)/examples/countable
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
